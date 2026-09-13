@@ -1,0 +1,1356 @@
+{
+  "version": "1.0.0",
+  "subject": "math1",
+  "subject_name": "考研数学（一）",
+  "updated_at": "2026-03-15",
+  "coverage": {
+    "status": "partial",
+    "chapters_done": [
+      "math1.linalg.det",
+      "math1.linalg.matrix",
+      "math1.linalg.vector",
+      "math1.linalg.system",
+      "math1.linalg.eigen"
+    ],
+    "chapters_todo": []
+  },
+  "id_convention": "math1.{科}.{章}.{节}.{知识点}；科: calc=高数 linalg=线代 prob=概率",
+  "nodes": [
+    {
+      "id": "math1.linalg.det",
+      "name": "行列式",
+      "level": 2,
+      "parent_id": "math1.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.17
+    },
+    {
+      "id": "math1.linalg.det.definition",
+      "name": "行列式的定义与性质",
+      "level": 4,
+      "parent_id": "math1.linalg.det",
+      "is_leaf": true,
+      "definition": "n 阶行列式是取自不同行、不同列的 n 个元素乘积的代数和，符号由列标排列的逆序数决定。它是对方阵定义的一个数，最基本的性质是 |A^T|=|A|、|AB|=|A||B|、|kA|=k^n|A|。边界条件：行列式只对方阵有定义，非方阵不谈行列式；|A|=0 与矩阵 A=O 完全不等价，且 |A+B| 与 |A|+|B| 之间没有一般关系。",
+      "formulas": [
+        "|A|=\\begin{vmatrix}a_{11}&a_{12}\\\\a_{21}&a_{22}\\end{vmatrix}=a_{11}a_{22}-a_{12}a_{21}",
+        "|A|=\\sum_{j_1j_2\\cdots j_n}(-1)^{\\tau(j_1j_2\\cdots j_n)}a_{1j_1}a_{2j_2}\\cdots a_{nj_n}",
+        "|A^{T}|=|A|,\\quad |kA|=k^{n}|A|,\\quad |AB|=|A|\\,|B|",
+        "|A^{-1}|=|A|^{-1}\\quad(|A|\\ne0)"
+      ],
+      "common_traps": [
+        "★ |kA| 误写成 k|A|（正确为 k^n|A|，n 为矩阵阶数）",
+        "|A+B| 误写成 |A|+|B|（行列式对加法没有任何线性性质）",
+        "把行列式与矩阵混为一谈：|A|=0 不能推出 A=O，A=O 也不能由某一行全为 0 之外的局部信息判定",
+        "|A^*|、|A^{-1}|、|A^{T}| 的指数与符号记错，或忘记 |A|\\ne0 这一前提"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2017,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "math1.linalg.det.expand",
+      "name": "按行（列）展开与代数余子式",
+      "level": 4,
+      "parent_id": "math1.linalg.det",
+      "is_leaf": true,
+      "definition": "元素 a_ij 的余子式 M_ij 是划去第 i 行第 j 列后剩下的 n-1 阶行列式，代数余子式 A_ij=(-1)^{i+j}M_ij。行列式等于任一行（列）各元素与其代数余子式乘积之和，而某一行元素与另一行对应代数余子式乘积之和恒为 0。边界条件：展开公式对任意行（列）都成立，但必须使用带符号的代数余子式而非余子式；只有当该行（列）含较多零元素时展开才比化三角更省力。",
+      "formulas": [
+        "|A|=\\sum_{j=1}^{n}a_{ij}A_{ij}\\quad(i=1,2,\\dots,n)",
+        "A_{ij}=(-1)^{i+j}M_{ij}",
+        "\\sum_{j=1}^{n}a_{kj}A_{ij}=0\\quad(k\\ne i)",
+        "\\sum_{k=1}^{n}a_{ik}A_{jk}=|A|\\,\\delta_{ij}"
+      ],
+      "common_traps": [
+        "★ 展开时漏掉代数余子式的符号 (-1)^{i+j}，直接拿余子式 M_ij 相乘",
+        "异行乘积之和应得 0，却仍按 |A| 计算（\\sum_j a_{kj}A_{ij} 写成 |A|）",
+        "展开前不先用行列式性质化出零元素，硬展开导致 n! 级计算量并极易算错",
+        "对非方阵使用展开定理，或对某一行展开时行列下标错位"
+      ],
+      "exam_years": [
+        2010,
+        2014,
+        2017,
+        2023
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "math1.linalg.det.numeric",
+      "name": "数值行列式的计算技巧",
+      "level": 4,
+      "parent_id": "math1.linalg.det",
+      "is_leaf": true,
+      "definition": "数值行列式常用四类技巧：化为上三角、按行（列）展开降阶、递推法、加边（升阶）法，其中范德蒙德行列式与三对角行列式有现成公式。核心原则是先用初等变换制造零元素再降阶。边界条件：范德蒙德公式只对标准形直接可用，行序或列序颠倒时必须补符号；递推法必须同时给出足够的初值才能解出通项；加边后必须保证新行列式与原式相等。",
+      "formulas": [
+        "\\begin{vmatrix}1&1&\\cdots&1\\\\x_1&x_2&\\cdots&x_n\\\\\\vdots&\\vdots&&\\vdots\\\\x_1^{n-1}&x_2^{n-1}&\\cdots&x_n^{n-1}\\end{vmatrix}=\\prod_{1\\le i<j\\le n}(x_j-x_i)",
+        "D_n=aD_{n-1}-bc\\,D_{n-2},\\quad D_1=a,\\ D_0=1\\quad(\\text{三对角})",
+        "|A+\\alpha\\beta^{T}|=|A|\\left(1+\\beta^{T}A^{-1}\\alpha\\right)\\quad(|A|\\ne0)",
+        "\\begin{vmatrix}\\lambda&1&&\\\\&\\lambda&\\ddots&\\\\&&\\ddots&1\\\\&&&\\lambda\\end{vmatrix}=\\lambda^{n}"
+      ],
+      "common_traps": [
+        "★ 范德蒙德行列式符号搞反：应为 \\prod_{i<j}(x_j-x_i)，写成 (x_i-x_j) 会整体多出 (-1)^{n(n-1)/2}",
+        "递推法只写出递推关系，没有验证初值 D_1、D_2 或解不出通项就下结论",
+        "初等变换时忘记两行互换要变号、某行乘 k 后要把行列式乘 1/k 还原",
+        "加边（升阶）后新行列式与原行列式已不相等，却仍按原值报答案"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2023
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.det.abstract",
+      "name": "抽象行列式与特征值结合",
+      "level": 4,
+      "parent_id": "math1.linalg.det",
+      "is_leaf": true,
+      "definition": "不给出具体元素、只给出矩阵关系式（如 A^2=A、A^*、A+kE）时，用 |AB|=|A||B|、|A|=\\prod\\lambda_i、|A^*|=|A|^{n-1} 等恒等式求出 |A|。最基本的两条是把行列式转化为特征值之积，以及用 AA^*=|A|E 消去伴随矩阵。边界条件：|A|=\\prod\\lambda_i 必须把特征值按代数重数计全；A^*=|A|A^{-1} 只在 |A|\\ne0 时成立；抽象矩阵一般不可交换，不能随意使用 (AB)^{-1}=A^{-1}B^{-1}。",
+      "formulas": [
+        "|A|=\\prod_{i=1}^{n}\\lambda_i,\\quad \\operatorname{tr}(A)=\\sum_{i=1}^{n}\\lambda_i",
+        "AA^{*}=A^{*}A=|A|E",
+        "|A^{*}|=|A|^{n-1},\\quad (A^{*})^{*}=|A|^{n-2}A\\quad(n\\ge2,\\ |A|\\ne0)",
+        "|kA|=k^{n}|A|,\\quad |A^{m}|=|A|^{m},\\quad |A^{-1}|=|A|^{-1}"
+      ],
+      "common_traps": [
+        "★ 在 |A|=0 时仍照用 A^*=|A|A^{-1}，再由 AA^*=O 错误地推出 A^*=O",
+        "把 A^* 的元素当成 \"对 A 的每个元素取代数余子式\" 而不作转置（(A^*)_{ij}=A_{ji}）",
+        "抽象关系式展开成关于 |A| 的多项式后，未按 A 的秩或特征值取值分类讨论，丢掉退化情形",
+        "对抽象矩阵滥用 |A+B|=|A|+|B| 或 (AB)^{-1}=A^{-1}B^{-1} 之类的错误运算律"
+      ],
+      "exam_years": [
+        2015,
+        2017,
+        2019,
+        2021
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.det.cramer",
+      "name": "克拉默法则",
+      "level": 4,
+      "parent_id": "math1.linalg.det",
+      "is_leaf": true,
+      "definition": "对 n 个方程 n 个未知数的线性方程组 Ax=b，若系数行列式 |A|\\ne0，则方程组有唯一解，且 x_j 等于把 A 的第 j 列换成 b 所得行列式与 |A| 之比。它给出了解的解析表达式，也说明 |A|\\ne0 时解唯一。边界条件：只适用于方程个数等于未知数个数且系数行列式非零的方程组；|A|=0 时无法使用（此时可能无解，也可能有无穷多解）；n 较大时应改用初等行变换。",
+      "formulas": [
+        "x_j=\\frac{|A_j|}{|A|}\\quad(j=1,2,\\dots,n,\\ |A|\\ne0)",
+        "A_j=(\\alpha_1,\\dots,\\alpha_{j-1},b,\\alpha_{j+1},\\dots,\\alpha_n)",
+        "x=A^{-1}b=\\frac{1}{|A|}A^{*}b",
+        "Ax=0\\ \\text{有非零解}\\iff|A|=0"
+      ],
+      "common_traps": [
+        "★ 对非方阵或 |A|=0 的方程组套用克拉默法则（前提不满足时结论无效）",
+        "把 A_j 的替换位置搞错：应替换第 j **列**，而不是第 j 行",
+        "齐次方程组只有零解 / 有非零解的条件记反（|A|\\ne0 对应只有零解）",
+        "n 稍大就硬套克拉默法则，计算量爆炸且容易算错，不如初等变换"
+      ],
+      "exam_years": [
+        2015,
+        2021
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "math1.linalg.det.criterion",
+      "name": "行列式与可逆性、秩的判定",
+      "level": 4,
+      "parent_id": "math1.linalg.det",
+      "is_leaf": true,
+      "definition": "n 阶矩阵 A 可逆 ⟺ |A|\\ne0 ⟺ r(A)=n ⟺ 齐次方程组 Ax=0 只有零解 ⟺ 特征值全不为 0。反过来 |A|=0 说明 A 不可逆、r(A)\\le n-1，但具体秩降了几阶必须另行判断。边界条件：这一整套等价刻画只对方阵成立；|A|=0 只能推出秩至多 n-1，不能推出秩恰为 n-1；伴随矩阵的秩由 r(A) 分三种情形决定。",
+      "formulas": [
+        "A\\ \\text{可逆}\\iff|A|\\ne0\\iff r(A)=n\\iff Ax=0\\ \\text{只有零解}",
+        "|A|=0\\iff r(A)\\le n-1",
+        "r(A^{*})=\\begin{cases}n,&r(A)=n\\\\1,&r(A)=n-1\\\\0,&r(A)\\le n-2\\end{cases}",
+        "|A|\\ne0\\iff\\lambda_i\\ne0\\ (i=1,\\dots,n)"
+      ],
+      "common_traps": [
+        "★ 把 |A|=0 直接当成 r(A)=n-1（秩还可能是 n-2、n-3……必须另作判断）",
+        "用 |A|\\ne0 去判定非方阵 \"可逆\"，或对非方阵谈行列式",
+        "求伴随矩阵的秩时不区分 r(A)=n、n-1、\\le n-2 三种情形",
+        "把 \"存在一个 k 阶子式为零\" 与 \"秩小于 k\" 混为一谈（要求**所有** k 阶子式为零）"
+      ],
+      "exam_years": [
+        2010,
+        2017,
+        2019,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.det.block",
+      "name": "分块矩阵的行列式",
+      "level": 4,
+      "parent_id": "math1.linalg.det",
+      "is_leaf": true,
+      "definition": "分块三角与分块对角矩阵的行列式等于对角块行列式之积；分块反对角矩阵还要乘一个由块阶数决定的符号。这类公式把高阶行列式降为低阶行列式的乘积，是抽象行列式题的主要工具。边界条件：乘积公式只对分块三角（含分块对角）形式成立，一般分块矩阵不能拆成 |A||D|-|B||C|；|A B;B A|=|A+B||A-B| 要求 A、B 同阶且可交换。",
+      "formulas": [
+        "\\begin{vmatrix}A&O\\\\C&B\\end{vmatrix}=\\begin{vmatrix}A&C\\\\O&B\\end{vmatrix}=|A|\\,|B|",
+        "\\begin{vmatrix}O&A\\\\B&O\\end{vmatrix}=(-1)^{mn}|A|\\,|B|\\quad(A_{m\\times m},B_{n\\times n})",
+        "\\begin{vmatrix}A&B\\\\B&A\\end{vmatrix}=|A+B|\\cdot|A-B|\\quad(AB=BA)",
+        "\\begin{vmatrix}A&B\\\\C&D\\end{vmatrix}=|A|\\cdot|D-CA^{-1}B|\\quad(|A|\\ne0,\\ \\text{Schur 补})"
+      ],
+      "common_traps": [
+        "★ 对一般分块矩阵套用 |A||D|-|B||C|（只有分块三角或对角时才能拆成乘积）",
+        "分块反对角行列式漏掉符号 (-1)^{mn}（m、n 为两块各自的阶数）",
+        "对 |A B;B A| 使用 |A+B||A-B| 却不检查 AB=BA 是否成立",
+        "分块时不检查各子块的阶数是否匹配，直接按元素位置相乘"
+      ],
+      "exam_years": [
+        2012,
+        2014,
+        2019,
+        2021
+      ],
+      "typical_qtypes": [
+        "fill",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.matrix",
+      "name": "矩阵",
+      "level": 2,
+      "parent_id": "math1.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.41
+    },
+    {
+      "id": "math1.linalg.matrix.operation",
+      "name": "矩阵运算与运算律",
+      "level": 4,
+      "parent_id": "math1.linalg.matrix",
+      "is_leaf": true,
+      "definition": "矩阵运算包括加法、数乘、乘法与转置，乘法要求左矩阵的列数等于右矩阵的行数。乘法满足结合律与分配律，但**不满足交换律**，也**没有消去律**。边界条件：AB=O 不能推出 A=O 或 B=O；AB=AC 且 A\\ne O 不能推出 B=C（除非 A 可逆或列满秩）；(AB)^k=A^kB^k 一般要求 AB=BA。转置与求逆都遵循 \"穿脱原则\"，顺序必须颠倒。",
+      "formulas": [
+        "(AB)C=A(BC),\\quad A(B+C)=AB+AC,\\quad (AB)^{T}=B^{T}A^{T}",
+        "(AB)^{-1}=B^{-1}A^{-1}\\quad(|A|\\ne0,\\ |B|\\ne0)",
+        "(A+B)^{T}=A^{T}+B^{T},\\quad (kA)^{T}=kA^{T},\\quad (A^{T})^{T}=A",
+        "AB=O\\nRightarrow A=O\\ \\text{或}\\ B=O"
+      ],
+      "common_traps": [
+        "★ (AB)^{-1} 误写成 A^{-1}B^{-1}（正确为 B^{-1}A^{-1}）；(AB)^{T} 与 (AB)^{-1} 的颠倒顺序搞反",
+        "由 AB=O 推出 A=O 或 B=O（矩阵没有零因子性质）",
+        "由 AB=AC 且 A\\ne O 推出 B=C（需 A 可逆或列满秩）",
+        "把数乘 kA 与行列式混淆：kA 是每个元素都乘 k，而 |kA|=k^n|A|"
+      ],
+      "exam_years": [
+        2012,
+        2015,
+        2019,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "math1.linalg.matrix.block",
+      "name": "分块矩阵及其运算",
+      "level": 4,
+      "parent_id": "math1.linalg.matrix",
+      "is_leaf": true,
+      "definition": "把矩阵按若干行、列分成小块后进行运算，可把高阶运算降为低阶块运算。分块乘法要求左矩阵的**列**分法与右矩阵的**行**分法完全一致；分块对角与分块三角矩阵的幂、逆、行列式可逐块处理。边界条件：子块之间不可交换，块的左右顺序不能颠倒；分块三角矩阵的逆不能只对对角块求逆而丢掉右上角的修正项。",
+      "formulas": [
+        "\\begin{pmatrix}A&O\\\\O&B\\end{pmatrix}^{-1}=\\begin{pmatrix}A^{-1}&O\\\\O&B^{-1}\\end{pmatrix}",
+        "\\begin{pmatrix}A&O\\\\O&B\\end{pmatrix}^{n}=\\begin{pmatrix}A^{n}&O\\\\O&B^{n}\\end{pmatrix}",
+        "\\begin{pmatrix}A&C\\\\O&B\\end{pmatrix}^{-1}=\\begin{pmatrix}A^{-1}&-A^{-1}CB^{-1}\\\\O&B^{-1}\\end{pmatrix}",
+        "\\begin{pmatrix}A&B\\\\C&D\\end{pmatrix}\\begin{pmatrix}X\\\\Y\\end{pmatrix}=\\begin{pmatrix}AX+BY\\\\CX+DY\\end{pmatrix}"
+      ],
+      "common_traps": [
+        "★ 分块乘法时左右矩阵的分法不匹配（左矩阵的列分法必须与右矩阵的行分法一致）",
+        "对一般分块矩阵套用分块对角矩阵的逆公式，忽略非对角块",
+        "求分块上三角矩阵的逆时漏掉右上角的 -A^{-1}CB^{-1}",
+        "分块矩阵求行列式时对非三角结构也套用 |A||B|"
+      ],
+      "exam_years": [
+        2015,
+        2019,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.matrix.rank",
+      "name": "矩阵的秩",
+      "level": 4,
+      "parent_id": "math1.linalg.matrix",
+      "is_leaf": true,
+      "definition": "矩阵中非零子式的最高阶数称为矩阵的秩，记 r(A)。它同时等于行阶梯形中非零行的行数、行向量组的秩与列向量组的秩，也是方程组与向量组问题的公共语言。边界条件：r(A)=r 要求**存在** r 阶非零子式**且所有** r+1 阶子式全为零，两者缺一不可；子式必须是方阵对应的行列式，故 r(A)\\le\\min(m,n)；初等变换不改变秩，但用含参数的式子做变换时必须讨论参数。",
+      "formulas": [
+        "r(A)=r\\iff\\exists\\,r\\ \\text{阶非零子式且所有}\\ r+1\\ \\text{阶子式全为}\\ 0",
+        "r(A)=r(A^{T}),\\quad r(A)\\le\\min(m,n)",
+        "r(A)=r(PAQ)\\quad(P,Q\\ \\text{可逆})",
+        "A\\ \\text{的等价标准形}=\\begin{pmatrix}E_r&O\\\\O&O\\end{pmatrix},\\quad r=r(A)"
+      ],
+      "common_traps": [
+        "★ 把 \"存在 r 阶非零子式\" 当成秩为 r 的充分条件（还必须所有 r+1 阶子式全为零）",
+        "忘记秩不超过 min(m,n)，对非方阵去找 n 阶子式",
+        "初等变换中约去含参数的因子，未讨论参数使秩跳变的情形",
+        "凭感觉使用 r(A+B)、r(A-B) 的等式（只有不等式 r(A+B)\\le r(A)+r(B) 恒成立）"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2017,
+        2020,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.matrix.inverse",
+      "name": "逆矩阵",
+      "level": 4,
+      "parent_id": "math1.linalg.matrix",
+      "is_leaf": true,
+      "definition": "若存在同阶矩阵 B 使 AB=BA=E，则称 A 可逆、B 为 A 的逆矩阵，记 A^{-1}。可逆的充要条件是 |A|\\ne0，求逆有伴随矩阵法与初等行变换法两条路。边界条件：只有方阵才谈可逆；A^{-1}=A^*/|A| 要求 |A|\\ne0；对抽象矩阵必须先证明可逆（找出 B 使 AB=E 即可）再谈求逆；初等行变换法只能对 (A|E) 作**行**变换。",
+      "formulas": [
+        "A^{-1}=\\frac{1}{|A|}A^{*}\\quad(|A|\\ne0)",
+        "AA^{-1}=A^{-1}A=E,\\quad AA^{*}=A^{*}A=|A|E",
+        "(A\\mid E)\\xrightarrow{\\text{初等行变换}}(E\\mid A^{-1})",
+        "(AB)^{-1}=B^{-1}A^{-1},\\quad (A^{T})^{-1}=(A^{-1})^{T},\\quad (kA)^{-1}=\\frac{1}{k}A^{-1}\\ (k\\ne0)"
+      ],
+      "common_traps": [
+        "★ (AB)^{-1} 顺序写反成 A^{-1}B^{-1}（正确为 B^{-1}A^{-1}）",
+        "用伴随矩阵求逆时漏掉系数 1/|A|，或转置位置写错（(A^*)_{ij}=A_{ji}）",
+        "未验证 |A|\\ne0 就直接写 A^{-1}",
+        "(A+B)^{-1} 误写成 A^{-1}+B^{-1}（一般根本没有这个公式）"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2015,
+        2018,
+        2021,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.matrix.adjoint",
+      "name": "伴随矩阵",
+      "level": 4,
+      "parent_id": "math1.linalg.matrix",
+      "is_leaf": true,
+      "definition": "伴随矩阵 A^* 是把 A 的全部代数余子式排成矩阵后再转置，即 (A^*)_{ij}=A_{ji}。核心恒等式 AA^*=A^*A=|A|E 把伴随矩阵、行列式与可逆性串在一起，是抽象矩阵题的主工具。边界条件：任何 n 阶矩阵都有伴随矩阵，无需可逆；但 A^*=|A|A^{-1} 只在 |A|\\ne0 时成立；r(A^*)、|A^*| 的结论要按 r(A) 分类。",
+      "formulas": [
+        "A^{*}=\\begin{pmatrix}A_{11}&A_{21}&\\cdots&A_{n1}\\\\A_{12}&A_{22}&\\cdots&A_{n2}\\\\\\vdots&\\vdots&&\\vdots\\\\A_{1n}&A_{2n}&\\cdots&A_{nn}\\end{pmatrix}",
+        "AA^{*}=A^{*}A=|A|E",
+        "|A^{*}|=|A|^{n-1},\\quad (A^{*})^{*}=|A|^{n-2}A\\quad(|A|\\ne0)",
+        "r(A^{*})=\\begin{cases}n,&r(A)=n\\\\1,&r(A)=n-1\\\\0,&r(A)\\le n-2\\end{cases}"
+      ],
+      "common_traps": [
+        "★ 把 A^* 当成 \"每个元素换成代数余子式\" 而不转置（漏掉转置是最常见的致命错误）",
+        "|A|=0 时照用 A^*=|A|A^{-1}，或由 AA^*=O 直接推出 A^*=O",
+        "(A^*)^* 与 |A|^{n-2}A 的关系记错，或忽略 |A|\\ne0 与该式对 n\\ge2 的要求",
+        "r(A^*) 的三种情形记混，尤其 r(A)=n-1 时错判为 0"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2018,
+        2021,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.matrix.elementary",
+      "name": "初等变换与初等矩阵",
+      "level": 4,
+      "parent_id": "math1.linalg.matrix",
+      "is_leaf": true,
+      "definition": "三类初等行（列）变换分别对应左（右）乘三类初等矩阵：互换两行对应 E(i,j)，某行乘非零常数 k 对应 E(i(k))，某行加另一行的 k 倍对应 E(i,j(k))，即 \"左行右列\"。初等矩阵都可逆，且逆矩阵仍是同类初等矩阵。边界条件：初等变换不改变矩阵的秩；初等**行**变换保持列向量组之间的线性关系不变，初等**列**变换保持行向量组之间的线性关系不变；用 (A|E) 求逆时只能作行变换。",
+      "formulas": [
+        "A\\xrightarrow{r_i\\leftrightarrow r_j}E(i,j)A,\\quad A\\xrightarrow{c_i\\leftrightarrow c_j}AE(i,j)",
+        "E(i,j)^{-1}=E(i,j),\\quad E(i(k))^{-1}=E(i(1/k)),\\quad E(i,j(k))^{-1}=E(i,j(-k))",
+        "A\\ \\text{可逆}\\iff A\\ \\text{可表示为有限个初等矩阵之积}",
+        "A\\ \\text{与}\\ B\\ \\text{等价}\\iff\\exists\\ \\text{可逆}\\ P,Q:\\ PAQ=B\\iff r(A)=r(B)"
+      ],
+      "common_traps": [
+        "★ 左乘与右乘搞反（左行右列）：把 \"对 A 作行变换\" 写成右乘初等矩阵",
+        "对 (A|E) 求逆时混入列变换，破坏了同步变换",
+        "初等矩阵的逆写错，尤其把 E(i,j(k))^{-1} 写成 E(i,j(k)) 或写成转置形式",
+        "行列关系记反：初等行变换保持列向量间的线性关系，不是保持列向量本身不变"
+      ],
+      "exam_years": [
+        2010,
+        2014,
+        2016,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.matrix.equation",
+      "name": "矩阵方程",
+      "level": 4,
+      "parent_id": "math1.linalg.matrix",
+      "is_leaf": true,
+      "definition": "形如 AX=B、XA=B、AXB=C 的方程统称矩阵方程。当系数矩阵可逆时，AX=B 的解为 X=A^{-1}B，可用 (A|B) 作初等行变换化为 (E|A^{-1}B) 一次求出；XA=B 的解为 X=BA^{-1}，需转置后作行变换或改用列变换。边界条件：A 不可逆时不能写 A^{-1}，必须把 B 按列拆成若干线性方程组，用秩判定每个方程组解的情况；含参数时须先讨论参数。",
+      "formulas": [
+        "AX=B,\\ |A|\\ne0\\Rightarrow X=A^{-1}B",
+        "(A\\mid B)\\xrightarrow{\\text{初等行变换}}(E\\mid A^{-1}B)",
+        "XA=B,\\ |A|\\ne0\\Rightarrow X=BA^{-1},\\quad (A^{T}\\mid B^{T})\\to(E\\mid (BA^{-1})^{T})",
+        "AXB=C,\\ |A|,|B|\\ne0\\Rightarrow X=A^{-1}CB^{-1}"
+      ],
+      "common_traps": [
+        "★ 解 XA=B 时也对 (A|B) 作初等行变换（行变换解出的是 AX=B，XA=B 必须转置或改用列变换）",
+        "A 不可逆时直接写 A^{-1}，未把 B 按列拆分并逐一讨论解的存在性",
+        "解 AX=B 时误用列变换，破坏了对 B 的同步变换",
+        "求得 X 后没有回代验证，含参数时尤其容易漏掉使解不成立的参数值"
+      ],
+      "exam_years": [
+        2013,
+        2017,
+        2021
+      ],
+      "typical_qtypes": [
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.matrix.rank_inequality",
+      "name": "矩阵秩的不等式与常用结论",
+      "level": 4,
+      "parent_id": "math1.linalg.matrix",
+      "is_leaf": true,
+      "definition": "秩的常用不等式包括 r(AB)\\le\\min\\{r(A),r(B)\\}、r(A+B)\\le r(A)+r(B)，以及 Sylvester 不等式 r(AB)\\ge r(A)+r(B)-n，还有 AB=O 时 r(A)+r(B)\\le n。另一组高频结论是实矩阵满足 r(A)=r(A^TA)=r(AA^T)。边界条件：Sylvester 不等式里的 n 是 A 的列数（等于 B 的行数），不是 min(m,s)；r(A)=r(A^TA) 只对实矩阵成立，复矩阵要用 A^HA。",
+      "formulas": [
+        "r(AB)\\le\\min\\{r(A),r(B)\\}",
+        "r(A+B)\\le r(A)+r(B)",
+        "r(AB)\\ge r(A)+r(B)-n\\quad(A_{m\\times n},\\ B_{n\\times s})",
+        "AB=O\\Rightarrow r(A)+r(B)\\le n",
+        "r(A)=r(A^{T}A)=r(AA^{T})\\quad(A\\ \\text{为实矩阵})"
+      ],
+      "common_traps": [
+        "★ 使用 r(A)=r(A^TA) 时忘记 \"实矩阵\" 这一前提",
+        "Sylvester 不等式中的 n 取错（应为中间维数，即 A 的列数、B 的行数）",
+        "把不等式 r(A+B)\\le r(A)+r(B) 当成等式使用",
+        "由 AB=O 推出 r(A)+r(B)=n（只能得到 \\le n，取等需要额外条件）"
+      ],
+      "exam_years": [
+        2013,
+        2017,
+        2021
+      ],
+      "typical_qtypes": [
+        "choice",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.vector",
+      "name": "向量",
+      "level": 2,
+      "parent_id": "math1.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.29
+    },
+    {
+      "id": "math1.linalg.vector.linear_combo",
+      "name": "线性组合与线性表示",
+      "level": 4,
+      "parent_id": "math1.linalg.vector",
+      "is_leaf": true,
+      "definition": "若存在一组数 k_1,\\dots,k_s 使 \\beta=k_1\\alpha_1+\\cdots+k_s\\alpha_s，则称 \\beta 可由该向量组线性表示，这组数就是表示系数。判断可表示归结为方程组 (\\alpha_1,\\dots,\\alpha_s)x=\\beta 是否有解，即 r(\\alpha_1,\\dots,\\alpha_s) 与 r(\\alpha_1,\\dots,\\alpha_s,\\beta) 是否相等。边界条件：\"可由……表示\" 是有方向的，不能反推；表示系数唯一 ⟺ 向量组线性无关且可表示；零向量可由任何向量组表示。",
+      "formulas": [
+        "\\beta=k_1\\alpha_1+k_2\\alpha_2+\\cdots+k_s\\alpha_s",
+        "\\beta\\ \\text{可由}\\ \\alpha_1,\\dots,\\alpha_s\\ \\text{线性表示}\\iff r(\\alpha_1,\\dots,\\alpha_s)=r(\\alpha_1,\\dots,\\alpha_s,\\beta)",
+        "\\beta\\ \\text{的表示法唯一}\\iff\\alpha_1,\\dots,\\alpha_s\\ \\text{线性无关且}\\ \\beta\\ \\text{可表示}",
+        "\\text{向量组}\\ B\\ \\text{可由}\\ A\\ \\text{表示}\\iff r(A)=r(A,B)"
+      ],
+      "common_traps": [
+        "★ 只用 r(A)\\le r(A,\\beta) 就下结论（必须**相等**才可表示，秩只会增大不会减小）",
+        "忽略 \"表示法唯一\" 还需要向量组线性无关这个附加条件",
+        "判断两个向量组互相表示时只验证了一个方向",
+        "把向量组写成矩阵时未统一按列（或按行）排列，导致秩的讨论对象错位"
+      ],
+      "exam_years": [
+        2010,
+        2013,
+        2015,
+        2019
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.vector.independence",
+      "name": "线性相关与线性无关",
+      "level": 4,
+      "parent_id": "math1.linalg.vector",
+      "is_leaf": true,
+      "definition": "若存在**不全为零**的数 k_1,\\dots,k_s 使 k_1\\alpha_1+\\cdots+k_s\\alpha_s=0，称向量组线性相关；否则线性无关。判定方式：设 A=(\\alpha_1,\\dots,\\alpha_s)，则相关 ⟺ r(A)<s，无关 ⟺ r(A)=s；n 维空间中多于 n 个向量必相关；含零向量或含成比例向量的组必相关。边界条件：相关性是整体性质，去掉一个向量后可能变为无关，故 \"相关\" 只能说至少存在一个向量可由其余向量表示，不能对每个向量都这么说。",
+      "formulas": [
+        "\\alpha_1,\\dots,\\alpha_s\\ \\text{线性相关}\\iff\\exists\\,(k_1,\\dots,k_s)\\ne(0,\\dots,0):\\ \\sum_{i=1}^{s}k_i\\alpha_i=0",
+        "\\alpha_1,\\dots,\\alpha_s\\ \\text{线性无关}\\iff r(\\alpha_1,\\dots,\\alpha_s)=s",
+        "s>n\\ (n\\ \\text{维向量})\\Rightarrow\\alpha_1,\\dots,\\alpha_s\\ \\text{必线性相关}",
+        "\\text{整体无关}\\Rightarrow\\text{部分无关};\\quad \\text{部分相关}\\Rightarrow\\text{整体相关}"
+      ],
+      "common_traps": [
+        "★ 把定义写成 \"存在一组全为零的数使组合为零\"（必须是**不全为零**，否则任何向量组都 \"相关\"）",
+        "认为线性相关时组内**每一个**向量都可由其余向量线性表示（只保证存在某个，且该向量不能是零向量之外的任意选取）",
+        "用 |A|=0 去判断非方阵向量组的相关性（应看 r(A) 与向量个数 s 的关系）",
+        "把 \"含零向量必相关\" 推广成 \"含相同向量必相关\" 之外的错误结论，或忽略 s>n 的速判"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.vector.rank",
+      "name": "向量组的秩与极大无关组",
+      "level": 4,
+      "parent_id": "math1.linalg.vector",
+      "is_leaf": true,
+      "definition": "向量组的部分组若线性无关、且再添任一向量就线性相关，则称极大线性无关组，所含向量个数称为向量组的秩，也等于以这些向量为列构成的矩阵的秩。求法：把向量按列排成矩阵，只用初等行变换化为行阶梯形，非零行数即秩，主元所在列对应的原向量构成一个极大无关组。边界条件：极大无关组不唯一，但所含向量个数唯一；只有初等**行**变换不改变列向量间的线性关系，所以表示系数必须从行变换后的阶梯形中读出。",
+      "formulas": [
+        "r(\\alpha_1,\\dots,\\alpha_s)=r(A),\\quad A=(\\alpha_1,\\dots,\\alpha_s)",
+        "\\text{极大线性无关组所含向量个数}=\\text{向量组的秩}",
+        "\\text{初等行变换不改变列向量组之间的线性关系}",
+        "r(\\alpha_1,\\dots,\\alpha_s,\\beta)=r(\\alpha_1,\\dots,\\alpha_s)\\iff\\beta\\ \\text{可由}\\ \\alpha_1,\\dots,\\alpha_s\\ \\text{线性表示}"
+      ],
+      "common_traps": [
+        "★ 求极大无关组时对矩阵作了初等**列**变换，却仍把变换后的列当作原向量组的极大无关组",
+        "把行阶梯形中非零行的行数当成列数，或直接取非零行对应的向量作极大无关组",
+        "认为极大无关组唯一（同一个向量组可以有无穷多个极大无关组）",
+        "读出表示系数后与原向量的编号对应错位，导致表示式写错"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2016,
+        2019,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.vector.equivalence",
+      "name": "向量组的等价与秩的比较",
+      "level": 4,
+      "parent_id": "math1.linalg.vector",
+      "is_leaf": true,
+      "definition": "若向量组 (I) 中每个向量都能由 (II) 线性表示，则称 (I) 可由 (II) 表示；若两个向量组可以互相表示，则称它们等价，等价意味着二者张成同一个向量空间。判定：A 与 B 等价 ⟺ r(A)=r(B)=r(A,B)。边界条件：秩相等只是等价的必要条件，两个秩相同的向量组可能张成不同的子空间，因此并不等价；向量组等价与矩阵等价（存在可逆 P、Q 使 PAQ=B）是两个不同的概念。",
+      "formulas": [
+        "B\\ \\text{可由}\\ A\\ \\text{线性表示}\\iff r(A)=r(A,B)",
+        "A\\cong B\\Rightarrow r(A)=r(B)",
+        "A\\cong B\\iff r(A)=r(B)=r(A,B)",
+        "r(A)=r(B)\\nRightarrow A\\cong B"
+      ],
+      "common_traps": [
+        "★ 由两个向量组的秩相等就断言它们等价（必须同时有 r(A)=r(B)=r(A,B)）",
+        "把矩阵等价（秩相等即可）与向量组等价混为一谈",
+        "只验证一个方向的可表示性就判定等价",
+        "认为向量个数不同的两组向量一定不等价（只要维数足够，个数不同也可能等价）"
+      ],
+      "exam_years": [
+        2014,
+        2016,
+        2019,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.vector.space",
+      "name": "向量空间、基与维数",
+      "level": 4,
+      "parent_id": "math1.linalg.vector",
+      "is_leaf": true,
+      "definition": "对加法与数乘都封闭的 n 维向量集合称为向量空间；空间中一组线性无关、且能线性表示空间中所有向量的向量组称为基，基所含向量个数称为维数，且同一空间的任意两组基所含向量个数相同。边界条件：判定向量空间必须先验证对加法与数乘封闭，不过原点的平面（或直线）不构成向量空间；只含零向量的空间没有基，规定其维数为 0；生成向量组可以线性相关，其张成空间的维数等于该组的秩。",
+      "formulas": [
+        "V\\ \\text{是向量空间}\\iff\\forall\\alpha,\\beta\\in V,\\ \\forall k\\in\\mathbb{R}:\\ \\alpha+\\beta\\in V,\\ k\\alpha\\in V",
+        "\\dim V=r\\iff V=L(\\alpha_1,\\dots,\\alpha_r)\\ \\text{且}\\ \\alpha_1,\\dots,\\alpha_r\\ \\text{线性无关}",
+        "\\dim\\mathbb{R}^{n}=n,\\quad \\dim\\{0\\}=0",
+        "\\dim L(\\alpha_1,\\dots,\\alpha_s)=r(\\alpha_1,\\dots,\\alpha_s)"
+      ],
+      "common_traps": [
+        "★ 把不过原点的平面（或直线）也当成向量空间（对加法与数乘都不封闭）",
+        "认为基唯一（基不唯一，但维数唯一，任意两组基所含向量个数相同）",
+        "把生成向量组所含向量个数当成空间维数（维数应取该组的秩）",
+        "把零空间的维数写成 1，或误以为零向量能构成基"
+      ],
+      "exam_years": [
+        2012,
+        2018
+      ],
+      "typical_qtypes": [
+        "choice",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.vector.coordinate",
+      "name": "坐标与基变换",
+      "level": 4,
+      "parent_id": "math1.linalg.vector",
+      "is_leaf": true,
+      "definition": "在基 \\alpha_1,\\dots,\\alpha_n 下，向量 x 的坐标是满足 x=(\\alpha_1,\\dots,\\alpha_n)(x_1,\\dots,x_n)^T 的系数向量。若 (\\beta_1,\\dots,\\beta_n)=(\\alpha_1,\\dots,\\alpha_n)P，则 P 称为由旧基到新基的过渡矩阵，必可逆；同一向量的新旧坐标满足 x_{旧}=Px_{新}。边界条件：过渡矩阵的写法依赖把基向量按**列**排成矩阵的约定；只有两组都是基时 P 才可逆，用线性相关的向量组求出的 \"过渡矩阵\" 不可逆，不能用于坐标换算。",
+      "formulas": [
+        "x=(\\alpha_1,\\dots,\\alpha_n)\\begin{pmatrix}x_1\\\\\\vdots\\\\x_n\\end{pmatrix}",
+        "(\\beta_1,\\dots,\\beta_n)=(\\alpha_1,\\dots,\\alpha_n)P",
+        "x_{旧}=P\\,x_{新},\\quad x_{新}=P^{-1}x_{旧}",
+        "\\text{两组基之间的过渡矩阵}\\ P\\ \\text{必可逆}"
+      ],
+      "common_traps": [
+        "★ 坐标变换方向搞反：把 x_{旧}=Px_{新} 写成 x_{新}=Px_{旧}（P 的左右位置与新旧基的定义方向必须一致）",
+        "求过渡矩阵时把新旧基的列向量写反顺序，或把基向量按行排成矩阵",
+        "用线性相关的向量组当 \"基\" 去求过渡矩阵，得到不可逆的 P 仍继续使用",
+        "把坐标与向量本身混为一谈，忘记坐标依赖于基的选取"
+      ],
+      "exam_years": [
+        2012,
+        2018
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.vector.inner",
+      "name": "向量的内积、正交与施密特正交化",
+      "level": 4,
+      "parent_id": "math1.linalg.vector",
+      "is_leaf": true,
+      "definition": "实向量的内积定义为 (\\alpha,\\beta)=\\alpha^T\\beta=\\sum a_ib_i，长度 \\|\\alpha\\|=\\sqrt{(\\alpha,\\alpha)}；内积为零时称两向量正交。不含零向量的两两正交向量组必线性无关；施密特正交化把线性无关组化为正交组，再单位化得到标准正交基。边界条件：正交化时每个新向量必须减去对**所有**已有正交向量的投影；正交组中不能含零向量，否则线性无关的结论失效；只有实向量才使用这套对称内积。",
+      "formulas": [
+        "(\\alpha,\\beta)=\\alpha^{T}\\beta=\\sum_{i=1}^{n}a_ib_i,\\quad \\|\\alpha\\|=\\sqrt{(\\alpha,\\alpha)}",
+        "(\\alpha,\\beta)=0\\iff\\alpha\\perp\\beta",
+        "\\beta_1=\\alpha_1,\\quad \\beta_2=\\alpha_2-\\frac{(\\alpha_2,\\beta_1)}{(\\beta_1,\\beta_1)}\\beta_1,\\quad \\beta_3=\\alpha_3-\\frac{(\\alpha_3,\\beta_1)}{(\\beta_1,\\beta_1)}\\beta_1-\\frac{(\\alpha_3,\\beta_2)}{(\\beta_2,\\beta_2)}\\beta_2",
+        "e_i=\\frac{\\beta_i}{\\|\\beta_i\\|}\\quad(i=1,\\dots,r)"
+      ],
+      "common_traps": [
+        "★ 施密特正交化时只减去了对第一个向量的投影，漏掉对其余已有正交向量的投影",
+        "正交化后忘记单位化，或单位化时把除以 \\|\\beta_i\\| 写成除以 (\\beta_i,\\beta_i)",
+        "认为两两正交的向量组一定线性无关，没有排除零向量",
+        "把内积的对称性 (\\alpha,\\beta)=(\\beta,\\alpha) 当作对所有数域都成立（复向量要用共轭）"
+      ],
+      "exam_years": [
+        2010,
+        2014,
+        2016,
+        2021
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.system",
+      "name": "线性方程组",
+      "level": 2,
+      "parent_id": "math1.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.6
+    },
+    {
+      "id": "math1.linalg.system.criterion",
+      "name": "方程组解的存在性判定",
+      "level": 4,
+      "parent_id": "math1.linalg.system",
+      "is_leaf": true,
+      "definition": "对 m 个方程 n 个未知数的方程组 Ax=b，设增广矩阵 \\bar A=(A\\mid b)，则：无解 ⟺ r(A)<r(\\bar A)；有唯一解 ⟺ r(A)=r(\\bar A)=n；有无穷多解 ⟺ r(A)=r(\\bar A)=r<n。判定必须先把增广矩阵化为行阶梯形再比较秩。边界条件：r(A)\\le r(\\bar A)\\le r(A)+1 恒成立，故无解时必有 r(\\bar A)=r(A)+1；对增广矩阵只能作初等行变换，作列变换会改变 b 列、破坏同解性。",
+      "formulas": [
+        "r(A)<r(\\bar A)\\iff Ax=b\\ \\text{无解}",
+        "r(A)=r(\\bar A)=n\\iff Ax=b\\ \\text{有唯一解}",
+        "r(A)=r(\\bar A)=r<n\\iff Ax=b\\ \\text{有无穷多解（含}\\ n-r\\ \\text{个自由未知量）}",
+        "r(A)\\le r(\\bar A)\\le r(A)+1"
+      ],
+      "common_traps": [
+        "★ 只比较 r(A) 与 n 就下结论，没有先比较 r(A) 与 r(\\bar A)，把无解误判为无穷多解",
+        "对增广矩阵作初等**列**变换（会把 b 列也搅乱，导致解集改变）",
+        "参数未讨论就约去含参数的因子，漏掉参数使秩跳变的情形",
+        "把 r(A)<n 直接等同于 \"有无穷多解\"（忽略了可能无解）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2016,
+        2018,
+        2020
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.system.homogeneous",
+      "name": "齐次线性方程组",
+      "level": 4,
+      "parent_id": "math1.linalg.system",
+      "is_leaf": true,
+      "definition": "齐次方程组 Ax=0（A 为 m\\times n）永远有零解，故只有 \"只有零解\" 与 \"有非零解\" 两种情形：有非零解 ⟺ r(A)<n；当 A 为 n 阶方阵时还等价于 |A|=0。全体解构成解空间 N(A)，维数为 n-r(A)。边界条件：判据中的 n 是**未知数个数**，不是方程个数 m；m<n 时必有非零解；齐次方程组不存在 \"无解\" 情形。",
+      "formulas": [
+        "Ax=0\\ \\text{有非零解}\\iff r(A)<n",
+        "A_{n\\times n}:\\ Ax=0\\ \\text{有非零解}\\iff|A|=0",
+        "\\dim N(A)=n-r(A)",
+        "m<n\\Rightarrow Ax=0\\ \\text{必有非零解}"
+      ],
+      "common_traps": [
+        "★ 把 r(A)<n 写成 r(A)<m（判据里的 n 是未知数个数，写成方程个数会得出相反结论）",
+        "认为齐次方程组也可能无解（它至少有零解）",
+        "当 m<n 时仍逐个求解，不知道可直接断言有非零解",
+        "把解空间的维数写成 r(A) 而不是 n-r(A)"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2015,
+        2018,
+        2020
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.system.fundamental",
+      "name": "基础解系与通解结构",
+      "level": 4,
+      "parent_id": "math1.linalg.system",
+      "is_leaf": true,
+      "definition": "齐次方程组 Ax=0 的解空间中任一极大线性无关组称为基础解系，恰含 n-r(A) 个向量，且 Ax=0 的通解是它们的任意线性组合。求法：把 A 化为行最简形，主元列对应的未知量作约束未知量，其余 n-r(A) 个作自由未知量，令自由未知量依次取单位向量 (1,0,\\dots,0),(0,1,\\dots,0),\\dots 解出解向量。边界条件：自由未知量的取法必须保证所得向量线性无关，否则得到的不是基础解系；基础解系不唯一，但所含向量个数唯一。",
+      "formulas": [
+        "\\text{基础解系所含向量个数}=n-r(A)",
+        "x=k_1\\xi_1+k_2\\xi_2+\\cdots+k_{n-r}\\xi_{n-r}",
+        "\\text{自由未知量依次取}\\ (1,0,\\dots,0),(0,1,\\dots,0),\\dots,(0,\\dots,0,1)",
+        "\\dim\\{x:Ax=0\\}=n-r(A)"
+      ],
+      "common_traps": [
+        "★ 求基础解系时自由未知量取值不当（取成线性相关的组），得到向量组不是基础解系",
+        "把基础解系的向量个数写成 r(A)（应为 n-r(A)）",
+        "没有化到行最简形就读解，主元列判断错误导致约束未知量与自由未知量分错",
+        "认为基础解系唯一（基础解系有无穷多组，唯一的是向量个数）"
+      ],
+      "exam_years": [
+        2010,
+        2013,
+        2015,
+        2016,
+        2018,
+        2020,
+        2021
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.system.nonhomogeneous",
+      "name": "非齐次线性方程组的通解",
+      "level": 4,
+      "parent_id": "math1.linalg.system",
+      "is_leaf": true,
+      "definition": "若 Ax=b（b\\ne0）有解且 \\eta^* 是它的一个特解，\\xi_1,\\dots,\\xi_{n-r} 是导出组 Ax=0 的基础解系，则 Ax=b 的通解为 x=\\eta^*+k_1\\xi_1+\\cdots+k_{n-r}\\xi_{n-r}。非齐次方程组有解时恰有 n-r(A)+1 个线性无关的解向量。边界条件：通解必须 \"特解 + 导出组通解\" 两部分齐全；两个非齐次解之和一般不再是解；非齐次方程组的解集不是向量空间（对加法与数乘都不封闭）。",
+      "formulas": [
+        "x=\\eta^{*}+k_1\\xi_1+\\cdots+k_{n-r}\\xi_{n-r}",
+        "A\\eta_1=A\\eta_2=b\\Rightarrow A(\\eta_1-\\eta_2)=0",
+        "\\eta^{*}=\\frac{\\eta_1+\\eta_2}{2}\\ \\text{仍是}\\ Ax=b\\ \\text{的解}",
+        "\\text{解集中线性无关解向量的最大个数}=n-r(A)+1"
+      ],
+      "common_traps": [
+        "★ 通解写成 \"特解 + 导出组的一个解\" 或干脆漏掉特解，只给出导出组通解",
+        "把两个非齐次解相加当作非齐次解（A(\\eta_1+\\eta_2)=2b\\ne b）",
+        "把非齐次方程组的解集当成向量空间，对它使用维数或基的概念",
+        "特解取成了导出组的解，导致结果不满足原方程"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2016,
+        2018,
+        2020
+      ],
+      "typical_qtypes": [
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.system.parameter",
+      "name": "含参数方程组的分类讨论",
+      "level": 4,
+      "parent_id": "math1.linalg.system",
+      "is_leaf": true,
+      "definition": "系数或常数项含参数时，须对参数分类讨论方程组的解。标准流程：对增广矩阵 \\bar A 作初等行变换化为阶梯形，把含参数的因子留在主元位置，令这些因子为 0 与不为 0 分别讨论，逐一比较 r(A) 与 r(\\bar A) 得出无解、唯一解、无穷多解的全部结论。边界条件：绝不能用含参数的式子作除数；系数矩阵为方阵时可先用 |A|\\ne0 抓出唯一解的情形，再在 |A|=0 时继续比较秩。",
+      "formulas": [
+        "|A|\\ne0\\Rightarrow\\ \\text{唯一解};\\quad |A|=0\\Rightarrow\\ \\text{再比较}\\ r(A)\\ \\text{与}\\ r(\\bar A)",
+        "r(A)<r(\\bar A)\\Rightarrow\\ \\text{无解};\\quad r(A)=r(\\bar A)<n\\Rightarrow\\ \\text{无穷多解}",
+        "\\text{有解}\\iff r(A)=r(\\bar A);\\quad \\text{有唯一解}\\iff r(A)=r(\\bar A)=n"
+      ],
+      "common_traps": [
+        "★ 用含参数的式子作除数（如除以 \\lambda-1），漏掉 \\lambda=1 的整类情形",
+        "只讨论 |A|=0 与 |A|\\ne0 两种情况，在 |A|=0 时未继续比较 r(A) 与 r(\\bar A)，把无解与无穷多解混为一谈",
+        "讨论完各情形后没有把解回代验证，尤其 \"有无穷多解\" 时未检查常数项是否相容",
+        "分类时遗漏边界参数值，或把不同情形下的解混在一起写"
+      ],
+      "exam_years": [
+        2012,
+        2014,
+        2017,
+        2019,
+        2023
+      ],
+      "typical_qtypes": [
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.system.common_solution",
+      "name": "同解方程组与公共解",
+      "level": 4,
+      "parent_id": "math1.linalg.system",
+      "is_leaf": true,
+      "definition": "两个方程组同解指它们的解集合完全相同；Ax=0 与 Bx=0 同解 ⟺ r(A)=r(B)=r\\begin{pmatrix}A\\\\B\\end{pmatrix}，也就是两者的行空间相同。求公共解有两条路：把两组方程联立后求解，或把一个方程组的通解代入另一个方程组确定其中的自由参数。边界条件：同解是比秩相等更强的条件，r(A)=r(B) 且未知数个数相同也推不出同解；\"有公共解\" 与 \"同解\" 完全不同。",
+      "formulas": [
+        "Ax=0\\ \\text{与}\\ Bx=0\\ \\text{同解}\\iff r(A)=r(B)=r\\begin{pmatrix}A\\\\B\\end{pmatrix}",
+        "\\text{公共解}=\\begin{cases}Ax=0\\\\Bx=0\\end{cases}\\ \\text{的解}",
+        "\\text{同解}\\Rightarrow r(A)=r(B);\\quad r(A)=r(B)\\nRightarrow\\ \\text{同解}",
+        "\\text{把}\\ Ax=0\\ \\text{的通解代入}\\ Bx=0\\ \\text{确定自由参数}"
+      ],
+      "common_traps": [
+        "★ 由 r(A)=r(B) 直接断言两方程组同解（还必须 r(A)=r(B)=r(A;B)）",
+        "求公共解时把一组的通解代入另一组后，没有回到原方程组验证所得解",
+        "把 \"有公共解\" 当作 \"同解\" 使用",
+        "讨论非齐次方程组的同解时只比较系数矩阵的秩，忽略了常数项"
+      ],
+      "exam_years": [
+        2013,
+        2016,
+        2020,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.system.mutual",
+      "name": "方程组、向量组与秩的互化",
+      "level": 4,
+      "parent_id": "math1.linalg.system",
+      "is_leaf": true,
+      "definition": "方程组、向量组的线性表示与矩阵的秩是同一件事的三种说法：Ax=b 有解 ⟺ b 可由 A 的列向量组线性表示 ⟺ r(A)=r(A\\mid b)；Ax=0 的解空间就是 A 的零空间，其维数为 n-r(A)；A 的列向量组线性无关 ⟺ Ax=0 只有零解。边界条件：互化时必须统一约定向量按列排列；A 与 A^T 的行、列向量组不同，两个零空间的维数也不同（分别为 n-r(A) 与 m-r(A)），结论不可平移。",
+      "formulas": [
+        "Ax=b\\ \\text{有解}\\iff b\\in L(\\alpha_1,\\dots,\\alpha_n)\\iff r(A)=r(A\\mid b)",
+        "\\{x:Ax=0\\}=N(A),\\quad \\dim N(A)=n-r(A)",
+        "A\\ \\text{的列向量组线性无关}\\iff r(A)=n\\iff Ax=0\\ \\text{只有零解}",
+        "A^{T}x=0\\ \\text{只有零解}\\iff A\\ \\text{的行向量组线性无关}\\iff r(A)=m"
+      ],
+      "common_traps": [
+        "★ 把关于列向量组的结论直接搬到行向量组（A 与 A^T 的零空间维数分别是 n-r(A) 与 m-r(A)）",
+        "把判据写成 r(A)=r(A\\mid b)=n，忽略了 n 只是唯一解情形的附加条件",
+        "用两个非齐次解之差构造齐次解时符号弄反（应为 \\eta_1-\\eta_2）",
+        "认为解空间维数与方程个数 m 有关（只由 n 与 r(A) 决定）"
+      ],
+      "exam_years": [
+        2012,
+        2015,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.eigen",
+      "name": "特征值与二次型",
+      "level": 2,
+      "parent_id": "math1.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.71
+    },
+    {
+      "id": "math1.linalg.eigen.eigenvalue",
+      "name": "特征值与特征向量的计算",
+      "level": 4,
+      "parent_id": "math1.linalg.eigen",
+      "is_leaf": true,
+      "definition": "若存在数 \\lambda 与非零向量 \\alpha 使 A\\alpha=\\lambda\\alpha，则称 \\lambda 为 A 的特征值、\\alpha 为属于 \\lambda 的特征向量。求法分两步：先解特征方程 |\\lambda E-A|=0 求出全部特征值（含代数重数），再对每个 \\lambda 解齐次方程组 (\\lambda E-A)x=0，其基础解系就是属于该特征值的线性无关特征向量。边界条件：特征向量必须非零；属于同一特征值的全部特征向量是该基础解系的全体非零线性组合；不同特征值的特征向量线性无关。",
+      "formulas": [
+        "A\\alpha=\\lambda\\alpha\\quad(\\alpha\\ne0)",
+        "|\\lambda E-A|=0\\ \\text{（特征方程）}",
+        "(\\lambda E-A)x=0\\ \\text{的基础解系}\\Rightarrow\\ \\text{属于}\\ \\lambda\\ \\text{的线性无关特征向量}",
+        "\\sum_{i=1}^{n}\\lambda_i=\\operatorname{tr}(A),\\quad \\prod_{i=1}^{n}\\lambda_i=|A|"
+      ],
+      "common_traps": [
+        "★ 用初等变换化简 \\lambda E-A 时乘除含 \\lambda 的式子（会改变特征多项式的根，求出错误特征值）",
+        "把特征向量写成 (\\lambda E-A)x=0 的整个解空间（必须排除零向量，答案为全体非零解）",
+        "用 \\sum\\lambda_i=\\operatorname{tr}(A)、\\prod\\lambda_i=|A| 时忘记特征值要按代数重数计全",
+        "把 A 与 A^{T} 的特征向量混同（特征值相同，特征向量一般不同）"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.eigen.property",
+      "name": "特征值的性质与相似不变量",
+      "level": 4,
+      "parent_id": "math1.linalg.eigen",
+      "is_leaf": true,
+      "definition": "若 A\\alpha=\\lambda\\alpha，则 kA、A^m、f(A) 的特征值分别为 k\\lambda、\\lambda^m、f(\\lambda)，且特征向量仍是 \\alpha；当 |A|\\ne0 时 A^{-1} 与 A^* 的特征值分别为 1/\\lambda 与 |A|/\\lambda。相似矩阵有相同的特征值、迹、行列式与秩。边界条件：A^{-1} 与 A^* 的结论要求 |A|\\ne0（等价于所有 \\lambda\\ne0）；\"特征值相同\" 或 \"迹、行列式相同\" 都推不出相似。",
+      "formulas": [
+        "A\\alpha=\\lambda\\alpha\\Rightarrow A^{m}\\alpha=\\lambda^{m}\\alpha,\\quad f(A)\\alpha=f(\\lambda)\\alpha",
+        "A^{-1}\\alpha=\\frac{1}{\\lambda}\\alpha,\\quad A^{*}\\alpha=\\frac{|A|}{\\lambda}\\alpha\\quad(|A|\\ne0)",
+        "P^{-1}AP\\ \\text{与}\\ A\\ \\text{有相同的特征值、迹、行列式与秩}",
+        "\\sum_{i=1}^{n}\\lambda_i=\\operatorname{tr}(A),\\quad \\prod_{i=1}^{n}\\lambda_i=|A|"
+      ],
+      "common_traps": [
+        "★ 把 A^* 的特征值写成 |A|\\lambda 或 \\lambda/|A|（正确为 |A|/\\lambda，因为 A^*=|A|A^{-1}）",
+        "对不可逆矩阵使用 A^{-1} 或 A^* 与 \\lambda 的对应关系式",
+        "由 \"特征值相同\" 或 \"迹与行列式相同\" 推出两个矩阵相似",
+        "把 f(A) 的特征向量换成别的向量（f(A) 与 A 的特征向量相同）"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2020
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.eigen.similar",
+      "name": "矩阵相似与相似对角化",
+      "level": 4,
+      "parent_id": "math1.linalg.eigen",
+      "is_leaf": true,
+      "definition": "若存在可逆矩阵 P 使 P^{-1}AP=B，称 A 与 B 相似。n 阶矩阵 A 可对角化 ⟺ A 有 n 个线性无关的特征向量 ⟺ 每个特征值的几何重数 n-r(\\lambda_iE-A) 等于其代数重数 n_i；若 A 有 n 个互不相同的特征值则必可对角化。边界条件：\"有 n 个特征值（计重数）\" 绝不能推出可对角化，必须逐个特征值检查是否有足够的线性无关特征向量；可对角化与是否可逆无关。",
+      "formulas": [
+        "P^{-1}AP=\\Lambda=\\operatorname{diag}(\\lambda_1,\\lambda_2,\\dots,\\lambda_n)",
+        "A\\ \\text{可对角化}\\iff A\\ \\text{有}\\ n\\ \\text{个线性无关的特征向量}",
+        "A\\ \\text{可对角化}\\iff n-r(\\lambda_iE-A)=n_i\\ (\\text{几何重数}=\\text{代数重数})",
+        "\\lambda_1,\\dots,\\lambda_n\\ \\text{互异}\\Rightarrow A\\ \\text{可对角化}",
+        "A^{k}=P\\Lambda^{k}P^{-1}"
+      ],
+      "common_traps": [
+        "★ 把 \"n 阶矩阵有 n 个特征值（计重数）\" 当成可对角化的充分条件（重根处常常凑不够特征向量）",
+        "只对某个特征值检查了几何重数就下结论，没有对全部特征值逐一验证",
+        "求 P 时特征向量的排列顺序与 \\Lambda 中对角元的顺序错位",
+        "把可对角化与可逆挂钩（如 \\operatorname{diag}(0,1) 可对角化但不可逆）"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2015,
+        2017,
+        2019
+      ],
+      "typical_qtypes": [
+        "choice",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.eigen.real_symmetric",
+      "name": "实对称矩阵的正交相似对角化",
+      "level": 4,
+      "parent_id": "math1.linalg.eigen",
+      "is_leaf": true,
+      "definition": "实对称矩阵的特征值全为实数，属于不同特征值的特征向量必定正交，且一定存在正交矩阵 Q 使 Q^{-1}AQ=Q^{T}AQ=\\Lambda。步骤为：求全部特征值；对每个特征值求基础解系；对同一特征值的多个特征向量作施密特正交化；全部单位化后按列拼成 Q。边界条件：只有实对称矩阵才保证可用**正交**矩阵对角化；一般矩阵即使可对角化，其 P 也不一定能正交化。",
+      "formulas": [
+        "A^{T}=A\\Rightarrow\\exists Q\\ (Q^{T}Q=E):\\ Q^{-1}AQ=Q^{T}AQ=\\Lambda",
+        "A^{T}=A,\\ \\lambda_i\\ne\\lambda_j\\Rightarrow\\alpha_i\\perp\\alpha_j",
+        "\\lambda\\ \\text{为实对称矩阵的特征值}\\Rightarrow\\lambda\\in\\mathbb{R}",
+        "Q=(e_1,e_2,\\dots,e_n),\\quad e_i=\\frac{\\beta_i}{\\|\\beta_i\\|}"
+      ],
+      "common_traps": [
+        "★ 把 \"不同特征值的特征向量正交\" 用到**非对称**矩阵上（该性质只对实对称矩阵成立）",
+        "同一特征值有多重根时没有对其特征向量作施密特正交化，直接拼成 Q 导致 Q 不正交",
+        "只作了正交化却忘记单位化，得到的 Q 不是正交矩阵",
+        "Q 中各列的顺序与 \\Lambda 中对角元的顺序不匹配"
+      ],
+      "exam_years": [
+        2010,
+        2014,
+        2016,
+        2021
+      ],
+      "typical_qtypes": [
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.eigen.quadratic",
+      "name": "二次型及其矩阵、合同变换",
+      "level": 4,
+      "parent_id": "math1.linalg.eigen",
+      "is_leaf": true,
+      "definition": "n 元二次型可唯一写成 f(x)=x^{T}Ax，其中 A 取实对称矩阵，称为二次型的矩阵；作可逆线性变换 x=Cy 后 f=y^{T}(C^{T}AC)y，称 A 与 C^{T}AC 合同。合同关系保持对称性、秩与正定性，但不保持特征值。边界条件：交叉项 x_ix_j 的系数必须**平分**给 a_{ij} 与 a_{ji} 以保证 A 对称；线性变换必须可逆；合同（C^{T}AC）与相似（C^{-1}AC）是两种不同的关系，只在 C 为正交矩阵时一致。",
+      "formulas": [
+        "f(x_1,\\dots,x_n)=x^{T}Ax,\\quad A=A^{T}",
+        "x=Cy\\Rightarrow f=y^{T}(C^{T}AC)y",
+        "\\text{合同}:\\ A\\simeq C^{T}AC\\quad(C\\ \\text{可逆})",
+        "a_{ij}=a_{ji}=\\frac{1}{2}\\times(x_ix_j\\ \\text{项的系数})"
+      ],
+      "common_traps": [
+        "★ 写二次型矩阵时把交叉项系数整份写成 a_{ij}=a_{ji}（应各取一半，否则得到的 A 不对称）",
+        "把合同与相似混为一谈（合同用 C^{T}AC，相似用 C^{-1}AC，后者保持特征值而前者不保持）",
+        "用不可逆的线性变换化二次型（标准形与惯性指数都会失去唯一性）",
+        "认为合同的矩阵特征值相同（只有正交变换下的合同才与相似一致）"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2017,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.eigen.standard_form",
+      "name": "二次型的标准形与规范形",
+      "level": 4,
+      "parent_id": "math1.linalg.eigen",
+      "is_leaf": true,
+      "definition": "通过可逆线性变换把二次型化为只含平方项的标准形 d_1y_1^2+\\cdots+d_ny_n^2，方法有正交变换法与配方法；正交变换法给出的系数恰为 A 的特征值，配方法给出的系数不唯一。再令 z_i=\\sqrt{|d_i|}y_i 可化为规范形 z_1^2+\\cdots+z_p^2-z_{p+1}^2-\\cdots-z_r^2。边界条件：配方法所得变换必须可逆且每一步都不引入新的交叉项；标准形不唯一，唯一确定的是正负项个数（惯性指数）；只有正交变换法得到的系数才是特征值。",
+      "formulas": [
+        "f=\\lambda_1y_1^{2}+\\cdots+\\lambda_ny_n^{2}\\quad(x=Qy,\\ Q\\ \\text{正交})",
+        "f=d_1y_1^{2}+\\cdots+d_ny_n^{2}\\quad(x=Cy,\\ C\\ \\text{可逆，配方法})",
+        "\\text{规范形}:\\ z_1^{2}+\\cdots+z_p^{2}-z_{p+1}^{2}-\\cdots-z_r^{2}",
+        "p+q=r(A),\\quad \\text{符号差}=p-q"
+      ],
+      "common_traps": [
+        "★ 发现配方法与正交变换法给出的标准形系数不同就以为算错了（标准形本就不唯一，只有正负惯性指数唯一）",
+        "配方法中得到的变换矩阵 C 不可逆（出现退化情形未作处理）",
+        "把配方法所得的标准形系数直接当成 A 的特征值（只有正交变换法的系数才是特征值）",
+        "规范形中把正负项个数与秩的关系记错（r=p+q，而非 p 或 q 单独等于秩）"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2017,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.eigen.positive_definite",
+      "name": "正定二次型与正定矩阵",
+      "level": 4,
+      "parent_id": "math1.linalg.eigen",
+      "is_leaf": true,
+      "definition": "若对一切 x\\ne0 都有 x^{T}Ax>0，称二次型 f 正定、实对称矩阵 A 为正定矩阵。判定的四条等价途径：各阶顺序主子式全大于 0；全部特征值大于 0；正惯性指数 p=n；存在可逆矩阵 C 使 A=C^{T}C。边界条件：顺序主子式判别法只适用于实对称矩阵；必须是**各阶**顺序主子式都大于 0，只查最高阶的 |A|>0 远远不够；正定矩阵的对角元必为正，但非对角元可以为负。",
+      "formulas": [
+        "f\\ \\text{正定}\\iff\\forall x\\ne0:\\ x^{T}Ax>0",
+        "A\\ \\text{正定}\\iff D_k>0\\ (k=1,2,\\dots,n),\\ D_k\\ \\text{为}\\ k\\ \\text{阶顺序主子式}",
+        "A\\ \\text{正定}\\iff\\lambda_i>0\\ (i=1,\\dots,n)\\iff p=n",
+        "A\\ \\text{正定}\\iff\\exists C\\ \\text{可逆}:\\ A=C^{T}C"
+      ],
+      "common_traps": [
+        "★ 只验证了最高阶顺序主子式 |A|>0 就判定正定（必须**各阶**顺序主子式全大于 0）",
+        "对非对称矩阵使用顺序主子式判别法",
+        "把 \"特征值全为正\" 与 \"所有元素为正\" 混淆（正定矩阵只需对角元为正）",
+        "把半正定的判据说成 \"顺序主子式全 \\ge0\"（半正定需要**所有**主子式非负，顺序主子式非负只是必要条件）"
+      ],
+      "exam_years": [
+        2012,
+        2015,
+        2018,
+        2021
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    },
+    {
+      "id": "math1.linalg.eigen.inertia",
+      "name": "惯性定理与二次型的分类",
+      "level": 4,
+      "parent_id": "math1.linalg.eigen",
+      "is_leaf": true,
+      "definition": "惯性定理指出：二次型的标准形中正项个数 p 与负项个数 q 由二次型本身唯一确定，与所作的可逆线性变换无关。p 称正惯性指数，q 称负惯性指数，r(A)=p+q 为秩，p-q 为符号差。按 p、q 的取值把二次型分为正定、负定、半正定、半负定与不定。边界条件：只有**可逆**线性变换才保持惯性指数；二次型合同 ⟺ 两者的 p 与 q 都相同，仅秩相等不足以判定合同；负定的顺序主子式符号是交错的正负交替。",
+      "formulas": [
+        "p=\\ \\text{正惯性指数},\\quad q=\\ \\text{负惯性指数},\\quad r(A)=p+q",
+        "\\text{符号差}=p-q",
+        "\\text{正定}:p=n;\\quad \\text{负定}:q=n;\\quad \\text{半正定}:q=0;\\quad \\text{不定}:p>0,\\ q>0",
+        "A\\simeq B\\ (\\text{合同})\\iff p_A=p_B\\ \\text{且}\\ q_A=q_B"
+      ],
+      "common_traps": [
+        "★ 用不可逆的线性变换化二次型并据此判断正定性或惯性指数（此时 p、q 可能被改变）",
+        "把 \"秩相等\" 当作合同（合同要求 p、q 分别相同）",
+        "把负定的判据说成 \"顺序主子式全小于 0\"（应为奇数阶为负、偶数阶为正，或判 -A 正定）",
+        "混淆相似与合同的判定条件（相似看特征值，合同看惯性指数）"
+      ],
+      "exam_years": [
+        2015,
+        2018,
+        2021
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ]
+    }
+  ]
+}

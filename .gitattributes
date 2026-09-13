@@ -1,0 +1,33 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# 行尾与二进制策略
+#
+# 为什么需要它：Windows 上 Git for Windows 默认 core.autocrlf=true，
+# 会把源码在检出时转成 CRLF。而本项目规划里明确要做 macOS / iOS 版
+# （见 docs/V1_PLAN.md），届时同一个文件在不同平台行尾不一致，
+# 每次提交都会产生"整文件都改了"的假差异。
+#
+# 策略：**源码一律 LF**，只有 Windows 专属脚本用 CRLF。
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 默认：自动识别文本，统一以 LF 存入库、以 LF 检出
+* text=auto eol=lf
+
+# Windows 批处理与 PowerShell：CRLF 更符合平台惯例
+# （.bat 里用 LF 在某些 cmd 版本下会让 goto/label 解析出错）
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 明确标记二进制，避免 Git 试图做行尾转换或文本 diff
+*.dll binary
+*.exe binary
+*.pdb binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+
+# 锁文件：确保 diff 可读但不参与文本统计噪音
+app/pubspec.lock text eol=lf

@@ -1,0 +1,297 @@
+{
+  "version": "0.1.0",
+  "updated_at": "2026-03-15",
+  "note": "M3 召回层的**留出验证集**（hold-out）。与 gold_set.json 的分工：gold_set.json 是开发集，调召回权重与别名时一直在看它，所以在它上面得到的数字**不能当作泛化能力**；本文件在别名/权重定稿**之后**编写，只用来做一次独立验证。两集的结论必须分开报告。",
+  "leakage_note": "编写本集时未查阅 alias_overrides.json，题目按考试大纲常见题型选取。但本集与开发集共享同一套知识点本体与同一套召回机制，所以它验证的是『别名机制是否泛化』，不是『系统在真实题库上的表现』。",
+  "known_defect_note": "本体里存在若干近义/重复叶子（如「方程根与不等式证明」与「导数的综合证明（不等式与方程根）」）。本集不回避这类题：如果因此召回失败，那反映的是**本体缺陷**，不是召回策略的问题，结论文档中单独归类。",
+  "problems": [
+    {
+      "id": "ho-001",
+      "stem": "求 $\\displaystyle\\lim_{x\\to+\\infty}\\frac{\\ln x}{x}$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.calc.limit.lhopital",
+      "secondary_kp_ids": [],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "$\\frac{\\infty}{\\infty}$ 型，直接用洛必达法则。"
+    },
+    {
+      "id": "ho-002",
+      "stem": "证明：方程 $x=e^{x-2}$ 在区间 $(0,2)$ 内至少有一个实根。",
+      "qtype": "proof",
+      "primary_kp_id": "math1.calc.limit.zero_point",
+      "secondary_kp_ids": [
+        "math1.calc.limit.closed_interval"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "构造 $f(x)=x-e^{x-2}$，验证 $f(0)<0<f(2)$，用零点定理。"
+    },
+    {
+      "id": "ho-003",
+      "stem": "求 $\\displaystyle\\lim_{n\\to\\infty}\\left(1+\\frac{2}{n}\\right)^{n}$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.calc.limit.two_important",
+      "secondary_kp_ids": [],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "$1^{\\infty}$ 型，凑第二个重要极限，结果为 $e^{2}$。"
+    },
+    {
+      "id": "ho-004",
+      "stem": "求函数 $f(x)=x^{3}-3x$ 在闭区间 $[-2,2]$ 上的最大值与最小值。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.diff.monotonic_extremum",
+      "secondary_kp_ids": [
+        "math1.calc.diff.rules"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "比较驻点与端点的函数值。"
+    },
+    {
+      "id": "ho-005",
+      "stem": "求曲线 $y=x^{3}-3x^{2}+1$ 的拐点。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.diff.concavity_asymptote",
+      "secondary_kp_ids": [],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "$y''=6x-6=0 \\Rightarrow x=1$，且两侧凹凸性相反。"
+    },
+    {
+      "id": "ho-006",
+      "stem": "设 $y=\\ln(1+x)$，求 $y^{(n)}$。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.diff.higher_order",
+      "secondary_kp_ids": [],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "归纳法或利用 $[\\ln(1+x)]^{(n)}$ 的通式。"
+    },
+    {
+      "id": "ho-007",
+      "stem": "证明：当 $x>0$ 时，$\\ln(1+x)<x$。",
+      "qtype": "proof",
+      "primary_kp_id": "math1.calc.diff.root_inequality",
+      "secondary_kp_ids": [
+        "math1.calc.diff.proof_application"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "构造 $F(x)=x-\\ln(1+x)$ 并证明其在 $x>0$ 上单调增加。⚠️ 本体里「方程根与不等式证明」与「导数的综合证明（不等式与方程根）」是同一考点的两个叶子（本体缺陷），两者都算正确。"
+    },
+    {
+      "id": "ho-008",
+      "stem": "求不定积分 $\\displaystyle\\int x\\ln x\\,\\mathrm{d}x$。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.integral.byparts",
+      "secondary_kp_ids": [
+        "math1.calc.integral.antiderivative"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "取 $u=\\ln x$、$\\mathrm{d}v=x\\,\\mathrm{d}x$。"
+    },
+    {
+      "id": "ho-009",
+      "stem": "求不定积分 $\\displaystyle\\int\\frac{\\mathrm{d}x}{1+\\sqrt{x}}$。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.integral.substitution",
+      "secondary_kp_ids": [
+        "math1.calc.integral.rational_trig"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "令 $t=\\sqrt{x}$ 作第二类换元。"
+    },
+    {
+      "id": "ho-010",
+      "stem": "设 $F(x)=\\displaystyle\\int_{0}^{x}(x-t)f(t)\\,\\mathrm{d}t$，其中 $f$ 连续，求 $F''(x)$。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.integral.variable_limit",
+      "secondary_kp_ids": [
+        "math1.calc.integral.definite_properties"
+      ],
+      "difficulty": 2,
+      "source": "2020 年数学（一）真题",
+      "note": "先把 $x$ 提到积分号外：$F(x)=x\\int_0^x f(t)\\mathrm{d}t-\\int_0^x tf(t)\\mathrm{d}t$，再求导。"
+    },
+    {
+      "id": "ho-011",
+      "stem": "判断反常积分 $\\displaystyle\\int_{1}^{+\\infty}\\frac{\\mathrm{d}x}{x^{2}}$ 的敛散性，收敛时求其值。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.integral.improper",
+      "secondary_kp_ids": [],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "$p=2>1$ 收敛，值为 1。"
+    },
+    {
+      "id": "ho-012",
+      "stem": "设 $z=e^{xy}$，求 $\\dfrac{\\partial^{2}z}{\\partial x\\,\\partial y}$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.calc.multidiff.partial_derivative",
+      "secondary_kp_ids": [
+        "math1.calc.multidiff.chain_rule"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "一阶偏导后继续求混合偏导。"
+    },
+    {
+      "id": "ho-013",
+      "stem": "求函数 $u=xy+2yz$ 在条件 $x^{2}+y^{2}+z^{2}=10$ 下的最大值。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.multidiff.conditional_extremum",
+      "secondary_kp_ids": [
+        "math1.calc.multidiff.lagrange"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "拉格朗日乘数法。⚠️ 本体里「条件极值与拉格朗日乘数法」与「条件极值与乘数法」是同一考点的两个叶子（本体缺陷）。"
+    },
+    {
+      "id": "ho-014",
+      "stem": "计算 $\\displaystyle\\iint_{D}(x^{2}+y^{2})\\,\\mathrm{d}\\sigma$，其中 $D$ 为圆域 $x^{2}+y^{2}\\le1$。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.multiintegral.double_polar",
+      "secondary_kp_ids": [
+        "math1.calc.multiintegral.double_cartesian"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "区域与被积函数都含 $x^{2}+y^{2}$，用极坐标，注意雅可比因子 $r$。"
+    },
+    {
+      "id": "ho-015",
+      "stem": "验证曲线积分 $\\displaystyle\\int_{L}(2xy+y^{2})\\,\\mathrm{d}x+(x^{2}+2xy)\\,\\mathrm{d}y$ 是否与路径无关，并求其原函数。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.curvesurface.path_independence",
+      "secondary_kp_ids": [
+        "math1.calc.curvesurface.line_int_second_green"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "$\\frac{\\partial P}{\\partial y}=2x+2y=\\frac{\\partial Q}{\\partial x}$，与路径无关，原函数 $u=x^{2}y+xy^{2}$。⚠️ 本体里「曲线积分与路径无关、全微分求积」与「曲线积分路径无关」是同一考点的两个叶子（本体缺陷）。"
+    },
+    {
+      "id": "ho-016",
+      "stem": "计算曲面积分 $\\displaystyle\\iint_{\\Sigma}x\\,\\mathrm{d}y\\,\\mathrm{d}z+y\\,\\mathrm{d}z\\,\\mathrm{d}x+z\\,\\mathrm{d}x\\,\\mathrm{d}y$，其中 $\\Sigma$ 是球面 $x^{2}+y^{2}+z^{2}=1$ 的外侧。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.curvesurface.surface_int_second_gauss",
+      "secondary_kp_ids": [
+        "math1.calc.curvesurface.surface_int_first"
+      ],
+      "difficulty": 2,
+      "source": "2021 年数学（一）真题",
+      "note": "用高斯公式化为 $\\iiint_{\\Omega}3\\,\\mathrm{d}v=4\\pi$。"
+    },
+    {
+      "id": "ho-017",
+      "stem": "求幂级数 $\\displaystyle\\sum_{n=1}^{\\infty}\\frac{x^{n}}{n}$ 的收敛半径与收敛域。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.series.power_interval",
+      "secondary_kp_ids": [
+        "math1.calc.series.concepts"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "$R=1$，端点 $x=-1$ 收敛、$x=1$ 发散，收敛域 $[-1,1)$。"
+    },
+    {
+      "id": "ho-018",
+      "stem": "求微分方程 $y''-3y'+2y=e^{x}$ 的通解。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.ode.linear2_nonhomo",
+      "secondary_kp_ids": [
+        "math1.calc.ode.linear2_homo"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "齐次特征根 1、2；非齐次项 $e^{x}$ 与单根重合，设特解 $y^{*}=Axe^{x}$。⚠️ 注意不能与「二阶常系数齐次方程」合并 —— 两者是不同考点。"
+    },
+    {
+      "id": "ho-019",
+      "stem": "设 $A$ 为 3 阶矩阵，$|A|=2$，求 $|A^{*}|$ 与 $|(2A)^{-1}|$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.linalg.det.abstract_det",
+      "secondary_kp_ids": [
+        "math1.linalg.matrix.adjoint"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "$|A^{*}|=|A|^{n-1}=4$；$|(2A)^{-1}|=1/(2^{3}\\cdot2)=1/16$。"
+    },
+    {
+      "id": "ho-020",
+      "stem": "求齐次线性方程组 $Ax=0$ 的基础解系与通解，其中 $A$ 的秩 $r(A)=2$，$A$ 为 $4\\times5$ 矩阵。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.linalg.system.homogeneous",
+      "secondary_kp_ids": [
+        "math1.linalg.system.fundamental"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "基础解系含 $n-r(A)=3$ 个向量。"
+    },
+    {
+      "id": "ho-021",
+      "stem": "设 $A=\\begin{pmatrix}2&1\\\\1&2\\end{pmatrix}$，求 $A$ 的特征值与特征向量。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.linalg.eigen.eigenvalue",
+      "secondary_kp_ids": [
+        "math1.linalg.eigen.property"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "解 $|A-\\lambda E|=0$ 得 $\\lambda_1=1,\\lambda_2=3$。"
+    },
+    {
+      "id": "ho-022",
+      "stem": "已知 $P(A)=0.5$，$P(B)=0.4$，$P(AB)=0.2$，求条件概率 $P(A\\mid B)$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.prob.events.conditional",
+      "secondary_kp_ids": [
+        "math1.prob.events.prob_props"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "$P(A|B)=P(AB)/P(B)=0.5$。"
+    },
+    {
+      "id": "ho-023",
+      "stem": "设 $X\\sim B(10,0.3)$，求 $E(X)$ 与 $D(X)$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.prob.numchar.common_char",
+      "secondary_kp_ids": [
+        "math1.prob.rv1.common_discrete"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "$E(X)=np=3$，$D(X)=np(1-p)=2.1$。"
+    },
+    {
+      "id": "ho-024",
+      "stem": "设总体 $X$ 的概率密度为 $f(x;\\theta)=\\theta x^{\\theta-1}$（$0<x<1$，$\\theta>0$），$X_1,\\dots,X_n$ 为样本，求 $\\theta$ 的最大似然估计。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.prob.stat.mle",
+      "secondary_kp_ids": [],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "写出 $L(\\theta)$，取对数后求导令零。"
+    },
+    {
+      "id": "ho-025",
+      "stem": "设 $X\\sim N(2,4)$，求 $P\\{X<4\\}$（用标准正态分布函数 $\\Phi$ 表示）。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.prob.rv1.normal_distribution",
+      "secondary_kp_ids": [
+        "math1.prob.rv1.distribution_function"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "标准化：$\\Phi((4-2)/2)=\\Phi(1)$。"
+    }
+  ]
+}

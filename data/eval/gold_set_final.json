@@ -1,0 +1,184 @@
+{
+  "version": "0.1.0",
+  "updated_at": "2026-03-15",
+  "note": "M3 召回率的**最终验证集**。三个集的角色必须分清，否则数字没有意义：gold_set.json（开发集）= 调权重看它；gold_set_holdout.json（留出集）= 用它诊断缺陷，因此**已被污染**；本文件 = 缺陷修完之后编写，**只测一次，不再据此改动任何别名或阈值**。任何『召回率 X%』的结论都应引用本集的数字。",
+  "usage_rule": "本集只允许运行一次。如果结果不达标，正确做法是记录不达标并按缺陷分类，而不是回来改别名再跑 —— 那样它就退化成第三个开发集。",
+  "problems": [
+    {
+      "id": "fv-001",
+      "stem": "求 $\\displaystyle\\lim_{x\\to0}\\frac{1-\\cos x}{x^{2}}$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.calc.limit.eq_infinitesimal",
+      "secondary_kp_ids": [
+        "math1.calc.limit.taylor"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "$1-\\cos x\\sim\\frac{x^2}{2}$，标准等价无穷小题。"
+    },
+    {
+      "id": "fv-002",
+      "stem": "设 $a_1=1$，$a_{n+1}=\\sqrt{3+a_n}$，证明数列 $\\{a_n\\}$ 收敛并求其极限。",
+      "qtype": "proof",
+      "primary_kp_id": "math1.calc.limit.existence",
+      "secondary_kp_ids": [
+        "math1.calc.limit.seq"
+      ],
+      "difficulty": 3,
+      "source": "教材习题",
+      "note": "先归纳法证有界，再证单调，最后对递推式取极限。"
+    },
+    {
+      "id": "fv-003",
+      "stem": "设 $f$ 在 $[0,2]$ 上连续，且 $f(0)=1$、$f(2)=3$，证明存在 $\\xi\\in[0,2]$ 使 $f(\\xi)=2$。",
+      "qtype": "proof",
+      "primary_kp_id": "math1.calc.limit.closed_interval",
+      "secondary_kp_ids": [
+        "math1.calc.limit.zero_point"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "介值定理的直接应用。"
+    },
+    {
+      "id": "fv-004",
+      "stem": "设 $f(x)=|x-1|$，讨论 $f$ 在 $x=1$ 处的可导性。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.diff.derivative_def",
+      "secondary_kp_ids": [],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "用左右导数定义判断，左右导数不相等。"
+    },
+    {
+      "id": "fv-005",
+      "stem": "证明：若 $f$ 在 $[0,1]$ 上连续、在 $(0,1)$ 内可导，且 $f(0)=f(1)=0$，则存在 $\\xi\\in(0,1)$ 使 $f'(\\xi)=0$。",
+      "qtype": "proof",
+      "primary_kp_id": "math1.calc.diff.mvt",
+      "secondary_kp_ids": [
+        "math1.calc.diff.proof_application"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "罗尔定理的标准叙述。"
+    },
+    {
+      "id": "fv-006",
+      "stem": "求由曲线 $y=x^{2}$ 与直线 $y=x$ 所围平面图形绕 $x$ 轴旋转所得旋转体的体积。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.integral.geometry",
+      "secondary_kp_ids": [
+        "math1.calc.integral.definite_properties"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "$V=\\pi\\int_0^1(x^2-x^4)\\,\\mathrm{d}x$。"
+    },
+    {
+      "id": "fv-007",
+      "stem": "求函数 $f(x,y)=x^{2}+y^{2}$ 在点 $(1,1)$ 处沿方向 $\\vec{l}=(1,1)$ 的方向导数。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.multidiff.directional_gradient",
+      "secondary_kp_ids": [
+        "math1.calc.multidiff.partial_derivative"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "$\\frac{\\partial f}{\\partial l}=\\mathrm{grad}f\\cdot\\vec{e}_l=\\sqrt{2}$。"
+    },
+    {
+      "id": "fv-008",
+      "stem": "交换二次积分 $\\displaystyle\\int_{0}^{1}\\mathrm{d}x\\int_{x^{2}}^{x}f(x,y)\\,\\mathrm{d}y$ 的积分次序。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.multiintegral.order_exchange",
+      "secondary_kp_ids": [
+        "math1.calc.multiintegral.double_cartesian"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "先画出积分区域，再改写为 $y$ 型。"
+    },
+    {
+      "id": "fv-009",
+      "stem": "计算 $\\displaystyle\\oint_{L}(2xy-x^{2})\\,\\mathrm{d}x+(x+y^{2})\\,\\mathrm{d}y$，其中 $L$ 是由 $y=x^{2}$ 与 $y=1$ 围成区域的正向边界。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.curvesurface.line_int_second_green",
+      "secondary_kp_ids": [
+        "math1.calc.multiintegral.double_cartesian"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "格林公式化为二重积分 $\\iint_D(1-2x)\\,\\mathrm{d}\\sigma$。"
+    },
+    {
+      "id": "fv-010",
+      "stem": "求幂级数 $\\displaystyle\\sum_{n=1}^{\\infty}nx^{n}$ 的和函数。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.series.power_sum",
+      "secondary_kp_ids": [
+        "math1.calc.series.power_interval"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "逐项求导或由 $\\sum x^n$ 求导得到。"
+    },
+    {
+      "id": "fv-011",
+      "stem": "设 3 阶矩阵 $A$ 的特征值为 $1,2,3$，求 $|A|$ 与 $\\operatorname{tr}(A)$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.linalg.eigen.property",
+      "secondary_kp_ids": [
+        "math1.linalg.eigen.eigenvalue"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "$|A|=\\prod\\lambda_i=6$，$\\operatorname{tr}(A)=\\sum\\lambda_i=6$。"
+    },
+    {
+      "id": "fv-012",
+      "stem": "设二维随机变量 $(X,Y)$ 的联合概率密度为 $f(x,y)$，求 $X$ 的边缘概率密度 $f_X(x)$。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.prob.rv2.joint_marginal",
+      "secondary_kp_ids": [
+        "math1.prob.rv2.joint_distribution"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "$f_X(x)=\\int_{-\\infty}^{+\\infty}f(x,y)\\,\\mathrm{d}y$。"
+    },
+    {
+      "id": "fv-013",
+      "stem": "设 $D(X)=4$，求 $D(-2X+1)$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.prob.numchar.exp_props",
+      "secondary_kp_ids": [
+        "math1.prob.numchar.variance"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "$D(aX+b)=a^{2}D(X)=16$。"
+    },
+    {
+      "id": "fv-014",
+      "stem": "设总体 $X\\sim U(0,\\theta)$，$X_1,\\dots,X_n$ 为样本，求 $\\theta$ 的矩估计量。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.prob.stat.moment_est",
+      "secondary_kp_ids": [],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "$E(X)=\\theta/2=\\bar{X}\\Rightarrow\\hat{\\theta}=2\\bar{X}$。"
+    },
+    {
+      "id": "fv-015",
+      "stem": "当 $\\lambda$ 取何值时，线性方程组 $\\begin{cases}\\lambda x_1+x_2+x_3=1\\\\ x_1+\\lambda x_2+x_3=\\lambda\\\\ x_1+x_2+\\lambda x_3=\\lambda^{2}\\end{cases}$ 有唯一解、无解、有无穷多解？",
+      "qtype": "solve",
+      "primary_kp_id": "math1.linalg.system.parameter",
+      "secondary_kp_ids": [
+        "math1.linalg.det.cramer"
+      ],
+      "difficulty": 3,
+      "source": "教材习题",
+      "note": "系数行列式 $D=(\\lambda-1)^{2}(\\lambda+2)$，按 $\\lambda$ 分类讨论。"
+    }
+  ]
+}

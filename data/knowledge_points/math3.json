@@ -1,0 +1,3884 @@
+{
+  "version": "1.0.0",
+  "subject": "math3",
+  "subject_name": "考研数学（三）",
+  "updated_at": "2026-03-15",
+  "coverage": {
+    "status": "complete",
+    "chapters_done": [
+      "math3.calc.limit",
+      "math3.calc.diff",
+      "math3.calc.integral",
+      "math3.calc.multidiff",
+      "math3.calc.multiintegral",
+      "math3.calc.series",
+      "math3.calc.ode",
+      "math3.calc.econ",
+      "math3.linalg.det",
+      "math3.linalg.matrix",
+      "math3.linalg.vector",
+      "math3.linalg.system",
+      "math3.linalg.eigen",
+      "math3.linalg.quadratic",
+      "math3.prob.event",
+      "math3.prob.rv1",
+      "math3.prob.rv2",
+      "math3.prob.numeric",
+      "math3.prob.limit",
+      "math3.prob.stats"
+    ],
+    "chapters_todo": []
+  },
+  "id_convention": "math3.{科}.{章}.{知识点}；科: calc=高数 linalg=线代 prob=概率",
+  "exam_weight_formula": "章节级权威来源=data/exam_frequency.json：raw = total_appearances × avg_score，exam_weight = round(raw / max(raw), 2)。叶子级由 tools/data/merge_knowledge.py 派生：leaf = clamp(chapter × hotspot_boost × year_factor, 0.10, 1.00)，其中 hotspot_boost = 命中该章 hotspots ? 1.15 : 1.0，year_factor = 0.85 + 0.30 × min(len(exam_years), 15) / 15。",
+  "nodes": [
+    {
+      "id": "math3",
+      "name": "考研数学（三）",
+      "level": 1,
+      "parent_id": null,
+      "is_leaf": false,
+      "exam_weight": 1.0
+    },
+    {
+      "id": "math3.calc",
+      "name": "高等数学",
+      "level": 1,
+      "parent_id": null,
+      "is_leaf": false,
+      "exam_weight": 0.85,
+      "exam_scope_note": "数学（三）高数不考曲线积分、曲面积分、三重积分、空间解析几何、傅里叶级数、欧拉方程；无穷级数要求低于数学（一），但须掌握一阶差分方程与经济应用。"
+    },
+    {
+      "id": "math3.calc.limit",
+      "name": "函数、极限与连续",
+      "level": 2,
+      "parent_id": "math3.calc",
+      "is_leaf": false,
+      "exam_weight": 0.95
+    },
+    {
+      "id": "math3.calc.limit.seq",
+      "name": "数列极限",
+      "level": 3,
+      "parent_id": "math3.calc.limit",
+      "is_leaf": false,
+      "exam_weight": 0.49
+    },
+    {
+      "id": "math3.calc.limit.seq.existence",
+      "name": "数列极限的存在准则",
+      "level": 4,
+      "parent_id": "math3.calc.limit.seq",
+      "is_leaf": true,
+      "definition": "两个准则：① 夹逼准则——若 y_n≤x_n≤z_n 且 lim y_n=lim z_n=A，则 lim x_n=A；② 单调有界准则——单调有界数列必收敛。后者是处理递推数列 x_{n+1}=f(x_n) 的标准工具：先证有界与单调，再对递推式两边取极限解方程。",
+      "formulas": [
+        "y_n\\le x_n\\le z_n,\\ \\lim_{n\\to\\infty}y_n=\\lim_{n\\to\\infty}z_n=A \\Rightarrow \\lim_{n\\to\\infty}x_n=A",
+        "\\{x_n\\}\\ \\text{单调有界} \\Rightarrow \\{x_n\\}\\ \\text{收敛}",
+        "x_{n+1}=f(x_n),\\ \\lim_{n\\to\\infty}x_n=a,\\ f\\ \\text{连续} \\Rightarrow a=f(a)"
+      ],
+      "common_traps": [
+        "★ 用递推式求极限时**先假设极限存在**再解 a=f(a)，跳过了有界性与单调性的证明（这是最典型的丢分点）",
+        "夹逼时放缩方向搞反，或两侧极限不相等就下结论",
+        "只证了单调没证有界（或反之），条件不完整",
+        "a=f(a) 解出多个根时，未用单调性或初值排除多余根"
+      ],
+      "exam_years": [
+        2010,
+        2014,
+        2017,
+        2020,
+        2023
+      ],
+      "typical_qtypes": [
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.54,
+      "weight_source": "derived",
+      "aliases": [
+        "单调有界准则",
+        "夹逼准则",
+        "a_{n+1}=f(a_n)",
+        "存在准则",
+        "数列极限"
+      ]
+    },
+    {
+      "id": "math3.calc.limit.seq.sum",
+      "name": "n 项和的极限与定积分定义",
+      "level": 4,
+      "parent_id": "math3.calc.limit.seq",
+      "is_leaf": true,
+      "definition": "形如 lim_{n→∞}(1/n)∑_{k=1}^{n} f(k/n) 的 n 项和极限，可用定积分定义化为 ∫_0^1 f(x)dx 计算。识别要点：各项能写成 f(k/n) 的『同构』形式且前面配好 1/n 因子；若配不上标准形式，则改用夹逼准则放缩，或用裂项相消求和后再取极限。",
+      "formulas": [
+        "\\lim_{n\\to\\infty}\\frac{1}{n}\\sum_{k=1}^{n}f\\!\\left(\\frac{k}{n}\\right)=\\int_{0}^{1}f(x)\\,dx",
+        "\\lim_{n\\to\\infty}\\frac{1}{n}\\sum_{k=1}^{n}f\\!\\left(a+\\frac{k(b-a)}{n}\\right)=\\frac{1}{b-a}\\int_{a}^{b}f(x)\\,dx",
+        "\\sum_{k=1}^{n}\\frac{1}{k(k+1)}=1-\\frac{1}{n+1}"
+      ],
+      "common_traps": [
+        "★ 求和式中 1/n 的配凑错误，把 \\frac{1}{n}\\sum f\\left(\\frac{2k}{n}\\right) 误当成 \\int_0^1 f(x)dx",
+        "看到 n 项和就盲目套定积分定义，忽略了含 n 的指数项应改用夹逼",
+        "把 \\sum_{k=1}^{n} 与 \\sum_{k=0}^{n-1} 的上下限搞混，导致积分限取反",
+        "变量代换后忘记同步变换积分上下限"
+      ],
+      "exam_years": [
+        2011,
+        2015,
+        2018,
+        2021,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.54,
+      "weight_source": "derived",
+      "aliases": [
+        "\\lim_{n\\to\\infty}\\frac{1}{n}\\sum_{k=1}^{n}f(\\frac{k}{n})=\\int_0^1f(x)\\mathrm{d}x",
+        "n 项和",
+        "n 项和的极限",
+        "极限",
+        "定积分定义"
+      ]
+    },
+    {
+      "id": "math3.calc.limit.funclimit",
+      "name": "函数极限",
+      "level": 3,
+      "parent_id": "math3.calc.limit",
+      "is_leaf": false,
+      "exam_weight": 0.8
+    },
+    {
+      "id": "math3.calc.limit.funclimit.infinitesimal",
+      "name": "无穷小的比较与阶",
+      "level": 4,
+      "parent_id": "math3.calc.limit.funclimit",
+      "is_leaf": true,
+      "definition": "若 lim(α/β)=0，称 α 是比 β 高阶的无穷小；若 lim(α/β)=∞，称 α 是比 β 低阶的；若 lim(α/β)=c≠0，称二者同阶；特别地 c=1 时称等价无穷小。若 lim(α/β^k)=c≠0，称 α 是 β 的 k 阶无穷小。求阶数时系数必须归一化。",
+      "formulas": [
+        "\\lim\\frac{\\alpha}{\\beta}=0 \\Rightarrow \\alpha=o(\\beta)",
+        "\\alpha\\sim\\beta \\iff \\lim\\frac{\\alpha}{\\beta}=1",
+        "\\alpha\\sim\\beta \\Rightarrow \\alpha=\\beta+o(\\beta)",
+        "\\lim\\frac{\\alpha}{\\beta^k}=c\\neq 0 \\Rightarrow \\alpha\\ \\text{是}\\ \\beta\\ \\text{的}\\ k\\ \\text{阶无穷小}"
+      ],
+      "common_traps": [
+        "★ 求『无穷小的阶』时忘记把系数归一化，导致阶数算错",
+        "两个无穷小相减后阶数会升高（如 x-\\sin x 是 3 阶而非 1 阶），仍按 1 阶处理",
+        "把『同阶』与『等价』混为一谈",
+        "求阶数时把低阶项当作主导项，未比较到首个不相消的幂次"
+      ],
+      "exam_years": [
+        2011,
+        2015,
+        2018,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.87,
+      "weight_source": "derived",
+      "aliases": [
+        "无穷小的比较",
+        "无穷小"
+      ]
+    },
+    {
+      "id": "math3.calc.limit.funclimit.equivalent",
+      "name": "等价无穷小替换",
+      "level": 4,
+      "parent_id": "math3.calc.limit.funclimit",
+      "is_leaf": true,
+      "definition": "当 x→0 时，若 α~α'、β~β'，则在**乘除**运算中可将 α 换成 α'、β 换成 β'，极限值不变。核心限制：只能用于乘除因子，不能用于加减项；加减场景须改用泰勒展开。使用前必须先验证极限过程确实是 x→0（或其他可代换的标准过程）。",
+      "formulas": [
+        "\\sin x\\sim x,\\quad \\tan x\\sim x,\\quad \\arcsin x\\sim x,\\quad \\arctan x\\sim x",
+        "1-\\cos x\\sim\\frac{x^2}{2},\\quad x-\\sin x\\sim\\frac{x^3}{6},\\quad \\tan x-x\\sim\\frac{x^3}{3}",
+        "\\ln(1+x)\\sim x,\\quad e^x-1\\sim x,\\quad (1+x)^\\alpha-1\\sim\\alpha x",
+        "\\sqrt[n]{1+x}-1\\sim\\frac{x}{n},\\quad \\log_a(1+x)\\sim\\frac{x}{\\ln a}"
+      ],
+      "common_traps": [
+        "★ 在加减法中滥用替换（最高频错误）。如 \\lim_{x\\to 0}\\frac{\\tan x-\\sin x}{x^3}，若各自替换成 x 会得 0，正确答案是 1/2",
+        "替换后遗漏同阶项，导致低阶相消后无法判断极限",
+        "x 趋于非 0 值时仍套用 x→0 的等价表，未先做变量代换",
+        "复合结构未化到标准形式就替换，如 \\sin(x+1) 在 x→0 时不能替换成 x+1"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.97,
+      "weight_source": "derived",
+      "aliases": [
+        "\\sin x\\sim x",
+        "\\ln(1+x)\\sim x",
+        "1-\\cos x\\sim\\frac{x^2}{2}"
+      ]
+    },
+    {
+      "id": "math3.calc.limit.funclimit.lhopital",
+      "name": "洛必达法则",
+      "level": 4,
+      "parent_id": "math3.calc.limit.funclimit",
+      "is_leaf": true,
+      "definition": "处理 0/0 或 ∞/∞ 型未定式：若 f、g 在 x₀ 某去心邻域可导、g'(x)≠0，且 lim f'/g' 存在（或为 ∞），则 lim f/g=lim f'/g'。三个条件缺一不可，其中『导数之比的极限必须存在』最易被忽略。其他类型的未定式须先化为这两种。",
+      "formulas": [
+        "\\lim\\frac{f(x)}{g(x)}\\ \\left(\\frac{0}{0}\\ \\text{或}\\ \\frac{\\infty}{\\infty}\\right)=\\lim\\frac{f'(x)}{g'(x)}",
+        "0\\cdot\\infty \\to \\frac{0}{1/\\infty}\\ \\text{或}\\ \\frac{\\infty}{1/0}",
+        "\\infty-\\infty \\to \\text{通分或提取公因子}",
+        "1^{\\infty},\\ 0^0,\\ \\infty^0 \\to \\text{取对数化为}\\ 0\\cdot\\infty"
+      ],
+      "common_traps": [
+        "★ 未验证是否为 0/0 或 ∞/∞ 型就直接使用（前提不满足时结论无效）",
+        "导数之比的极限不存在时仍误用洛必达（如 (x+\\sin x)/x 型）",
+        "反复洛必达后陷入循环或式子越来越复杂，应改用等价无穷小或泰勒",
+        "对含不可导点的函数使用洛必达，忽略了可导性前提"
+      ],
+      "exam_years": [
+        2010,
+        2013,
+        2015,
+        2017,
+        2020,
+        2021
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.89,
+      "weight_source": "derived",
+      "aliases": [
+        "\\frac{0}{0}",
+        "\\frac{\\infty}{\\infty}",
+        "\\lim\\frac{f'(x)}{g'(x)}"
+      ]
+    },
+    {
+      "id": "math3.calc.limit.funclimit.taylor",
+      "name": "泰勒公式求极限",
+      "level": 4,
+      "parent_id": "math3.calc.limit.funclimit",
+      "is_leaf": true,
+      "definition": "将函数在某点展成幂级数，用多项式逼近。求极限时把分子分母都展开到『恰好能判定首项非零』的阶数，是处理加减型未定式最可靠的方法。核心技巧是展开阶数的选择：一般展到分子分母中最低次幂相消后的下一项。",
+      "formulas": [
+        "e^x=1+x+\\frac{x^2}{2!}+\\cdots+\\frac{x^n}{n!}+o(x^n)",
+        "\\sin x=x-\\frac{x^3}{3!}+\\frac{x^5}{5!}+\\cdots+(-1)^n\\frac{x^{2n+1}}{(2n+1)!}+o(x^{2n+1})",
+        "\\cos x=1-\\frac{x^2}{2!}+\\frac{x^4}{4!}+\\cdots+(-1)^n\\frac{x^{2n}}{(2n)!}+o(x^{2n})",
+        "\\ln(1+x)=x-\\frac{x^2}{2}+\\frac{x^3}{3}+\\cdots+(-1)^{n-1}\\frac{x^n}{n}+o(x^n)",
+        "(1+x)^\\alpha=1+\\alpha x+\\frac{\\alpha(\\alpha-1)}{2!}x^2+\\cdots+o(x^n)"
+      ],
+      "common_traps": [
+        "★ 展开阶数不够，分子首项相消后无法判定（最典型错误）",
+        "分子分母展开到不同阶，破坏了同阶比较的前提",
+        "忘写余项 o(x^n)，导致无法说明高阶项可忽略",
+        "在 x→非 0 点时直接套用 x→0 的展开式，未做平移代换"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2016,
+        2018,
+        2020,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.93,
+      "weight_source": "derived",
+      "aliases": [
+        "o(x^n)",
+        "e^x=1+x+\\frac{x^2}{2!}",
+        "麦克劳林展开",
+        "泰勒公式"
+      ]
+    },
+    {
+      "id": "math3.calc.diff",
+      "name": "一元函数微分学",
+      "level": 2,
+      "parent_id": "math3.calc",
+      "is_leaf": false,
+      "exam_weight": 1
+    },
+    {
+      "id": "math3.calc.diff.derivative",
+      "name": "导数与微分",
+      "level": 3,
+      "parent_id": "math3.calc.diff",
+      "is_leaf": false,
+      "exam_weight": 0.66
+    },
+    {
+      "id": "math3.calc.diff.derivative.def",
+      "name": "导数的定义与可导性",
+      "level": 4,
+      "parent_id": "math3.calc.diff.derivative",
+      "is_leaf": true,
+      "definition": "f 在 x₀ 可导指极限 lim_{Δx→0}[f(x₀+Δx)-f(x₀)]/Δx 存在，其值记为 f'(x₀)。可导必连续，连续未必可导。判断分段函数在分界点是否可导，必须用定义分别求左右导数并比较。",
+      "formulas": [
+        "f'(x_0)=\\lim_{\\Delta x\\to 0}\\frac{f(x_0+\\Delta x)-f(x_0)}{\\Delta x}=\\lim_{x\\to x_0}\\frac{f(x)-f(x_0)}{x-x_0}",
+        "f\\ \\text{在}\\ x_0\\ \\text{可导} \\iff f'_-(x_0)=f'_+(x_0)",
+        "f\\ \\text{在}\\ x_0\\ \\text{可导} \\Rightarrow f\\ \\text{在}\\ x_0\\ \\text{连续}",
+        "\\lim_{x\\to 0}\\frac{f(x_0+ax)-f(x_0+bx)}{x}=(a-b)f'(x_0)"
+      ],
+      "common_traps": [
+        "★ 求分段函数分界点导数时直接对两段表达式求导再代值，而不用定义验证左右导数",
+        "把『连续』当作『可导』的充分条件（如 |x| 在 0 处连续但不可导）",
+        "在抽象函数极限中误用 f'(x_0) 的定义，如把 \\lim_{h\\to 0}\\frac{f(x_0+h)-f(x_0-h)}{h} 当成 f'(x_0)（实为 2f'(x_0)）",
+        "忽略『在 x_0 的某邻域内有定义』这一前提，直接套用定义"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2015,
+        2018,
+        2020,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.74,
+      "weight_source": "derived",
+      "aliases": [
+        "f'(x_0)=\\lim_{\\Delta x\\to0}\\frac{f(x_0+\\Delta x)-f(x_0)}{\\Delta x}",
+        "可导必连续",
+        "导数的定义",
+        "可导性"
+      ]
+    },
+    {
+      "id": "math3.calc.diff.derivative.rules",
+      "name": "求导法则与高阶导数",
+      "level": 4,
+      "parent_id": "math3.calc.diff.derivative",
+      "is_leaf": true,
+      "definition": "四则运算、复合函数链式法则、反函数与隐函数求导是对一元函数求导的基本工具。高阶导数 f^{(n)}(x) 是逐阶求导的结果；求 f^{(n)}(0) 时常用泰勒展开或莱布尼茨公式，而不是逐阶硬算。",
+      "formulas": [
+        "(uv)'=u'v+uv',\\quad \\left(\\frac{u}{v}\\right)'=\\frac{u'v-uv'}{v^2}",
+        "\\{f[g(x)]\\}'=f'[g(x)]\\cdot g'(x)",
+        "[f^{-1}(x)]'=\\frac{1}{f'(y)}\\Big|_{y=f^{-1}(x)}",
+        "(uv)^{(n)}=\\sum_{k=0}^{n}\\binom{n}{k}u^{(n-k)}v^{(k)}",
+        "(e^{ax})^{(n)}=a^n e^{ax},\\quad (\\sin x)^{(n)}=\\sin\\!\\left(x+\\frac{n\\pi}{2}\\right),\\quad \\left(\\frac{1}{x+a}\\right)^{(n)}=\\frac{(-1)^n n!}{(x+a)^{n+1}}"
+      ],
+      "common_traps": [
+        "★ 复合函数求导漏乘内层导数（链式法则因子丢失），是最高频的计算失误",
+        "隐函数求导后忘记 y 是 x 的函数，对含 y 的项未乘 y'",
+        "求高阶导数时对乘积直接逐项求导，未使用莱布尼茨公式导致项数混乱",
+        "反函数求导公式中把 f'(y) 误写成 f'(x)，或忘记取倒数"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2016,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        3
+      ],
+      "exam_weight": 0.75,
+      "weight_source": "derived",
+      "aliases": [
+        "求导法则",
+        "高阶导数"
+      ]
+    },
+    {
+      "id": "math3.calc.diff.theorem",
+      "name": "微分中值定理",
+      "level": 3,
+      "parent_id": "math3.calc.diff",
+      "is_leaf": false,
+      "exam_weight": 0.78
+    },
+    {
+      "id": "math3.calc.diff.theorem.mvt",
+      "name": "罗尔定理与拉格朗日中值定理",
+      "level": 4,
+      "parent_id": "math3.calc.diff.theorem",
+      "is_leaf": true,
+      "definition": "罗尔定理：f 在 [a,b] 连续、(a,b) 可导且 f(a)=f(b)，则存在 ξ∈(a,b) 使 f'(ξ)=0。拉格朗日中值定理：f 在 [a,b] 连续、(a,b) 可导，则存在 ξ∈(a,b) 使 f(b)-f(a)=f'(ξ)(b-a)。证明题的关键是构造满足条件的辅助函数。",
+      "formulas": [
+        "f(a)=f(b),\\ f\\in C[a,b],\\ f\\ \\text{在}(a,b)\\text{可导} \\Rightarrow \\exists\\xi\\in(a,b):\\ f'(\\xi)=0",
+        "f(b)-f(a)=f'(\\xi)(b-a),\\quad \\xi\\in(a,b)",
+        "f(b)-f(a)=f'(\\xi)(b-a) \\iff \\frac{f(b)-f(a)}{b-a}=f'(\\xi)",
+        "|f(x_1)-f(x_2)|\\le M|x_1-x_2|\\ \\text{当}\\ |f'|\\le M"
+      ],
+      "common_traps": [
+        "★ 罗尔定理的三个条件（闭区间连续、开区间可导、端点值相等）记不全就直接使用",
+        "结论中的 ξ 是开区间 (a,b) 内的点，却写成闭区间 [a,b] 或写成中点",
+        "证明 f'(ξ)=0 类问题时不会构造辅助函数（如 F(x)=e^{kx}f(x) 或 F(x)=f(x)g(x)）",
+        "对多区间使用中值定理时，未说明各 ξ 落在互不相交的子区间内"
+      ],
+      "exam_years": [
+        2010,
+        2013,
+        2015,
+        2018,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "proof",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.87,
+      "weight_source": "derived",
+      "aliases": [
+        "f'(\\xi)=0",
+        "\\frac{f(b)-f(a)}{b-a}=f'(\\xi)",
+        "罗尔定理",
+        "拉格朗日中值定理"
+      ]
+    },
+    {
+      "id": "math3.calc.diff.theorem.cauchy",
+      "name": "柯西中值定理与泰勒中值定理",
+      "level": 4,
+      "parent_id": "math3.calc.diff.theorem",
+      "is_leaf": true,
+      "definition": "柯西中值定理：f、g 在 [a,b] 连续、(a,b) 可导且 g'(x)≠0，则存在 ξ∈(a,b) 使 [f(b)-f(a)]/[g(b)-g(a)]=f'(ξ)/g'(ξ)。泰勒中值定理给出带拉格朗日余项的展开式，常用于证明不等式与估计误差。",
+      "formulas": [
+        "\\frac{f(b)-f(a)}{g(b)-g(a)}=\\frac{f'(\\xi)}{g'(\\xi)},\\quad \\xi\\in(a,b),\\ g'(x)\\neq 0",
+        "f(x)=\\sum_{k=0}^{n}\\frac{f^{(k)}(x_0)}{k!}(x-x_0)^k+\\frac{f^{(n+1)}(\\xi)}{(n+1)!}(x-x_0)^{n+1}",
+        "R_n(x)=\\frac{f^{(n+1)}(\\xi)}{(n+1)!}(x-x_0)^{n+1},\\quad \\xi\\ \\text{介于}\\ x_0\\ \\text{与}\\ x\\ \\text{之间}",
+        "f(x)=f(x_0)+f'(x_0)(x-x_0)+\\frac{f''(\\xi)}{2}(x-x_0)^2"
+      ],
+      "common_traps": [
+        "★ 使用柯西中值定理时未验证 g'(x)≠0，或把两个中值定理的 ξ 误认为同一个点",
+        "拉格朗日余项中的 ξ 依赖于 x，被错当成固定常数",
+        "证明不等式的展开点 x₀ 选择不当，导致余项符号无法控制",
+        "用带拉格朗日余项的泰勒公式时忽略了对 f^{(n+1)} 有界的说明"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2016,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "proof",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.85,
+      "weight_source": "derived",
+      "aliases": [
+        "\\frac{f(b)-f(a)}{g(b)-g(a)}=\\frac{f'(\\xi)}{g'(\\xi)}",
+        "柯西中值定理",
+        "拉格朗日余项",
+        "泰勒中值定理"
+      ]
+    },
+    {
+      "id": "math3.calc.diff.apply",
+      "name": "导数的应用",
+      "level": 3,
+      "parent_id": "math3.calc.diff",
+      "is_leaf": false,
+      "exam_weight": 0.75
+    },
+    {
+      "id": "math3.calc.diff.apply.concave_inflection",
+      "name": "凹凸性与拐点",
+      "level": 4,
+      "parent_id": "math3.calc.diff.apply",
+      "is_leaf": true,
+      "definition": "凸（下凸、凹向上）指曲线位于其切线上方，等价于 f''(x)≥0；凹（上凸）等价于 f''(x)≤0。拐点是凹凸性改变的点，必要条件是该点处 f''=0 或 f'' 不存在，且必须校验左右两侧 f'' 变号。凸函数还有一个不依赖二阶可导的弦定义。",
+      "formulas": [
+        "f''(x)>0 \\Rightarrow \\text{曲线下凸（凹向上）}",
+        "f''(x_0)=0\\ \\text{且}\\ f''\\ \\text{在}\\ x_0\\ \\text{两侧变号} \\Rightarrow (x_0,f(x_0))\\ \\text{为拐点}",
+        "f\\ \\text{为凸函数} \\iff f(\\lambda x_1+(1-\\lambda)x_2)\\le\\lambda f(x_1)+(1-\\lambda)f(x_2),\\ \\lambda\\in[0,1]",
+        "f(x_2)\\ge f(x_1)+f'(x_1)(x_2-x_1)\\ (f\\ \\text{凸})"
+      ],
+      "common_traps": [
+        "★ 只由 f''(x_0)=0 就断定 (x_0,f(x_0)) 是拐点，未验证两侧 f'' 变号（如 y=x^4 在 0 处）",
+        "国内教材『凸』多指 f''>0（凹向上），与部分英文教材符号约定相反，读题时未确认约定",
+        "误以为拐点处一定有 f''=0（f'' 不存在的点也可能是拐点，如 y=x^{1/3} 在 0 处）",
+        "用凹凸性证明不等式时未先判定函数在区间上的凹凸性"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2016,
+        2018,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.84,
+      "weight_source": "derived",
+      "aliases": [
+        "f''(x)=0",
+        "拐点",
+        "凹凸性"
+      ]
+    },
+    {
+      "id": "math3.calc.diff.apply.asymptote_curve",
+      "name": "渐近线与函数作图",
+      "level": 4,
+      "parent_id": "math3.calc.diff.apply",
+      "is_leaf": true,
+      "definition": "渐近线三类：① 水平渐近线 y=b，当 lim_{x→±∞}f(x)=b；② 铅直渐近线 x=x₀，当 lim_{x→x₀}f(x)=∞；③ 斜渐近线 y=ax+b，当 a=lim_{x→∞}f(x)/x 与 b=lim_{x→∞}[f(x)-ax] 均存在且 a≠0。函数作图须综合定义域、奇偶性、单调性、凹凸性、渐近线与关键点。",
+      "formulas": [
+        "\\lim_{x\\to\\infty}f(x)=b \\Rightarrow y=b\\ \\text{为水平渐近线}",
+        "\\lim_{x\\to x_0^{\\pm}}f(x)=\\infty \\Rightarrow x=x_0\\ \\text{为铅直渐近线}",
+        "a=\\lim_{x\\to\\infty}\\frac{f(x)}{x},\\quad b=\\lim_{x\\to\\infty}[f(x)-ax]",
+        "y=ax+b\\ \\text{为斜渐近线} \\iff a,b\\ \\text{均存在且}\\ a\\neq 0"
+      ],
+      "common_traps": [
+        "★ 找斜渐近线时只算了 a 就下结论，忘记继续求 b；或 a=0 时仍称斜渐近线（应为水平）",
+        "漏掉 x→-∞ 方向，一条曲线在同侧可同时有水平与铅直渐近线，但同一方向不能同时有水平与斜渐近线",
+        "求铅直渐近线时只检查分母为零的点，漏掉无定义点或对数真数为零的点",
+        "作图时遗漏定义域中的间断点与不可导点"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2017,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.84,
+      "weight_source": "derived",
+      "aliases": [
+        "y=kx+b",
+        "渐近线",
+        "函数作图"
+      ]
+    },
+    {
+      "id": "math3.calc.integral",
+      "name": "一元函数积分学",
+      "level": 2,
+      "parent_id": "math3.calc",
+      "is_leaf": false,
+      "exam_weight": 0.95
+    },
+    {
+      "id": "math3.calc.integral.indefinite",
+      "name": "不定积分",
+      "level": 3,
+      "parent_id": "math3.calc.integral",
+      "is_leaf": false,
+      "exam_weight": 0.66
+    },
+    {
+      "id": "math3.calc.integral.indefinite.basic",
+      "name": "基本积分表与凑微分法",
+      "level": 4,
+      "parent_id": "math3.calc.integral.indefinite",
+      "is_leaf": true,
+      "definition": "基本积分表是积分运算的底层工具，必须熟记到条件反射。凑微分法（第一类换元法）本质是反向使用链式法则：把被积式中的一部分凑成 du 的形式，使积分化为 ∫f(u)du。熟练的标志是能一眼看出 d(ln x)=dx/x、d(arctan x)=dx/(1+x²) 这类常见凑法。",
+      "formulas": [
+        "\\int x^{\\mu}\\,dx=\\frac{x^{\\mu+1}}{\\mu+1}+C\\ (\\mu\\neq -1),\\quad \\int\\frac{dx}{x}=\\ln|x|+C",
+        "\\int e^x dx=e^x+C,\\quad \\int a^x dx=\\frac{a^x}{\\ln a}+C",
+        "\\int\\frac{dx}{1+x^2}=\\arctan x+C,\\quad \\int\\frac{dx}{\\sqrt{1-x^2}}=\\arcsin x+C",
+        "\\int\\tan x\\,dx=-\\ln|\\cos x|+C,\\quad \\int\\sec x\\,dx=\\ln|\\sec x+\\tan x|+C",
+        "\\int\\frac{dx}{a^2+x^2}=\\frac{1}{a}\\arctan\\frac{x}{a}+C\\ (a>0)"
+      ],
+      "common_traps": [
+        "★ 漏掉 \\int\\frac{dx}{x}=\\ln|x|+C 中的绝对值，导致含负区间的定积分出错",
+        "凑微分时凑出的 du 与原有因子差一个常数，忘记在积分号外补上倒数因子",
+        "把 \\int\\frac{dx}{a^2+x^2} 误写成 \\ln(a^2+x^2) 或漏掉 1/a 系数",
+        "对 \\int\\frac{1}{x^2-a^2}dx 与 \\int\\frac{1}{a^2+x^2}dx 两个公式记混"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.77,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int f(g(x))g'(x)\\mathrm{d}x",
+        "凑微分",
+        "基本积分表",
+        "凑微分法"
+      ]
+    },
+    {
+      "id": "math3.calc.integral.indefinite.substitution",
+      "name": "第二类换元积分法",
+      "level": 4,
+      "parent_id": "math3.calc.integral.indefinite",
+      "is_leaf": true,
+      "definition": "当被积函数含根式时，通过变量代换 x=φ(t) 把根式消去，算出关于 t 的积分后再回代。三类标准代换：含 √(a²-x²) 令 x=a sin t；含 √(a²+x²) 令 x=a tan t；含 √(x²-a²) 令 x=a sec t。三角有理式万能代换 t=tan(x/2) 也是第二类换元的特例。",
+      "formulas": [
+        "\\sqrt{a^2-x^2}:\\ x=a\\sin t,\\ dx=a\\cos t\\,dt",
+        "\\sqrt{a^2+x^2}:\\ x=a\\tan t,\\ dx=a\\sec^2 t\\,dt",
+        "\\sqrt{x^2-a^2}:\\ x=a\\sec t,\\ dx=a\\sec t\\tan t\\,dt",
+        "\\int f(x)\\,dx=\\int f[\\varphi(t)]\\varphi'(t)\\,dt,\\quad x=\\varphi(t)\\ \\text{单调可导},\\ \\varphi'(t)\\neq 0",
+        "t=\\tan\\frac{x}{2}:\\ \\sin x=\\frac{2t}{1+t^2},\\ \\cos x=\\frac{1-t^2}{1+t^2},\\ dx=\\frac{2}{1+t^2}dt"
+      ],
+      "common_traps": [
+        "★ 定积分用换元时**忘记同步变换积分上下限**，把 t 的积分限仍写成 x 的（最高频错误之一）",
+        "三角代换后未画辅助直角三角形回代，直接把 t 留在答案里",
+        "代换函数不单调，导致回代开方时符号判断错误（如 \\sqrt{a^2\\sin^2 t}=a|\\sin t|）",
+        "万能代换后会得到有理函数积分，但未验证 x=π 等使 t 无定义的点"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.74,
+      "weight_source": "derived"
+    },
+    {
+      "id": "math3.calc.integral.indefinite.parts",
+      "name": "分部积分法",
+      "level": 4,
+      "parent_id": "math3.calc.integral.indefinite",
+      "is_leaf": true,
+      "definition": "∫u dv=uv-∫v du，用于被积函数是两类不同函数乘积的情形。选取 u 的口诀是『反、对、幂、指、三』优先顺序（反三角、对数、幂、指数、三角），排在前的取作 u。对数与反三角函数类积分几乎必须用分部积分。",
+      "formulas": [
+        "\\int u\\,dv=uv-\\int v\\,du",
+        "\\int x e^x dx=(x-1)e^x+C",
+        "\\int x\\sin x\\,dx=-x\\cos x+\\sin x+C",
+        "\\int \\ln x\\,dx=x\\ln x-x+C",
+        "\\int e^{ax}\\sin bx\\,dx=\\frac{e^{ax}(a\\sin bx-b\\cos bx)}{a^2+b^2}+C"
+      ],
+      "common_traps": [
+        "★ u 与 v 选取颠倒，导致新积分比原积分更复杂（如 \\int x\\ln x\\,dx 中把 x 取作 u）",
+        "对 \\int e^{ax}\\sin bx\\,dx 这类循环型积分，第二次分部后未移项解出，而是认为回到原点",
+        "分部积分中符号写错，漏掉 uv 项或把减号写成加号",
+        "定积分分部后忘记代入上下限，只算了不定积分"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.75,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int u\\mathrm{d}v=uv-\\int v\\mathrm{d}u"
+      ]
+    },
+    {
+      "id": "math3.calc.integral.definite",
+      "name": "定积分",
+      "level": 3,
+      "parent_id": "math3.calc.integral",
+      "is_leaf": false,
+      "exam_weight": 1.0
+    },
+    {
+      "id": "math3.calc.integral.definite.concept",
+      "name": "定积分的定义与性质",
+      "level": 4,
+      "parent_id": "math3.calc.integral.definite",
+      "is_leaf": true,
+      "definition": "定积分 ∫_a^b f(x)dx 是黎曼和的极限，是一个确定的数，与积分变量记号无关。可积的充分条件是 f 在 [a,b] 上有界且只有有限个间断点。定积分对区间有可加性，且有保号性、估值定理与积分中值定理。",
+      "formulas": [
+        "\\int_a^b f(x)\\,dx=\\lim_{\\lambda\\to 0}\\sum_{i=1}^{n}f(\\xi_i)\\Delta x_i",
+        "\\int_a^b f(x)\\,dx=-\\int_b^a f(x)\\,dx,\\quad \\int_a^a f(x)\\,dx=0",
+        "\\int_a^b f(x)\\,dx=\\int_a^c f(x)\\,dx+\\int_c^b f(x)\\,dx",
+        "m(b-a)\\le\\int_a^b f(x)\\,dx\\le M(b-a)",
+        "\\int_a^b f(x)\\,dx=f(\\xi)(b-a),\\quad \\xi\\in[a,b]"
+      ],
+      "common_traps": [
+        "★ 把定积分与不定积分混为一谈，认为定积分结果中含常数 C 或含变量 x",
+        "对无界函数直接套用可积结论（如 \\int_0^1\\frac{1}{x}dx 是瑕积分，须按反常积分处理）",
+        "使用积分中值定理时未验证 f 在 [a,b] 上连续",
+        "保号性反向使用：由 \\int_a^b f>0 反推 f(x)>0 在区间上处处成立"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2021,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "定积分的定义",
+        "定积分"
+      ]
+    },
+    {
+      "id": "math3.calc.integral.definite.ftc",
+      "name": "变限积分与牛顿-莱布尼茨公式",
+      "level": 4,
+      "parent_id": "math3.calc.integral.definite",
+      "is_leaf": true,
+      "definition": "变限积分 Φ(x)=∫_a^x f(t)dt 当 f 连续时可导且 Φ'(x)=f(x)，它是 f 的一个原函数，因此连续函数必存在原函数。牛顿-莱布尼茨公式把定积分化为原函数在端点的差值，是计算定积分的主通道。变限积分与极限、导数结合的题目是数三高频题型。",
+      "formulas": [
+        "\\Phi(x)=\\int_a^x f(t)\\,dt \\Rightarrow \\Phi'(x)=f(x)",
+        "\\frac{d}{dx}\\int_{a(x)}^{b(x)}f(t)\\,dt=f[b(x)]b'(x)-f[a(x)]a'(x)",
+        "\\int_a^b f(x)\\,dx=F(b)-F(a),\\quad F'=f",
+        "\\lim_{x\\to 0}\\frac{\\int_0^x f(t)\\,dt}{x}=f(0)\\ (f\\ \\text{连续})"
+      ],
+      "common_traps": [
+        "★ 上下限含 x 时漏乘上下限的导数（只写 f(b(x))-f(a(x))）",
+        "被积函数中含 x 时未先把 x 提到积分号外或做变量替换，就直接求导",
+        "使用牛顿-莱布尼茨公式前未检查 f 在 [a,b] 上是否连续（有瑕点时公式失效）",
+        "变限积分求导时忽略 f 的连续性前提，遇到跳跃间断点仍直接求导"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int_a^b f(x)\\mathrm{d}x=F(b)-F(a)",
+        "\\Phi(x)=\\int_a^x f(t)\\mathrm{d}t",
+        "牛顿-莱布尼茨公式",
+        "变限积分求导",
+        "变限积分"
+      ]
+    },
+    {
+      "id": "math3.calc.integral.definite.improper",
+      "name": "反常积分的敛散性",
+      "level": 4,
+      "parent_id": "math3.calc.integral.definite",
+      "is_leaf": true,
+      "definition": "反常积分分两类：无穷区间上的积分与无界函数的积分（瑕积分）。用极限定义其收敛性，收敛才是一个数。两个基准结论必须背熟：∫_1^{+∞}dx/x^p 当 p>1 收敛、p≤1 发散；∫_0^1 dx/x^p 当 p<1 收敛、p≥1 发散。",
+      "formulas": [
+        "\\int_a^{+\\infty}f(x)\\,dx=\\lim_{b\\to+\\infty}\\int_a^b f(x)\\,dx",
+        "\\int_1^{+\\infty}\\frac{dx}{x^p}\\ \\text{收敛} \\iff p>1",
+        "\\int_0^1\\frac{dx}{x^p}\\ \\text{收敛} \\iff p<1",
+        "\\int_1^{+\\infty}\\frac{dx}{x(\\ln x)^p}\\ \\text{收敛} \\iff p>1"
+      ],
+      "common_traps": [
+        "★ 两个 p 判别条件记反：无穷区间要求 p>1，瑕点要求 p<1，方向恰好相反",
+        "未先识别瑕点位置就按普通定积分计算（如 \\int_0^1\\frac{dx}{\\sqrt{x}} 在 x=0 处无界）",
+        "把『积分值算出来』当作『收敛』，忽略了极限可能不存在",
+        "含多个瑕点或既有无穷限又有瑕点时，未拆分区间分别判定"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2016,
+        2018,
+        2020,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int_a^{+\\infty}f(x)\\mathrm{d}x",
+        "\\int_0^1\\frac{\\mathrm{d}x}{x^p}",
+        "敛散性",
+        "反常积分"
+      ]
+    },
+    {
+      "id": "math3.calc.integral.apply",
+      "name": "定积分的应用",
+      "level": 3,
+      "parent_id": "math3.calc.integral",
+      "is_leaf": false,
+      "exam_weight": 0.6
+    },
+    {
+      "id": "math3.calc.integral.apply.area_volume",
+      "name": "平面图形面积与旋转体体积",
+      "level": 4,
+      "parent_id": "math3.calc.integral.apply",
+      "is_leaf": true,
+      "definition": "直角坐标下平面图形面积用 ∫|f(x)-g(x)|dx 或对 y 积分；极坐标下用 (1/2)∫r²(θ)dθ。旋转体体积有两种算法：绕 x 轴的圆盘法 V=π∫f²(x)dx，已知截面的柱壳法 V=2π∫x|f(x)|dx。选择哪种算法取决于旋转轴与积分方向是否匹配。",
+      "formulas": [
+        "A=\\int_a^b|f(x)-g(x)|\\,dx",
+        "A=\\frac{1}{2}\\int_{\\alpha}^{\\beta}r^2(\\theta)\\,d\\theta",
+        "V_x=\\pi\\int_a^b f^2(x)\\,dx",
+        "V_y=2\\pi\\int_a^b x|f(x)|\\,dx",
+        "V_y=\\pi\\int_c^d\\varphi^2(y)\\,dy"
+      ],
+      "common_traps": [
+        "★ 求两曲线围成图形面积时未判断上下（或左右）关系就相减，导致出现负值或漏掉交点之间的分段",
+        "极坐标面积公式漏乘 1/2，或把 r 与 θ 的积分限搞混",
+        "选错旋转体公式：绕 y 轴时误用 π∫f²(x)dx（该式只适用于绕 x 轴）",
+        "未先求出曲线交点以确定积分限"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2016,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.68,
+      "weight_source": "derived",
+      "aliases": [
+        "\\pi\\int_a^b f^2(x)\\mathrm{d}x",
+        "旋转体体积",
+        "平面图形面积"
+      ]
+    },
+    {
+      "id": "math3.calc.multidiff",
+      "name": "多元函数微分学",
+      "level": 2,
+      "parent_id": "math3.calc",
+      "is_leaf": false,
+      "exam_weight": 0.8
+    },
+    {
+      "id": "math3.calc.multidiff.basic",
+      "name": "多元函数的基本概念",
+      "level": 3,
+      "parent_id": "math3.calc.multidiff",
+      "is_leaf": false,
+      "exam_weight": 0.35
+    },
+    {
+      "id": "math3.calc.multidiff.basic.limit",
+      "name": "二元函数的极限与连续",
+      "level": 4,
+      "parent_id": "math3.calc.multidiff.basic",
+      "is_leaf": true,
+      "definition": "二元函数极限 lim_{(x,y)→(x₀,y₀)}f(x,y)=A 要求点以**任意方式**趋近时极限都存在且相等，这是与一元极限最本质的差别。若沿两条不同路径趋近得到不同极限，即可断定极限不存在。连续要求极限值等于函数值。",
+      "formulas": [
+        "\\lim_{(x,y)\\to(x_0,y_0)}f(x,y)=A \\iff \\forall\\varepsilon>0,\\exists\\delta>0:\\ 0<\\sqrt{(x-x_0)^2+(y-y_0)^2}<\\delta \\Rightarrow |f-A|<\\varepsilon",
+        "\\text{沿}\\ y=kx\\ \\text{趋近得极限与}\\ k\\ \\text{有关} \\Rightarrow \\text{极限不存在}",
+        "\\lim_{(x,y)\\to(0,0)}\\frac{xy}{x^2+y^2}\\ \\text{不存在}",
+        "\\lim_{(x,y)\\to(0,0)}\\frac{xy}{\\sqrt{x^2+y^2}}=0"
+      ],
+      "common_traps": [
+        "★ 只验证了沿几条特殊路径（如坐标轴、y=kx）极限相同，就断定极限存在——必须用 ε-δ 或夹逼证明",
+        "把一元极限的洛必达法则搬到二元情形使用",
+        "用极坐标代换后忘记 r→0^+ 时 θ 可以任意变化，把含 θ 的因子当作常数处理",
+        "混淆『极限存在』与『在一点连续』，忽略函数在该点是否有定义"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2016,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.38,
+      "weight_source": "derived",
+      "aliases": [
+        "二元函数的极限",
+        "极限",
+        "二元函数",
+        "连续"
+      ]
+    },
+    {
+      "id": "math3.calc.multidiff.basic.differentiable",
+      "name": "全微分与可微性判定",
+      "level": 4,
+      "parent_id": "math3.calc.multidiff.basic",
+      "is_leaf": true,
+      "definition": "若 Δz=AΔx+BΔy+o(ρ)（ρ=√(Δx²+Δy²)），称 z 在 (x₀,y₀) 可微，此时 dz=AΔx+BΔy=f_x dx+f_y dy。判定可微的标准流程：先求 f_x、f_y，再验证 lim_{ρ→0}[Δz-f_xΔx-f_yΔy]/ρ=0。可微 ⟹ 偏导存在且连续，但反之均不成立。",
+      "formulas": [
+        "dz=f_x(x,y)\\,dx+f_y(x,y)\\,dy",
+        "\\Delta z-f_x\\Delta x-f_y\\Delta y=o(\\rho),\\quad \\rho=\\sqrt{\\Delta x^2+\\Delta y^2}",
+        "\\text{偏导连续} \\Rightarrow \\text{可微} \\Rightarrow \\text{偏导存在}",
+        "\\text{可微} \\Rightarrow \\text{连续}"
+      ],
+      "common_traps": [
+        "★ 把『偏导数存在』当作『可微』的充分条件（这是数三选择题最爱设的陷阱）",
+        "验证可微时只检查 f_x、f_y 存在，没有计算极限 \\lim_{\\rho\\to 0}\\frac{\\Delta z-f_x\\Delta x-f_y\\Delta y}{\\rho}",
+        "把函数连续、偏导存在、可微三者的逻辑关系链记反",
+        "书写 dz 时漏掉 dx、dy，写成 dz=f_x+f_y"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.4,
+      "weight_source": "derived",
+      "aliases": [
+        "全微分",
+        "可微性判定",
+        "可微性"
+      ]
+    },
+    {
+      "id": "math3.calc.multidiff.derivative",
+      "name": "多元函数求导法则",
+      "level": 3,
+      "parent_id": "math3.calc.multidiff",
+      "is_leaf": false,
+      "exam_weight": 0.56
+    },
+    {
+      "id": "math3.calc.multidiff.derivative.composite",
+      "name": "多元复合函数求导",
+      "level": 4,
+      "parent_id": "math3.calc.multidiff.derivative",
+      "is_leaf": true,
+      "definition": "链式法则的实质是沿所有中间变量的路径求和：z=f(u,v)，u=u(x,y)，v=v(x,y)，则 ∂z/∂x=f_u·u_x+f_v·v_x。做题前应先画变量关系树，确认从自变量到因变量有几条路径、每条路径经过哪些中间变量，避免漏项或多乘。",
+      "formulas": [
+        "\\frac{\\partial z}{\\partial x}=\\frac{\\partial f}{\\partial u}\\frac{\\partial u}{\\partial x}+\\frac{\\partial f}{\\partial v}\\frac{\\partial v}{\\partial x}",
+        "z=f(u),\\ u=u(x,y) \\Rightarrow \\frac{\\partial z}{\\partial x}=f'(u)\\frac{\\partial u}{\\partial x}",
+        "\\frac{dz}{dt}=f_u\\frac{du}{dt}+f_v\\frac{dv}{dt}\\quad(u,v\\ \\text{均为}\\ t\\ \\text{的一元函数})",
+        "\\frac{\\partial z}{\\partial x}=f_1'+f_2'\\cdot y\\quad(z=f(x+y,xy))"
+      ],
+      "common_traps": [
+        "★ 链式法则漏项：只写了部分中间变量的路径，或对同一中间变量重复计数",
+        "抽象函数的记号混淆：f_1' 表示对第一个中间变量求导，而非对 x 求导",
+        "在 u 与 x 同时出现时，把『对中间变量求导』与『对自变量求导』混为一谈",
+        "多元情形下把偏导数当成可约分的分式（\\partial 记号不能约分）"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2015,
+        2017,
+        2019,
+        2021,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.64,
+      "weight_source": "derived",
+      "aliases": [
+        "\\frac{\\partial z}{\\partial x}=\\frac{\\partial z}{\\partial u}\\frac{\\partial u}{\\partial x}"
+      ]
+    },
+    {
+      "id": "math3.calc.multidiff.derivative.implicit",
+      "name": "隐函数求导",
+      "level": 4,
+      "parent_id": "math3.calc.multidiff.derivative",
+      "is_leaf": true,
+      "definition": "由 F(x,y)=0 确定 y=y(x)，则 dy/dx=-F_x/F_y（F_y≠0）。由 F(x,y,z)=0 确定 z=z(x,y)，则 ∂z/∂x=-F_x/F_z、∂z/∂y=-F_y/F_z。注意这三个公式都有固定位置：分母是『被确定的那个变量』的偏导，分子是其余对应变量的偏导，前面带负号。",
+      "formulas": [
+        "F(x,y)=0 \\Rightarrow \\frac{dy}{dx}=-\\frac{F_x}{F_y}\\quad(F_y\\neq 0)",
+        "F(x,y,z)=0 \\Rightarrow \\frac{\\partial z}{\\partial x}=-\\frac{F_x}{F_z},\\quad \\frac{\\partial z}{\\partial y}=-\\frac{F_y}{F_z}",
+        "\\frac{\\partial z}{\\partial x}=-\\frac{F_x+F_y\\cdot\\varphi'(x)}{F_z}\\quad(y=\\varphi(x))"
+      ],
+      "common_traps": [
+        "★ 公式中的负号漏写，或分子分母的位置颠倒",
+        "对 F(x,y,z)=0 求 ∂z/∂x 时，忘记此时 y 是关于 x 的函数（当 y 也由方程约束时需额外处理）",
+        "把 F 当作显式函数直接对 x 求导，忽略了 y、z 也是 x 的函数",
+        "未检查 F_y≠0（或 F_z≠0）的前提条件"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2016,
+        2018,
+        2020,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.62,
+      "weight_source": "derived",
+      "aliases": [
+        "F(x,y)=0",
+        "\\frac{\\mathrm{d}y}{\\mathrm{d}x}=-\\frac{F_x}{F_y}"
+      ]
+    },
+    {
+      "id": "math3.calc.multidiff.extremum",
+      "name": "多元函数的极值",
+      "level": 3,
+      "parent_id": "math3.calc.multidiff",
+      "is_leaf": false,
+      "exam_weight": 0.71
+    },
+    {
+      "id": "math3.calc.multidiff.extremum.lagrange",
+      "name": "条件极值与拉格朗日乘数法",
+      "level": 4,
+      "parent_id": "math3.calc.multidiff.extremum",
+      "is_leaf": true,
+      "definition": "求 z=f(x,y) 在约束 φ(x,y)=0 下的极值，构造拉格朗日函数 L=f(x,y)+λφ(x,y)，解方程组 L_x=0、L_y=0、L_φ=0（即 L_λ=0）。经济应用题中约束常为预算线或产出约束，目标函数为效用或利润函数。",
+      "formulas": [
+        "L(x,y,\\lambda)=f(x,y)+\\lambda\\varphi(x,y)",
+        "\\begin{cases}f_x+\\lambda\\varphi_x=0\\\\ f_y+\\lambda\\varphi_y=0\\\\ \\varphi(x,y)=0\\end{cases}",
+        "\\frac{f_x}{f_y}=\\frac{\\varphi_x}{\\varphi_y}\\quad(\\text{消去}\\ \\lambda\\ \\text{得的关系式})",
+        "L(x,y,z,\\lambda,\\mu)=f+\\lambda\\varphi+\\mu\\psi"
+      ],
+      "common_traps": [
+        "★ 把目标函数与约束条件写反，或构造 L 时漏乘 λ（写成 f+φ）",
+        "解方程组时过早地用约束消元，导致 λ 无法求出（λ 通常也要一并解出）",
+        "忘记把 L 对 λ 求偏导得到的方程（即约束本身）纳入方程组",
+        "只求出驻点就结束，未比较各点函数值以确定最大值与最小值"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2016,
+        2019,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.79,
+      "weight_source": "derived",
+      "aliases": [
+        "L=f+\\lambda\\varphi",
+        "拉格朗日函数",
+        "条件极值",
+        "拉格朗日乘数法"
+      ]
+    },
+    {
+      "id": "math3.calc.multidiff.extremum.econ",
+      "name": "多元函数的经济应用",
+      "level": 4,
+      "parent_id": "math3.calc.multidiff.extremum",
+      "is_leaf": true,
+      "definition": "数三特色考点，包括：交叉价格弹性（一种商品需求量对另一种商品价格的弹性）、柯布-道格拉斯生产函数 Q=AL^αK^β 的规模报酬判定、以及多元情形下的利润最大化。判定规模报酬看 α+β 与 1 的关系：大于 1 递增、等于 1 不变、小于 1 递减。",
+      "formulas": [
+        "\\eta_{xy}=\\frac{\\partial Q_x}{\\partial P_y}\\cdot\\frac{P_y}{Q_x}\\quad(\\text{交叉价格弹性})",
+        "Q=AL^{\\alpha}K^{\\beta}:\\quad \\alpha+\\beta\\gtrless 1 \\Rightarrow \\text{规模报酬递增/不变/递减}",
+        "\\frac{\\partial Q}{\\partial L}=A\\alpha L^{\\alpha-1}K^{\\beta},\\quad \\frac{\\partial Q}{\\partial K}=A\\beta L^{\\alpha}K^{\\beta-1}",
+        "\\pi(L,K)=P\\cdot Q(L,K)-wL-rK"
+      ],
+      "common_traps": [
+        "★ 规模报酬判据记反，或误用 ∂Q/∂L 与 ∂Q/∂K 的大小来判断规模报酬",
+        "交叉价格弹性的分母与分子写反（应为需求量对价格，而不是价格对需求量）",
+        "利润最大化时只对 L 求偏导，漏掉对 K 的一阶条件",
+        "把边际产量（偏导数）与平均产量（除以投入量）混用"
+      ],
+      "exam_years": [
+        2012,
+        2015,
+        2017,
+        2020,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.78,
+      "weight_source": "derived",
+      "aliases": [
+        "多元函数的经济",
+        "经济应用",
+        "经济",
+        "多元函数"
+      ]
+    },
+    {
+      "id": "math3.calc.multiintegral",
+      "name": "二重积分",
+      "level": 2,
+      "parent_id": "math3.calc",
+      "is_leaf": false,
+      "exam_weight": 0.85
+    },
+    {
+      "id": "math3.calc.multiintegral.rect",
+      "name": "直角坐标下的计算",
+      "level": 3,
+      "parent_id": "math3.calc.multiintegral",
+      "is_leaf": false,
+      "exam_weight": 0.67
+    },
+    {
+      "id": "math3.calc.multiintegral.rect.change_order",
+      "name": "交换积分次序",
+      "level": 4,
+      "parent_id": "math3.calc.multiintegral.rect",
+      "is_leaf": true,
+      "definition": "当内层积分的原函数求不出时，交换次序往往能打开局面。标准步骤：① 由原累次积分写出区域 D 的不等式；② 画出 D 的草图；③ 按另一种类型重新描述 D，得到新的上下限。交换次序的实质是换一个方向切割同一区域。",
+      "formulas": [
+        "\\int_a^b dx\\int_{\\varphi_1(x)}^{\\varphi_2(x)}f\\,dy=\\int_c^d dy\\int_{\\psi_1(y)}^{\\psi_2(y)}f\\,dx",
+        "\\int_0^1 dx\\int_x^{1}f(x,y)\\,dy=\\int_0^1 dy\\int_0^{y}f(x,y)\\,dx",
+        "\\int_0^1 dx\\int_{x^2}^{x}f\\,dy=\\int_0^1 dy\\int_{y}^{\\sqrt{y}}f\\,dx"
+      ],
+      "common_traps": [
+        "★ 只把 dx、dy 的位置互换而保留原来的上下限（这是最典型的错误）",
+        "区域需要分块时，换序后未拆成多个累次积分之和",
+        "由不等式反解边界时漏掉曲线的另一支（如 y=x² 反解为 x=±√y 而只取一支）",
+        "未画图直接代数变形，导致区域形状判断错误"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2016,
+        2018,
+        2020,
+        2023
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.75,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int_a^b\\mathrm{d}x\\int_{y_1}^{y_2}f\\,\\mathrm{d}y=\\int_c^d\\mathrm{d}y\\int_{x_1}^{x_2}f\\,\\mathrm{d}x"
+      ]
+    },
+    {
+      "id": "math3.calc.multiintegral.polar",
+      "name": "极坐标下的计算",
+      "level": 3,
+      "parent_id": "math3.calc.multiintegral",
+      "is_leaf": false,
+      "exam_weight": 0.75
+    },
+    {
+      "id": "math3.calc.multiintegral.polar.transform",
+      "name": "极坐标变换与雅可比因子",
+      "level": 4,
+      "parent_id": "math3.calc.multiintegral.polar",
+      "is_leaf": true,
+      "definition": "令 x=r cosθ、y=r sinθ，则 dσ=r dr dθ，其中 r 是雅可比行列式的绝对值。极坐标适用于积分区域为圆、扇形、圆环，或被积函数含 x²+y² 的情形。区域用 θ 的范围与 r 的上下限（一般是 θ 的函数）描述。",
+      "formulas": [
+        "x=r\\cos\\theta,\\quad y=r\\sin\\theta,\\quad d\\sigma=r\\,dr\\,d\\theta",
+        "\\iint_D f\\,d\\sigma=\\int_{\\alpha}^{\\beta}d\\theta\\int_{r_1(\\theta)}^{r_2(\\theta)}f(r\\cos\\theta,r\\sin\\theta)\\,r\\,dr",
+        "J=\\frac{\\partial(x,y)}{\\partial(r,\\theta)}=\\begin{vmatrix}\\cos\\theta & -r\\sin\\theta\\\\ \\sin\\theta & r\\cos\\theta\\end{vmatrix}=r",
+        "\\iint_{x^2+y^2\\le a^2}f\\,d\\sigma=\\int_0^{2\\pi}d\\theta\\int_0^{a}f\\,r\\,dr"
+      ],
+      "common_traps": [
+        "★ 化极坐标时漏乘雅可比因子 r（最高频错误，直接导致答案错误）",
+        "确定 θ 的范围时未画图，对圆环、偏心圆等区域取错角度区间",
+        "r 的上下限写成常数而实际应为 θ 的函数（如区域是 x²+y²≤2x，则 r≤2cosθ）",
+        "被积函数中含 x²+y² 但未替换成 r²，直接保留了 x、y"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2021,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.87,
+      "weight_source": "derived",
+      "aliases": [
+        "x=r\\cos\\theta",
+        "\\mathrm{d}\\sigma=r\\,\\mathrm{d}r\\,\\mathrm{d}\\theta",
+        "雅可比因子",
+        "x^2+y^2",
+        "极坐标变换"
+      ]
+    },
+    {
+      "id": "math3.calc.multiintegral.polar.symmetry",
+      "name": "对称性与轮换对称性的利用",
+      "level": 4,
+      "parent_id": "math3.calc.multiintegral.polar",
+      "is_leaf": true,
+      "definition": "若积分区域 D 关于 x 轴对称，则被积函数对 y 为奇函数时积分为零，为偶函数时等于 2 倍上半区域积分；关于 y 轴对称同理。轮换对称性指 D 关于直线 y=x 对称时，把 f(x,y) 中的 x、y 互换积分值不变，常用于处理 ∫∫x²dσ 与 ∫∫y²dσ 的组合。",
+      "formulas": [
+        "D\\ \\text{关于}\\ x\\ \\text{轴对称},\\ f(x,-y)=-f(x,y) \\Rightarrow \\iint_D f\\,d\\sigma=0",
+        "D\\ \\text{关于}\\ x\\ \\text{轴对称},\\ f(x,-y)=f(x,y) \\Rightarrow \\iint_D f\\,d\\sigma=2\\iint_{D_1}f\\,d\\sigma",
+        "D\\ \\text{关于}\\ y=x\\ \\text{对称} \\Rightarrow \\iint_D f(x,y)\\,d\\sigma=\\iint_D f(y,x)\\,d\\sigma",
+        "\\iint_D x^2\\,d\\sigma=\\iint_D y^2\\,d\\sigma=\\frac{1}{2}\\iint_D(x^2+y^2)\\,d\\sigma\\ (D\\ \\text{关于}\\ y=x\\ \\text{对称})"
+      ],
+      "common_traps": [
+        "★ 只检查了被积函数的奇偶性，忘记区域本身也必须关于相应坐标轴对称",
+        "对关于 y=x 对称的区域，误以为所有被积函数都能把 x、y 互换（只有区域对称才成立）",
+        "把轮换对称性与『被积函数关于 x、y 对称』混为一谈",
+        "区域关于原点对称时误用关于坐标轴对称的结论（此时 f(-x,-y)=-f(x,y) 才使积分为零）"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2017,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.82,
+      "weight_source": "derived",
+      "aliases": [
+        "对称性",
+        "轮换对称性的利用",
+        "利用",
+        "轮换对称性"
+      ]
+    },
+    {
+      "id": "math3.calc.series",
+      "name": "无穷级数",
+      "level": 2,
+      "parent_id": "math3.calc",
+      "is_leaf": false,
+      "exam_weight": 0.75,
+      "exam_scope_note": "数学（三）不考傅里叶级数；函数展开为幂级数只要求掌握 e^x、sin x、cos x、ln(1+x)、(1+x)^α 等常用展开，不要求复杂的间接展开技巧。"
+    },
+    {
+      "id": "math3.calc.series.number",
+      "name": "常数项级数",
+      "level": 3,
+      "parent_id": "math3.calc.series",
+      "is_leaf": false,
+      "exam_weight": 0.39
+    },
+    {
+      "id": "math3.calc.series.number.positive",
+      "name": "正项级数判别法",
+      "level": 4,
+      "parent_id": "math3.calc.series.number",
+      "is_leaf": true,
+      "definition": "正项级数收敛的充要条件是部分和有界。常用判别法：比较判别法及其极限形式、比值判别法（达朗贝尔）、根值判别法（柯西）、积分判别法。使用顺序一般是：先看通项是否趋于零，再考虑比值/根值，含 n 次幂或阶乘时优先用比值法。",
+      "formulas": [
+        "\\lim_{n\\to\\infty}\\frac{u_{n+1}}{u_n}=\\rho:\\ \\rho<1\\ \\text{收敛},\\ \\rho>1\\ \\text{发散},\\ \\rho=1\\ \\text{失效}",
+        "\\lim_{n\\to\\infty}\\sqrt[n]{u_n}=\\rho:\\ \\rho<1\\ \\text{收敛},\\ \\rho>1\\ \\text{发散},\\ \\rho=1\\ \\text{失效}",
+        "\\lim_{n\\to\\infty}\\frac{u_n}{v_n}=l\\ (0<l<+\\infty) \\Rightarrow \\sum u_n,\\ \\sum v_n\\ \\text{同敛散}",
+        "\\sum_{n=1}^{\\infty}\\frac{1}{n^p}\\ \\text{收敛} \\iff p>1"
+      ],
+      "common_traps": [
+        "★ 比值判别法中 ρ=1 时误判为收敛（此时判别法失效，须改用比较法或积分法，如 ∑1/n²）",
+        "比较判别法用错方向：要证收敛须找比它大的收敛级数，要证发散须找比它小的发散级数",
+        "忽略正项级数的前提，对变号级数直接使用比值判别法判定收敛",
+        "把 ∑1/n^p 的收敛条件记成 p≥1"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.45,
+      "weight_source": "derived",
+      "aliases": [
+        "\\lim\\frac{u_{n+1}}{u_n}=\\rho",
+        "\\lim\\sqrt[n]{u_n}=\\rho",
+        "\\sum\\frac{1}{n^p}",
+        "比值判别法",
+        "根值判别法"
+      ]
+    },
+    {
+      "id": "math3.calc.series.number.alternating",
+      "name": "交错级数与绝对收敛",
+      "level": 4,
+      "parent_id": "math3.calc.series.number",
+      "is_leaf": true,
+      "definition": "莱布尼茨判别法：交错级数 ∑(-1)^{n-1}u_n（u_n>0）若 {u_n} 单调递减且 u_n→0，则级数收敛。若 ∑|u_n| 收敛称绝对收敛；∑u_n 收敛而 ∑|u_n| 发散称条件收敛。绝对收敛的级数必定收敛，且可任意重排求和次序。",
+      "formulas": [
+        "u_n\\downarrow 0 \\Rightarrow \\sum_{n=1}^{\\infty}(-1)^{n-1}u_n\\ \\text{收敛}",
+        "\\sum|u_n|\\ \\text{收敛} \\Rightarrow \\sum u_n\\ \\text{收敛（绝对收敛）}",
+        "\\sum_{n=1}^{\\infty}\\frac{(-1)^{n-1}}{n}=\\ln 2\\quad(\\text{条件收敛})",
+        "|R_n|\\le u_{n+1}\\quad(\\text{莱布尼茨型级数的余项估计})"
+      ],
+      "common_traps": [
+        "★ 用莱布尼茨判别法时只验证了 u_n→0，漏掉『单调递减』这一条",
+        "把『收敛』与『绝对收敛』混为一谈，未先判定 ∑|u_n| 的敛散性",
+        "对条件收敛级数使用绝对收敛的运算性质（如任意重排、逐项相乘）",
+        "判定 ∑(-1)^n u_n 时对 u_n 求导验证单调性，把离散的 n 当成连续变量而未说明"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.44,
+      "weight_source": "derived",
+      "aliases": [
+        "\\sum_{n=1}^{\\infty}(-1)^{n-1}u_n",
+        "莱布尼茨判别法",
+        "条件收敛",
+        "交错级数",
+        "绝对收敛"
+      ]
+    },
+    {
+      "id": "math3.calc.series.power",
+      "name": "幂级数",
+      "level": 3,
+      "parent_id": "math3.calc.series",
+      "is_leaf": false,
+      "exam_weight": 0.49
+    },
+    {
+      "id": "math3.calc.series.power.convergence",
+      "name": "幂级数的收敛半径与收敛域",
+      "level": 4,
+      "parent_id": "math3.calc.series.power",
+      "is_leaf": true,
+      "definition": "幂级数 ∑a_n x^n 的收敛半径 R 由 R=lim|a_n/a_{n+1}| 给出（或由根值法 R=1/lim√[n]{|a_n|}）。在 (-R,R) 内绝对收敛，在 |x|>R 处发散，端点 x=±R 必须单独代入判定。收敛域是收敛区间与收敛端点的并。",
+      "formulas": [
+        "R=\\lim_{n\\to\\infty}\\left|\\frac{a_n}{a_{n+1}}\\right|,\\quad R=\\frac{1}{\\lim_{n\\to\\infty}\\sqrt[n]{|a_n|}}",
+        "|x|<R \\Rightarrow \\sum a_n x^n\\ \\text{绝对收敛};\\quad |x|>R \\Rightarrow \\text{发散}",
+        "\\sum a_n(x-x_0)^n\\ \\text{的收敛区间为}\\ (x_0-R,\\ x_0+R)",
+        "\\sum_{n=0}^{\\infty}x^n=\\frac{1}{1-x},\\quad |x|<1"
+      ],
+      "common_traps": [
+        "★ 求出收敛半径后直接写成收敛域，漏掉两个端点的单独判定",
+        "对缺项幂级数（如 ∑a_n x^{2n}）直接套 R=lim|a_n/a_{n+1}|，未把整体看作以 x² 为变量的级数",
+        "对 ∑a_n(x-x_0)^n 求 R 后忘记把区间平移到以 x_0 为中心",
+        "把收敛半径 R 与收敛区间端点处的敛散性混为一谈"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.56,
+      "weight_source": "derived",
+      "aliases": [
+        "\\sum_{n=0}^{\\infty}a_nx^n",
+        "R=\\lim\\left|\\frac{a_n}{a_{n+1}}\\right|",
+        "收敛半径",
+        "幂级数的收敛半径",
+        "幂级数",
+        "收敛域"
+      ]
+    },
+    {
+      "id": "math3.calc.series.power.expansion",
+      "name": "函数展开为幂级数",
+      "level": 4,
+      "parent_id": "math3.calc.series.power",
+      "is_leaf": true,
+      "definition": "函数在 x₀=0 处展开即麦克劳林级数，常用五个基本展开式必须背熟。间接展开法利用四则运算、逐项求导与逐项积分，把待展函数化归为基本展开式。展开的区间必须与原展开式的收敛区间取交集。",
+      "formulas": [
+        "e^x=\\sum_{n=0}^{\\infty}\\frac{x^n}{n!},\\quad x\\in(-\\infty,+\\infty)",
+        "\\sin x=\\sum_{n=0}^{\\infty}\\frac{(-1)^n x^{2n+1}}{(2n+1)!},\\quad x\\in(-\\infty,+\\infty)",
+        "\\cos x=\\sum_{n=0}^{\\infty}\\frac{(-1)^n x^{2n}}{(2n)!},\\quad x\\in(-\\infty,+\\infty)",
+        "\\ln(1+x)=\\sum_{n=1}^{\\infty}\\frac{(-1)^{n-1}x^n}{n},\\quad x\\in(-1,1]",
+        "\\frac{1}{1-x}=\\sum_{n=0}^{\\infty}x^n,\\quad |x|<1",
+        "(1+x)^\\alpha=1+\\sum_{n=1}^{\\infty}\\frac{\\alpha(\\alpha-1)\\cdots(\\alpha-n+1)}{n!}x^n,\\quad |x|<1"
+      ],
+      "common_traps": [
+        "★ 基本展开式的收敛区间记错（如 \\ln(1+x) 在 x=1 处收敛、x=-1 处发散，端点极易写错）",
+        "间接展开时做了逐项求导或逐项积分，但未同步更新收敛区间（端点可能改变）",
+        "多项展开式相乘时遗漏交叉项，或只保留到指定阶数却漏掉某阶项",
+        "把展开式写成有限项却当作精确相等（应保留余项或说明 n→∞）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.58,
+      "weight_source": "derived",
+      "aliases": [
+        "\\frac{1}{1-x}=\\sum_{n=0}^{\\infty}x^n",
+        "e^x=\\sum\\frac{x^n}{n!}",
+        "间接展开法"
+      ]
+    },
+    {
+      "id": "math3.calc.ode",
+      "name": "常微分方程",
+      "level": 2,
+      "parent_id": "math3.calc",
+      "is_leaf": false,
+      "exam_weight": 0.7,
+      "exam_scope_note": "数学（三）不考欧拉方程、不含可降阶的高阶方程重点要求；一阶微分方程与二阶常系数线性方程是核心，另需掌握一阶差分方程。"
+    },
+    {
+      "id": "math3.calc.ode.first_order",
+      "name": "一阶微分方程",
+      "level": 3,
+      "parent_id": "math3.calc.ode",
+      "is_leaf": false,
+      "exam_weight": 0.49
+    },
+    {
+      "id": "math3.calc.ode.first_order.linear",
+      "name": "一阶线性微分方程",
+      "level": 4,
+      "parent_id": "math3.calc.ode.first_order",
+      "is_leaf": true,
+      "definition": "形如 y'+P(x)y=Q(x) 的方程，通解公式为 y=e^{-∫P dx}[∫Q e^{∫P dx}dx+C]。当 Q(x)≡0 时方程齐次，通解为 y=Ce^{-∫P dx}。使用公式前必须把方程化成 y' 的系数为 1 的标准形式。",
+      "formulas": [
+        "y=e^{-\\int P(x)dx}\\left[\\int Q(x)e^{\\int P(x)dx}\\,dx+C\\right]",
+        "y'+P(x)y=0 \\Rightarrow y=Ce^{-\\int P(x)dx}",
+        "y'+\\frac{1}{x}y=x \\Rightarrow y=\\frac{1}{x}\\left(\\frac{x^3}{3}+C\\right)",
+        "\\text{初值}\\ y(x_0)=y_0\\ \\text{唯一确定常数}\\ C"
+      ],
+      "common_traps": [
+        "★ 未先把方程化为标准形式（y' 系数为 1）就套公式，导致 P、Q 取错",
+        "通解公式中 e^{∫P dx} 与 e^{-∫P dx} 的位置颠倒",
+        "求 ∫P(x)dx 时漏掉积分常数（在公式中可省略，但需要说明）",
+        "含 x 在分母（如 xy'+y=x²）时未先除以 x，忽略了 x=0 的讨论"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.57,
+      "weight_source": "derived",
+      "aliases": [
+        "y'+P(x)y=Q(x)",
+        "y=e^{-\\int P\\,\\mathrm{d}x}\\left[\\int Q(x)e^{\\int P\\,\\mathrm{d}x}\\mathrm{d}x+C\\right]"
+      ]
+    },
+    {
+      "id": "math3.calc.ode.higher_order",
+      "name": "高阶与二阶常系数方程",
+      "level": 3,
+      "parent_id": "math3.calc.ode",
+      "is_leaf": false,
+      "exam_weight": 0.56
+    },
+    {
+      "id": "math3.calc.ode.higher_order.constant_coeff",
+      "name": "二阶常系数线性微分方程",
+      "level": 4,
+      "parent_id": "math3.calc.ode.higher_order",
+      "is_leaf": true,
+      "definition": "对 y''+py'+qy=f(x)，先解特征方程 r²+pr+q=0 得齐次通解：两不等实根 r₁≠r₂ 时 y=C₁e^{r₁x}+C₂e^{r₂x}；重根时 y=(C₁+C₂x)e^{rx}；共轭复根 α±βi 时 y=e^{αx}(C₁cos βx+C₂sin βx)。非齐次方程的通解=齐次通解+一个特解。",
+      "formulas": [
+        "r^2+pr+q=0,\\quad \\Delta=p^2-4q",
+        "\\Delta>0:\\ y=C_1e^{r_1x}+C_2e^{r_2x}",
+        "\\Delta=0:\\ y=(C_1+C_2x)e^{rx}",
+        "\\Delta<0:\\ y=e^{\\alpha x}(C_1\\cos\\beta x+C_2\\sin\\beta x),\\quad r=\\alpha\\pm\\beta i",
+        "y''+py'+qy=f(x) \\Rightarrow y=Y(x)+y^*(x)"
+      ],
+      "common_traps": [
+        "★ 重根情形漏掉因子 x，把通解写成 (C₁+C₂)e^{rx} 或 C₁e^{rx}+C₂e^{rx}",
+        "共轭复根情形忘记写 e^{αx} 因子，或把 β 写成 √Δ/2 时符号出错",
+        "非齐次方程只求了特解就当作通解，未加上齐次通解 Y(x)",
+        "求特征根时二次方程解错（尤其是 q 为负数时的符号）"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.65,
+      "weight_source": "derived",
+      "aliases": [
+        "y''+py'+qy=0",
+        "y''+py'+qy=f(x)",
+        "r^2+pr+q=0",
+        "特征方程"
+      ]
+    },
+    {
+      "id": "math3.calc.ode.difference",
+      "name": "差分方程",
+      "level": 3,
+      "parent_id": "math3.calc.ode",
+      "is_leaf": false,
+      "exam_weight": 0.16,
+      "exam_scope_note": "差分方程是数学（三）独有考点，大纲主要要求一阶常系数线性差分方程及其经济应用（如蛛网模型、存款模型）。"
+    },
+    {
+      "id": "math3.calc.ode.difference.first_order",
+      "name": "一阶常系数线性差分方程",
+      "level": 4,
+      "parent_id": "math3.calc.ode.difference",
+      "is_leaf": true,
+      "definition": "形如 y_{t+1}-a y_t=f(t)（a≠0）的差分方程。当 f(t)=0 时通解为 y_t=C a^t；当 a=1 时通解为 y_t=C。求非齐次方程特解时，f(t)=P_m(t) 设 y*=t^k Q_m(t)，k 由 a 是否为 1 决定；f(t)=b^t P_m(t) 时 k 由 b 是否等于 a 决定。",
+      "formulas": [
+        "y_{t+1}-ay_t=0 \\Rightarrow y_t=Ca^t",
+        "y_{t+1}-y_t=f(t) \\Rightarrow y_t=C+\\sum_{i=0}^{t-1}f(i)",
+        "a=1,\\ f(t)=P_m(t) \\Rightarrow y^*=tQ_m(t)",
+        "a\\neq 1,\\ f(t)=P_m(t) \\Rightarrow y^*=Q_m(t)"
+      ],
+      "common_traps": [
+        "★ 把差分方程当微分方程处理，套用 e^{rx} 形式的解而不是 a^t 形式",
+        "a=1 时不作修正（不乘 t），导致特解形式与齐次解重复",
+        "混淆 y_{t+1}-y_t 与 y_t-y_{t-1} 的写法，导致通解中的指数下标偏移",
+        "经济应用题中未按题目给出的时间起点确定初始常数"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2015,
+        2018,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.18,
+      "weight_source": "derived",
+      "aliases": [
+        "y_{t+1}-ay_t=b",
+        "y_{t+1}-y_t=f(t)",
+        "差分方程"
+      ]
+    },
+    {
+      "id": "math3.calc.econ",
+      "name": "经济应用",
+      "level": 2,
+      "parent_id": "math3.calc",
+      "is_leaf": false,
+      "exam_weight": 0.6,
+      "exam_scope_note": "经济学应用是数学（三）区别于数学（一）（二）的标志性考点，常以选择题或解答题的形式考查边际、弹性、成本收益与复利贴现。"
+    },
+    {
+      "id": "math3.calc.econ.margin",
+      "name": "边际分析",
+      "level": 3,
+      "parent_id": "math3.calc.econ",
+      "is_leaf": false,
+      "exam_weight": 0.31
+    },
+    {
+      "id": "math3.calc.econ.margin.functions",
+      "name": "边际函数与成本收益",
+      "level": 4,
+      "parent_id": "math3.calc.econ.margin",
+      "is_leaf": true,
+      "definition": "边际成本 MC=C'(Q)，边际收益 MR=R'(Q)，边际利润 ML=L'(Q)=MR-MC。利润最大化的一阶条件是 MR=MC（边际收益等于边际成本）。由边际函数求总量函数须做积分，并加上初始条件（如固定成本 C(0)）。",
+      "formulas": [
+        "MC=C'(Q),\\quad MR=R'(Q),\\quad ML=L'(Q)=MR-MC",
+        "L(Q)=R(Q)-C(Q),\\quad L'(Q)=0 \\Rightarrow MR=MC",
+        "C(Q)=C(0)+\\int_0^{Q}MC(t)\\,dt",
+        "R(Q)=\\int_0^{Q}MR(t)\\,dt\\quad(R(0)=0)"
+      ],
+      "common_traps": [
+        "★ 把『边际成本』误解为『平均成本』，用 C(Q)/Q 代替 C'(Q)",
+        "由边际函数积分求总量时漏掉初始条件（固定成本、初始收益）",
+        "利润最大化的二阶条件未验证（MR=MC 也可能是极小值点）",
+        "在需求函数 P=P(Q) 下把收益写成 R=PQ 却忘记 P 本身是 Q 的函数，求导时漏项"
+      ],
+      "exam_years": [
+        2010,
+        2013,
+        2016,
+        2018,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.35,
+      "weight_source": "derived",
+      "aliases": [
+        "边际函数",
+        "成本收益"
+      ]
+    },
+    {
+      "id": "math3.calc.econ.elasticity",
+      "name": "弹性分析",
+      "level": 3,
+      "parent_id": "math3.calc.econ",
+      "is_leaf": false,
+      "exam_weight": 0.24
+    },
+    {
+      "id": "math3.calc.econ.elasticity.demand",
+      "name": "需求弹性与收益的关系",
+      "level": 4,
+      "parent_id": "math3.calc.econ.elasticity",
+      "is_leaf": true,
+      "definition": "需求弹性（点弹性）η=-(dQ/dP)·(P/Q)，取绝对值表示价格上升 1% 引起需求量下降的百分比。η 与 1 比较决定收益变化方向：η>1（富有弹性）时降价使收益增加，η<1（缺乏弹性）时降价使收益减少，η=1 时收益不变。",
+      "formulas": [
+        "\\eta=-\\frac{dQ}{dP}\\cdot\\frac{P}{Q}=\\frac{EQ}{EP}",
+        "\\frac{dR}{dP}=Q(1-\\eta),\\quad R=PQ",
+        "\\eta>1 \\Rightarrow \\text{降价增收};\\quad \\eta<1 \\Rightarrow \\text{涨价增收}",
+        "\\eta=1 \\Rightarrow R\\ \\text{取极大值}"
+      ],
+      "common_traps": [
+        "★ 弹性公式中分母与分子位置写反（应为需求量变化率比价格变化率）",
+        "忘记弹性定义中的负号，得到负值后与 1 比较时未取绝对值",
+        "把 dQ/dP（导数）直接当作弹性，漏掉乘以 P/Q 的百分比化因子",
+        "由 dR/dP=Q(1-η) 推导时忘记把 Q 视为 P 的函数"
+      ],
+      "exam_years": [
+        2011,
+        2012,
+        2015,
+        2017,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.27,
+      "weight_source": "derived",
+      "aliases": [
+        "\\frac{EQ}{EP}",
+        "需求弹性",
+        "\\frac{p}{Q}\\frac{\\mathrm{d}Q}{\\mathrm{d}p}",
+        "收益的关系",
+        "收益"
+      ]
+    },
+    {
+      "id": "math3.calc.econ.interest",
+      "name": "复利与贴现",
+      "level": 3,
+      "parent_id": "math3.calc.econ",
+      "is_leaf": false,
+      "exam_weight": 0.12
+    },
+    {
+      "id": "math3.linalg",
+      "name": "线性代数",
+      "level": 1,
+      "parent_id": null,
+      "is_leaf": false,
+      "exam_weight": 0.75,
+      "exam_scope_note": "数学（三）线性代数与数学（一）要求基本一致，但不考向量空间、基与坐标变换等抽象内容；重点在行列式、矩阵、向量组线性相关性、线性方程组、特征值与二次型。"
+    },
+    {
+      "id": "math3.linalg.det",
+      "name": "行列式",
+      "level": 2,
+      "parent_id": "math3.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.7
+    },
+    {
+      "id": "math3.linalg.det.definition",
+      "name": "行列式的定义与性质",
+      "level": 3,
+      "parent_id": "math3.linalg.det",
+      "is_leaf": false,
+      "exam_weight": 0.16
+    },
+    {
+      "id": "math3.linalg.det.definition.n_order",
+      "name": "n 阶行列式的定义与基本性质",
+      "level": 4,
+      "parent_id": "math3.linalg.det.definition",
+      "is_leaf": true,
+      "definition": "n 阶行列式是 n! 项的代数和，每项取自不同行不同列的 n 个元素之积，符号由列标排列的逆序数决定。基本性质：转置不变、两行互换变号、某行乘 k 则行列式乘 k、两行成比例则为零、某行加上另一行的 k 倍值不变。这些性质是化简计算的全部依据。",
+      "formulas": [
+        "|A|=\\sum_{j_1j_2\\cdots j_n}(-1)^{\\tau(j_1j_2\\cdots j_n)}a_{1j_1}a_{2j_2}\\cdots a_{nj_n}",
+        "|A^T|=|A|",
+        "\\text{两行互换} \\Rightarrow |A|\\ \\text{变号};\\quad \\text{某行乘}\\ k \\Rightarrow |A|\\ \\text{乘}\\ k",
+        "\\text{两行相同或成比例} \\Rightarrow |A|=0",
+        "\\text{某行加上另一行的}\\ k\\ \\text{倍} \\Rightarrow |A|\\ \\text{不变}"
+      ],
+      "common_traps": [
+        "★ 做初等行变换化简时用了『互换两行』或『某行乘 k』，却忘记同步改变行列式的值",
+        "把性质『某行加另一行的 k 倍值不变』误推广到『两行可以随意相加减』",
+        "计算逆序数时符号判断错误，或把行列式与矩阵的记号混淆（|A| 与 A）",
+        "对非方阵书写行列式记号"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2017,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.18,
+      "weight_source": "derived",
+      "aliases": [
+        "n 阶行列式的定义",
+        "n 阶行列式",
+        "基本性质",
+        "基本"
+      ]
+    },
+    {
+      "id": "math3.linalg.det.computation",
+      "name": "行列式的计算",
+      "level": 3,
+      "parent_id": "math3.linalg.det",
+      "is_leaf": false,
+      "exam_weight": 0.21
+    },
+    {
+      "id": "math3.linalg.det.computation.special",
+      "name": "特殊行列式与范德蒙德行列式",
+      "level": 4,
+      "parent_id": "math3.linalg.det.computation",
+      "is_leaf": true,
+      "definition": "常见特殊行列式包括：上（下）三角行列式等于主对角线元素之积；副对角线三角行列式需乘 (-1)^{n(n-1)/2}；范德蒙德行列式等于所有 x_j-x_i（i<j）之积；分块三角行列式 |A O; C B|=|A||B|。这些结论应熟记以避免每次展开。",
+      "formulas": [
+        "\\begin{vmatrix}a_{11}&\\cdots&a_{1n}\\\\ &\\ddots&\\vdots\\\\ 0&&a_{nn}\\end{vmatrix}=a_{11}a_{22}\\cdots a_{nn}",
+        "\\begin{vmatrix}&&a_{1n}\\\\ &\\iddots&\\\\ a_{n1}&&\\end{vmatrix}=(-1)^{\\frac{n(n-1)}{2}}a_{1n}a_{2,n-1}\\cdots a_{n1}",
+        "V_n=\\prod_{1\\le i<j\\le n}(x_j-x_i)",
+        "\\begin{vmatrix}A&O\\\\ C&B\\end{vmatrix}=|A||B|"
+      ],
+      "common_traps": [
+        "★ 副对角线行列式漏乘符号因子 (-1)^{n(n-1)/2}",
+        "范德蒙德行列式的连乘顺序写成 (x_i-x_j) 而非 (x_j-x_i)，导致符号整体相反",
+        "分块行列式 |A C; O B| 与 |A O; C B| 记混，误以为含 C 的块会影响结果（确实不影响）",
+        "化三角行列式时忘记记录行变换对值的改变，最终结果差一个倍数"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.23,
+      "weight_source": "derived",
+      "aliases": [
+        "范德蒙德行列式",
+        "加边法",
+        "爪型行列式",
+        "特殊行列式"
+      ]
+    },
+    {
+      "id": "math3.linalg.matrix",
+      "name": "矩阵",
+      "level": 2,
+      "parent_id": "math3.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.85
+    },
+    {
+      "id": "math3.linalg.matrix.operation",
+      "name": "矩阵运算",
+      "level": 3,
+      "parent_id": "math3.linalg.matrix",
+      "is_leaf": false,
+      "exam_weight": 0.28
+    },
+    {
+      "id": "math3.linalg.matrix.inverse",
+      "name": "逆矩阵与伴随矩阵",
+      "level": 3,
+      "parent_id": "math3.linalg.matrix",
+      "is_leaf": false,
+      "exam_weight": 0.47
+    },
+    {
+      "id": "math3.linalg.matrix.inverse.rank_inverse",
+      "name": "矩阵的秩与可逆性",
+      "level": 4,
+      "parent_id": "math3.linalg.matrix.inverse",
+      "is_leaf": true,
+      "definition": "矩阵的秩 r(A) 是最高阶非零子式的阶数，也等于行阶梯形中非零行的个数。对 n 阶方阵 A，可逆的充要条件是 r(A)=n，也等价于 |A|≠0、方程组 Ax=0 只有零解、A 的列（行）向量组线性无关。秩的常用不等式是解题核心工具。",
+      "formulas": [
+        "A\\ \\text{可逆} \\iff r(A)=n \\iff |A|\\neq 0 \\iff Ax=0\\ \\text{仅有零解}",
+        "r(AB)\\le\\min\\{r(A),r(B)\\}",
+        "r(A+B)\\le r(A)+r(B)",
+        "A\\ \\text{可逆} \\Rightarrow r(AB)=r(B)",
+        "r(A^TA)=r(A)"
+      ],
+      "common_traps": [
+        "★ 误用 r(A+B)=r(A)+r(B) 或 r(AB)=r(A)r(B)（两个都是错的）",
+        "判断可逆时只算了 |A|=0 就下结论，未说明理由或未检查计算",
+        "把『r(A)<n』与『A 有零特征值』的等价关系记反",
+        "认为 A^TA 的秩可能小于 A 的秩（实矩阵中二者相等）"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.54,
+      "weight_source": "derived",
+      "aliases": [
+        "r(A)",
+        "|A|\\neq0",
+        "A 可逆的充要条件",
+        "矩阵的秩",
+        "可逆性"
+      ]
+    },
+    {
+      "id": "math3.linalg.matrix.inverse.adjoint",
+      "name": "伴随矩阵",
+      "level": 4,
+      "parent_id": "math3.linalg.matrix.inverse",
+      "is_leaf": true,
+      "definition": "伴随矩阵 A* 是由 |A| 的全部代数余子式转置排列而成的 n 阶矩阵，满足 AA*=A*A=|A|E。当 |A|≠0 时 A^{-1}=A*/|A|。伴随矩阵的秩有著名的三分结论，是选择题的高频考点。",
+      "formulas": [
+        "AA^*=A^*A=|A|E",
+        "A^{-1}=\\frac{1}{|A|}A^*\\quad(|A|\\neq 0)",
+        "|A^*|=|A|^{n-1},\\quad (A^*)^{-1}=(A^{-1})^*=\\frac{A}{|A|}",
+        "r(A^*)=\\begin{cases}n,& r(A)=n\\\\ 1,& r(A)=n-1\\\\ 0,& r(A)\\le n-2\\end{cases}",
+        "(kA)^*=k^{n-1}A^*,\\quad (A^*)^*=|A|^{n-2}A"
+      ],
+      "common_traps": [
+        "★ 伴随矩阵秩的三分结论记错（尤其 r(A)=n-1 时 r(A*)=1，r(A)≤n-2 时 r(A*)=0）",
+        "把 A* 说成『每个元素的代数余子式组成的矩阵』，漏掉『再转置』这一步",
+        "误写 (AB)*=A*B*（一般不成立，正确形式涉及行列式因子）",
+        "把 |A*| 记成 |A|^n（应为 |A|^{n-1}）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.55,
+      "weight_source": "derived",
+      "aliases": [
+        "A^{*}",
+        "A^{-1}=\\frac{1}{|A|}A^{*}",
+        "AA^{*}=A^{*}A=|A|E"
+      ]
+    },
+    {
+      "id": "math3.linalg.vector",
+      "name": "向量",
+      "level": 2,
+      "parent_id": "math3.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.8
+    },
+    {
+      "id": "math3.linalg.vector.independence",
+      "name": "向量组的线性相关性",
+      "level": 3,
+      "parent_id": "math3.linalg.vector",
+      "is_leaf": false,
+      "exam_weight": 0.47
+    },
+    {
+      "id": "math3.linalg.vector.independence.definition",
+      "name": "线性相关与线性无关",
+      "level": 4,
+      "parent_id": "math3.linalg.vector.independence",
+      "is_leaf": true,
+      "definition": "向量组 α₁,…,α_s 线性相关指存在不全为零的系数 k₁,…,k_s 使 ∑k_iα_i=0；否则称线性无关。判定的标准手段是以向量组为列构造矩阵 A，若 Ax=0 有非零解（即 r(A)<s）则相关。含零向量或成比例的向量组的向量组必相关。",
+      "formulas": [
+        "\\sum_{i=1}^{s}k_i\\alpha_i=0\\ \\text{有非零解} \\iff \\alpha_1,\\dots,\\alpha_s\\ \\text{线性相关}",
+        "\\alpha_1,\\dots,\\alpha_s\\ \\text{线性无关} \\iff r(A)=s\\quad(A=(\\alpha_1,\\dots,\\alpha_s))",
+        "s>n \\Rightarrow n\\ \\text{维向量组}\\ \\alpha_1,\\dots,\\alpha_s\\ \\text{必线性相关}",
+        "\\text{部分相关} \\Rightarrow \\text{整体相关};\\quad \\text{整体无关} \\Rightarrow \\text{部分无关}"
+      ],
+      "common_traps": [
+        "★ 把『线性相关』与『向量个数多于维数』直接划等号，忽略了向量个数不超过维数时也可能相关",
+        "记反『部分与整体』的相关性传递方向",
+        "对含有参数向量的相关性问题，未讨论参数取何值时秩发生变化",
+        "把 n 维向量组线性无关误判为要求 s=n（s≤n 是必要的，但不是充分的）"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.54,
+      "weight_source": "derived",
+      "aliases": [
+        "k_1\\alpha_1+k_2\\alpha_2+\\cdots+k_s\\alpha_s=0",
+        "线性相关",
+        "线性无关"
+      ]
+    },
+    {
+      "id": "math3.linalg.vector.independence.rank_maximal",
+      "name": "向量组的秩与最大无关组",
+      "level": 4,
+      "parent_id": "math3.linalg.vector.independence",
+      "is_leaf": true,
+      "definition": "向量组的秩是其最大线性无关组所含向量的个数，等于以这些向量为列构成的矩阵的秩。最大无关组不唯一，但所含向量个数唯一。求最大无关组的方法：把向量按列排成矩阵，做初等行变换化为行阶梯形，主元所在的列对应的原向量即构成一个最大无关组。",
+      "formulas": [
+        "r(\\alpha_1,\\dots,\\alpha_s)=\\text{最大无关组所含向量个数}",
+        "\\beta\\ \\text{可由}\\ \\alpha_1,\\dots,\\alpha_s\\ \\text{线性表示} \\iff r(\\alpha_1,\\dots,\\alpha_s)=r(\\alpha_1,\\dots,\\alpha_s,\\beta)",
+        "\\text{等价向量组的秩相等，且秩相同不一定等价}",
+        "r(A)=A\\ \\text{的行向量组的秩}=A\\ \\text{的列向量组的秩}"
+      ],
+      "common_traps": [
+        "★ 求最大无关组时对矩阵做了初等行变换后，直接把变换后矩阵的列当作原最大无关组（必须回到原向量）",
+        "认为最大无关组唯一",
+        "由两个向量组秩相等就断定它们等价",
+        "把向量组按行还是按列排成矩阵搞混，导致线性表示判断出错"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2018,
+        2020,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.54,
+      "weight_source": "derived",
+      "aliases": [
+        "\\alpha_1,\\alpha_2,\\cdots,\\alpha_r",
+        "极大线性无关组",
+        "向量组的秩",
+        "向量组",
+        "最大无关组"
+      ]
+    },
+    {
+      "id": "math3.linalg.system",
+      "name": "线性方程组",
+      "level": 2,
+      "parent_id": "math3.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.9
+    },
+    {
+      "id": "math3.linalg.system.solvability",
+      "name": "线性方程组的解的判定",
+      "level": 3,
+      "parent_id": "math3.linalg.system",
+      "is_leaf": false,
+      "exam_weight": 0.73
+    },
+    {
+      "id": "math3.linalg.system.solvability.criteria",
+      "name": "解的判定定理与解的结构",
+      "level": 4,
+      "parent_id": "math3.linalg.system.solvability",
+      "is_leaf": true,
+      "definition": "对 Ax=b：r(A)<r(A,b) 时无解；r(A)=r(A,b)=n 时有唯一解；r(A)=r(A,b)<n 时有无穷多解，通解为特解加齐次通解的任意线性组合。对 Ax=0，解空间维数为 n-r(A)，其基础解系含 n-r(A) 个线性无关的解向量。",
+      "formulas": [
+        "r(A)<r(A,b) \\iff \\text{无解}",
+        "r(A)=r(A,b)=n \\iff \\text{唯一解}",
+        "r(A)=r(A,b)<n \\iff \\text{无穷多解}",
+        "Ax=0\\ \\text{的基础解系含}\\ n-r(A)\\ \\text{个向量}",
+        "x=\\eta^*+k_1\\xi_1+\\cdots+k_{n-r}\\xi_{n-r}"
+      ],
+      "common_traps": [
+        "★ 只比较 r(A) 与 n，忘记同时比较 r(A) 与 r(A,b)（增广矩阵的秩必须一并计算）",
+        "把 Ax=b 的解空间维数写成 n-r(A)（这只适用于齐次方程，非齐次解集不是线性空间）",
+        "用行列式 |A|≠0 判断唯一解时，未意识到这只对 n 阶方阵且 n 个方程的情形适用",
+        "通解中把特解也乘上任意常数 k"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.86,
+      "weight_source": "derived",
+      "aliases": [
+        "r(A)=r(A,b)",
+        "Ax=b",
+        "解的结构",
+        "解的判定定理",
+        "判定定理"
+      ]
+    },
+    {
+      "id": "math3.linalg.system.solvability.fundamental",
+      "name": "基础解系与通解的求法",
+      "level": 4,
+      "parent_id": "math3.linalg.system.solvability",
+      "is_leaf": true,
+      "definition": "求 Ax=0 基础解系的标准流程：对 A 做初等行变换化为行最简形，确定主元列与自由未知量，令自由未知量依次取单位向量，解出主元变量，得到 n-r(A) 个解向量。求 Ax=b 的通解时，先求齐次基础解系，再取一组特解，相加即得。",
+      "formulas": [
+        "\\xi_1,\\dots,\\xi_{n-r}\\ \\text{为基础解系} \\Rightarrow x=k_1\\xi_1+\\cdots+k_{n-r}\\xi_{n-r}",
+        "x=\\eta^*+k_1\\xi_1+\\cdots+k_{n-r}\\xi_{n-r}\\quad(\\text{非齐次通解})",
+        "\\eta_1-\\eta_2\\ \\text{为}\\ Ax=0\\ \\text{的解}\\quad(\\eta_1,\\eta_2\\ \\text{均为}\\ Ax=b\\ \\text{的解})",
+        "\\frac{\\eta_1+\\eta_2}{2}\\ \\text{为}\\ Ax=b\\ \\text{的解}\\quad(A\\ \\text{的对应行和为}\\ 1)"
+      ],
+      "common_traps": [
+        "★ 自由未知量取值时未取『单位向量组』，得到的解向量组不线性无关",
+        "化行最简形时中途停止，未把主元列化到只有一个非零元",
+        "求出的解向量个数与 n-r(A) 不符（多写或少写）",
+        "非齐次通解中漏掉特解，或把特解与齐次解相加时符号出错"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2023
+      ],
+      "typical_qtypes": [
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.85,
+      "weight_source": "derived",
+      "aliases": [
+        "Ax=0",
+        "n-r(A) 个基础解系",
+        "通解",
+        "基础解系",
+        "通解的求法"
+      ]
+    },
+    {
+      "id": "math3.linalg.eigen",
+      "name": "矩阵的特征值与特征向量",
+      "level": 2,
+      "parent_id": "math3.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.9
+    },
+    {
+      "id": "math3.linalg.eigen.computation",
+      "name": "特征值与特征向量的计算",
+      "level": 3,
+      "parent_id": "math3.linalg.eigen",
+      "is_leaf": false,
+      "exam_weight": 0.65
+    },
+    {
+      "id": "math3.linalg.eigen.computation.definition",
+      "name": "特征值与特征向量的定义与性质",
+      "level": 4,
+      "parent_id": "math3.linalg.eigen.computation",
+      "is_leaf": true,
+      "definition": "对 n 阶方阵 A，若存在数 λ 与非零向量 α 使 Aα=λα，则称 λ 为 A 的特征值、α 为属于 λ 的特征向量。特征值是特征方程 |λE-A|=0 的根；属于同一特征值的特征向量的非零线性组合仍是特征向量。特征值的和等于矩阵的迹，积等于行列式。",
+      "formulas": [
+        "A\\alpha=\\lambda\\alpha\\ (\\alpha\\neq 0) \\iff |\\lambda E-A|=0",
+        "\\sum_{i=1}^{n}\\lambda_i=\\operatorname{tr}(A)=\\sum_{i=1}^{n}a_{ii}",
+        "\\prod_{i=1}^{n}\\lambda_i=|A|",
+        "A\\ \\text{可逆} \\iff \\lambda_i\\neq 0\\ (\\forall i)",
+        "f(A)\\ \\text{的特征值为}\\ f(\\lambda),\\quad A^{-1}\\ \\text{的特征值为}\\ \\frac{1}{\\lambda}"
+      ],
+      "common_traps": [
+        "★ 求特征向量时忘记要求 α≠0，把零向量也当作特征向量",
+        "解 |λE-A|=0 时把行列式算错，或把 λE-A 写成 A-λE（二者只差符号因子，但特征方程根相同；求特征向量时却必须用同一个矩阵）",
+        "认为『特征值互不相同』是『可对角化』的必要条件",
+        "把 A 与 A^T、A 与 kA 的特征值关系记混（A^T 特征值相同，kA 的特征值为 kλ）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.75,
+      "weight_source": "derived",
+      "aliases": [
+        "|A-\\lambda E|=0",
+        "(A-\\lambda E)x=0",
+        "特征多项式",
+        "特征值",
+        "特征向量的定义",
+        "特征向量"
+      ]
+    },
+    {
+      "id": "math3.linalg.eigen.computation.similar",
+      "name": "相似矩阵与可对角化",
+      "level": 4,
+      "parent_id": "math3.linalg.eigen.computation",
+      "is_leaf": true,
+      "definition": "若存在可逆矩阵 P 使 P^{-1}AP=B，称 A 与 B 相似。相似矩阵有相同的特征多项式、特征值、迹与行列式、相同的秩。n 阶矩阵可对角化的充要条件是它有 n 个线性无关的特征向量；充分条件是 n 个特征值互不相同；对每个重根 λ_i，要求其几何重数 n-r(λ_iE-A) 等于代数重数。",
+      "formulas": [
+        "P^{-1}AP=B \\Rightarrow |\\lambda E-B|=|\\lambda E-A|,\\quad \\operatorname{tr}(A)=\\operatorname{tr}(B),\\quad |A|=|B|",
+        "A\\ \\text{可对角化} \\iff A\\ \\text{有}\\ n\\ \\text{个线性无关的特征向量}",
+        "n-r(\\lambda_i E-A)=\\lambda_i\\ \\text{的重数（对每个重根）}",
+        "A\\sim \\Lambda=\\operatorname{diag}(\\lambda_1,\\dots,\\lambda_n),\\quad P=(\\alpha_1,\\dots,\\alpha_n)"
+      ],
+      "common_traps": [
+        "★ 只由『特征值互不相同』判定可对角化，未意识到它只是充分条件；对有重根的情形必须另行检查几何重数",
+        "认为相似矩阵一定合同，或把相似与等价、合同三个概念混用",
+        "构造 P 时把特征向量的排列顺序与对角矩阵中特征值的顺序写错位",
+        "对重根只求出一个线性无关特征向量就认为可对角化"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.75,
+      "weight_source": "derived",
+      "aliases": [
+        "A\\sim\\Lambda",
+        "P^{-1}AP=\\Lambda",
+        "可对角化",
+        "相似矩阵"
+      ]
+    },
+    {
+      "id": "math3.linalg.eigen.real_symmetric",
+      "name": "实对称矩阵的对角化",
+      "level": 3,
+      "parent_id": "math3.linalg.eigen",
+      "is_leaf": false,
+      "exam_weight": 0.38
+    },
+    {
+      "id": "math3.linalg.quadratic",
+      "name": "二次型",
+      "level": 2,
+      "parent_id": "math3.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.75
+    },
+    {
+      "id": "math3.linalg.quadratic.standard",
+      "name": "二次型的标准形与规范形",
+      "level": 3,
+      "parent_id": "math3.linalg.quadratic",
+      "is_leaf": false,
+      "exam_weight": 0.38
+    },
+    {
+      "id": "math3.linalg.quadratic.standard.inertia",
+      "name": "惯性指数与正定性",
+      "level": 4,
+      "parent_id": "math3.linalg.quadratic.standard",
+      "is_leaf": true,
+      "definition": "标准形中正平方项的个数 p 称正惯性指数，负平方项的个数 q 称负惯性指数，p-q 称符号差，p+q=r(A)。惯性定理指出 p、q 由二次型本身唯一确定，与所用的非退化线性替换无关。f 正定的充要条件是 p=n，等价于 A 的各阶顺序主子式全大于零。",
+      "formulas": [
+        "p+q=r(A),\\quad \\text{符号差}=p-q",
+        "f\\ \\text{正定} \\iff p=n \\iff \\text{各阶顺序主子式}>0",
+        "f\\ \\text{负定} \\iff q=n \\iff \\text{奇数阶顺序主子式}<0,\\ \\text{偶数阶}>0",
+        "f\\ \\text{正定} \\Rightarrow a_{ii}>0\\ (i=1,\\dots,n),\\quad |A|>0",
+        "A\\ \\text{与}\\ B\\ \\text{合同} \\iff \\text{正负惯性指数相同}"
+      ],
+      "common_traps": [
+        "★ 用『顺序主子式全大于零』判定正定时，只算了 |A|>0 或只算了部分阶数的主子式",
+        "把『合同』与『相似』混为一谈：合同看惯性指数，相似看特征值",
+        "由 a_ii>0 反推 f 正定（这只是必要条件，不是充分条件）",
+        "惯性指数与秩的关系写成 p+q=2n 或 p-q=r(A)"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.44,
+      "weight_source": "derived",
+      "aliases": [
+        "惯性定理",
+        "正惯性指数",
+        "A\\succ0",
+        "顺序主子式",
+        "惯性指数",
+        "正定性"
+      ]
+    },
+    {
+      "id": "math3.prob",
+      "name": "概率论与数理统计",
+      "level": 1,
+      "parent_id": null,
+      "is_leaf": false,
+      "exam_weight": 0.8,
+      "exam_scope_note": "数学（三）概率论与数理统计约占 22% 分值。不考假设检验与区间估计的深入内容，但随机变量及其分布、二维随机变量、数字特征、大数定律与中心极限定理、抽样分布均为必考。"
+    },
+    {
+      "id": "math3.prob.event",
+      "name": "随机事件与概率",
+      "level": 2,
+      "parent_id": "math3.prob",
+      "is_leaf": false,
+      "exam_weight": 0.85
+    },
+    {
+      "id": "math3.prob.event.probability",
+      "name": "概率的定义与计算公式",
+      "level": 3,
+      "parent_id": "math3.prob.event",
+      "is_leaf": false,
+      "exam_weight": 0.3
+    },
+    {
+      "id": "math3.prob.event.probability.conditional",
+      "name": "条件概率、乘法公式与全概率公式",
+      "level": 4,
+      "parent_id": "math3.prob.event.probability",
+      "is_leaf": true,
+      "definition": "在 P(B)>0 下，P(A|B)=P(AB)/P(B) 称为条件概率。乘法公式 P(AB)=P(B)P(A|B)=P(A)P(B|A)。全概率公式把复杂事件按完备事件组 B₁,…,B_n 分解：P(A)=∑P(B_i)P(A|B_i)。贝叶斯公式则由结果反推原因：P(B_k|A)=P(B_k)P(A|B_k)/P(A)。",
+      "formulas": [
+        "P(A|B)=\\frac{P(AB)}{P(B)}\\quad(P(B)>0)",
+        "P(AB)=P(A)P(B|A)=P(B)P(A|B)",
+        "P(A)=\\sum_{i=1}^{n}P(B_i)P(A|B_i)\\quad(\\{B_i\\}\\ \\text{为完备事件组})",
+        "P(B_k|A)=\\frac{P(B_k)P(A|B_k)}{\\sum_{i=1}^{n}P(B_i)P(A|B_i)}"
+      ],
+      "common_traps": [
+        "★ 把 P(A|B) 与 P(B|A) 当作同一个量（贝叶斯公式中的『因果颠倒』是最高频错误）",
+        "使用全概率公式前未验证 B₁,…,B_n 构成完备事件组（两两互斥且并为 Ω）",
+        "乘法公式中把 P(A|B) 误写成 P(A)P(B)（后者只在独立时成立）",
+        "条件概率的分母写成 1 而不是 P(B)，导致结果偏大"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.36,
+      "weight_source": "derived",
+      "aliases": [
+        "P(A|B)=\\frac{P(AB)}{P(B)}",
+        "P(AB)=P(A)P(B|A)",
+        "P(A)=\\sum_{i}P(B_i)P(A|B_i)",
+        "条件概率",
+        "乘法公式",
+        "全概率公式"
+      ]
+    },
+    {
+      "id": "math3.prob.event.probability.independence",
+      "name": "事件的独立性与伯努利概型",
+      "level": 4,
+      "parent_id": "math3.prob.event.probability",
+      "is_leaf": true,
+      "definition": "A 与 B 独立指 P(AB)=P(A)P(B)，等价于 P(A|B)=P(A)（当 P(B)>0）。n 个事件相互独立要求任意 k 个事件的交事件概率等于各概率之积。n 重伯努利概型中，每次试验成功概率为 p，则 n 次中恰有 k 次成功的概率为 C(n,k)p^k(1-p)^{n-k}。",
+      "formulas": [
+        "A,B\\ \\text{独立} \\iff P(AB)=P(A)P(B)",
+        "P(A_1A_2\\cdots A_n)=\\prod_{i=1}^{n}P(A_i)\\quad(\\text{相互独立})",
+        "P_n(k)=\\binom{n}{k}p^k(1-p)^{n-k}",
+        "\\text{至少成功一次的概率}=1-(1-p)^n"
+      ],
+      "common_traps": [
+        "★ 由『两两独立』推出『相互独立』（这是错误推理，需要额外验证三三及以上的交事件）",
+        "把『独立』与『互斥』混用：若 A、B 互斥且概率均大于零，则必不独立",
+        "在伯努利概型中把『至少一次』的概率算成 n p（只有当 p 很小时才近似成立）",
+        "由 P(A)>0、P(B)>0 且 A、B 独立，错误地认为 A、B 不可能互斥"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.35,
+      "weight_source": "derived",
+      "aliases": [
+        "P(AB)=P(A)P(B)",
+        "伯努利概型",
+        "相互独立",
+        "事件的独立性",
+        "独立性"
+      ]
+    },
+    {
+      "id": "math3.prob.rv1",
+      "name": "一维随机变量及其分布",
+      "level": 2,
+      "parent_id": "math3.prob",
+      "is_leaf": false,
+      "exam_weight": 0.95
+    },
+    {
+      "id": "math3.prob.rv1.distribution",
+      "name": "分布函数与概率密度",
+      "level": 3,
+      "parent_id": "math3.prob.rv1",
+      "is_leaf": false,
+      "exam_weight": 0.33
+    },
+    {
+      "id": "math3.prob.rv1.distribution.function",
+      "name": "分布函数的性质与计算",
+      "level": 4,
+      "parent_id": "math3.prob.rv1.distribution",
+      "is_leaf": true,
+      "definition": "随机变量 X 的分布函数 F(x)=P(X≤x)，它是单调不减、右连续的函数，且 F(-∞)=0、F(+∞)=1。离散型随机变量的 F 是阶梯函数，在取值点跳跃、跳跃高度等于该点的概率；连续型随机变量的 F 是连续函数。计算 P(a<X≤b)=F(b)-F(a)。",
+      "formulas": [
+        "F(x)=P(X\\le x),\\quad -\\infty<x<+\\infty",
+        "F(-\\infty)=0,\\quad F(+\\infty)=1,\\quad F\\ \\text{单调不减且右连续}",
+        "P(a<X\\le b)=F(b)-F(a)",
+        "P(X=a)=F(a)-F(a-0)\\quad(\\text{跳跃高度})"
+      ],
+      "common_traps": [
+        "★ 计算 P(a<X≤b) 时上下限的开闭处理错误，混用 F(b)-F(a) 与 P(a≤X≤b)",
+        "对连续型随机变量误以为 P(X=a)>0（连续型在单点的概率恒为零）",
+        "把分布函数写成左连续，或忘记 F 的取值必须落在 [0,1]",
+        "分段求 F(x) 时漏掉某些区间，导致 F(+∞)≠1"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.38,
+      "weight_source": "derived",
+      "aliases": [
+        "F(x)=P(X\\le x)",
+        "F(+\\infty)=1",
+        "单调不减",
+        "分布函数的性质",
+        "分布函数"
+      ]
+    },
+    {
+      "id": "math3.prob.rv1.distribution.density",
+      "name": "概率密度及其性质",
+      "level": 4,
+      "parent_id": "math3.prob.rv1.distribution",
+      "is_leaf": true,
+      "definition": "若存在非负可积函数 f(x) 使 F(x)=∫_{-∞}^{x}f(t)dt，称 X 为连续型随机变量，f 为概率密度。密度满足 f(x)≥0 与 ∫_{-∞}^{+∞}f(x)dx=1；在 f 的连续点处 F'(x)=f(x)。求待定常数的方法是利用归一性条件。",
+      "formulas": [
+        "F(x)=\\int_{-\\infty}^{x}f(t)\\,dt,\\quad F'(x)=f(x)\\ (f\\ \\text{连续点})",
+        "f(x)\\ge 0,\\quad \\int_{-\\infty}^{+\\infty}f(x)\\,dx=1",
+        "P(a<X<b)=\\int_a^b f(x)\\,dx",
+        "P(X=a)=0\\quad(\\text{连续型})"
+      ],
+      "common_traps": [
+        "★ 求密度中的待定常数时未用归一化条件，或用错积分上下限",
+        "把 f(x) 的值当作概率（f(x) 可以大于 1，只有积分才是概率）",
+        "对含绝对值的密度漏分区间讨论，导致积分区间取错",
+        "由 F(x) 求 f(x) 时在 F 的不可导点处强行求导，未分区间讨论"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.38,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int_{-\\infty}^{+\\infty}f(x)\\mathrm{d}x=1",
+        "F(x)=\\int_{-\\infty}^{x}f(t)\\mathrm{d}t",
+        "概率密度"
+      ]
+    },
+    {
+      "id": "math3.prob.rv1.common",
+      "name": "常见分布",
+      "level": 3,
+      "parent_id": "math3.prob.rv1",
+      "is_leaf": false,
+      "exam_weight": 0.24
+    },
+    {
+      "id": "math3.prob.rv1.common.discrete",
+      "name": "常见离散型分布",
+      "level": 4,
+      "parent_id": "math3.prob.rv1.common",
+      "is_leaf": true,
+      "definition": "0-1 分布 B(1,p)、二项分布 B(n,p)、泊松分布 P(λ)、几何分布 G(p)、超几何分布。二项分布描述 n 重伯努利试验的成功次数，其分布律为 C(n,k)p^k(1-p)^{n-k}。泊松分布常作为稀有事件计数模型，也是二项分布在 n 大 p 小时的近似（λ=np）。",
+      "formulas": [
+        "P(X=k)=\\binom{n}{k}p^k(1-p)^{n-k},\\quad k=0,1,\\dots,n\\quad(B(n,p))",
+        "P(X=k)=\\frac{\\lambda^k e^{-\\lambda}}{k!},\\quad k=0,1,2,\\dots\\quad(P(\\lambda))",
+        "P(X=k)=(1-p)^{k-1}p,\\quad k=1,2,\\dots\\quad(G(p))",
+        "P(X=k)=\\frac{\\binom{M}{k}\\binom{N-M}{n-k}}{\\binom{N}{n}}\\quad(\\text{超几何分布})",
+        "\\sum_{k=0}^{n}\\binom{n}{k}p^k(1-p)^{n-k}=1"
+      ],
+      "common_traps": [
+        "★ 二项分布中漏掉组合数 C(n,k)，只写 p^k(1-p)^{n-k}",
+        "几何分布的两种定义（试验次数从 1 起与失败次数从 0 起）混用，导致期望差 1",
+        "泊松分布与二项分布的使用条件混淆（泊松用于单位时间/面积内的稀有事件计数）",
+        "写分布律时未列出全部可能取值或未验证概率之和为 1"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.28,
+      "weight_source": "derived",
+      "aliases": [
+        "X\\sim B(n,p)",
+        "X\\sim P(\\lambda)",
+        "二项分布",
+        "泊松分布"
+      ]
+    },
+    {
+      "id": "math3.prob.rv2",
+      "name": "二维随机变量及其分布",
+      "level": 2,
+      "parent_id": "math3.prob",
+      "is_leaf": false,
+      "exam_weight": 0.9
+    },
+    {
+      "id": "math3.prob.rv2.joint",
+      "name": "联合分布与边缘分布",
+      "level": 3,
+      "parent_id": "math3.prob.rv2",
+      "is_leaf": false,
+      "exam_weight": 0.27
+    },
+    {
+      "id": "math3.prob.rv2.joint.distribution",
+      "name": "二维随机变量的联合分布与边缘分布",
+      "level": 4,
+      "parent_id": "math3.prob.rv2.joint",
+      "is_leaf": true,
+      "definition": "二维随机变量 (X,Y) 的联合分布函数 F(x,y)=P(X≤x, Y≤y)。边缘分布由联合分布『求和或积分掉』另一个变量得到：离散型对另一个变量求和，连续型对另一个变量积分。联合分布能唯一确定边缘分布，但边缘分布不能唯一确定联合分布。",
+      "formulas": [
+        "F(x,y)=P(X\\le x,\\ Y\\le y)",
+        "f_X(x)=\\int_{-\\infty}^{+\\infty}f(x,y)\\,dy,\\quad f_Y(y)=\\int_{-\\infty}^{+\\infty}f(x,y)\\,dx",
+        "p_{X}(x_i)=\\sum_{j}p_{ij},\\quad p_{Y}(y_j)=\\sum_{i}p_{ij}",
+        "\\iint_{\\mathbb{R}^2}f(x,y)\\,dx\\,dy=1"
+      ],
+      "common_traps": [
+        "★ 求边缘密度时积分限写成常数区间，未按联合密度非零的区域确定上下限（这是二维问题最典型的错误）",
+        "误以为边缘分布可以反推联合分布",
+        "计算 P((X,Y)∈D) 时未先画出区域 D 与密度非零区域的交集",
+        "对离散型求边缘分布时把求和方向搞反（对 i 求和还是对 j 求和）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.32,
+      "weight_source": "derived",
+      "aliases": [
+        "F(x,y)=P(X\\le x,Y\\le y)",
+        "f_X(x)=\\int_{-\\infty}^{+\\infty}f(x,y)\\mathrm{d}y",
+        "边缘分布",
+        "二维随机变量的联合分布",
+        "联合分布",
+        "二维随机变量"
+      ]
+    },
+    {
+      "id": "math3.prob.rv2.independence",
+      "name": "随机变量的独立性",
+      "level": 3,
+      "parent_id": "math3.prob.rv2",
+      "is_leaf": false,
+      "exam_weight": 0.24
+    },
+    {
+      "id": "math3.prob.rv2.independence.condition",
+      "name": "独立性的判定与条件分布",
+      "level": 4,
+      "parent_id": "math3.prob.rv2.independence",
+      "is_leaf": true,
+      "definition": "X 与 Y 相互独立指对任意 x、y 有 F(x,y)=F_X(x)F_Y(y)，对连续型等价于 f(x,y)=f_X(x)f_Y(y)（在连续点），对离散型等价于 p_ij=p_i·p_·j。判定独立的实用技巧：若联合密度（或分布律）能分离成只含 x 的函数与只含 y 的函数之积，且定义域是矩形，则独立。条件密度 f_{X|Y}(x|y)=f(x,y)/f_Y(y)。",
+      "formulas": [
+        "X,Y\\ \\text{独立} \\iff f(x,y)=f_X(x)f_Y(y)",
+        "X,Y\\ \\text{独立} \\iff F(x,y)=F_X(x)F_Y(y)",
+        "f_{X|Y}(x|y)=\\frac{f(x,y)}{f_Y(y)}\\quad(f_Y(y)>0)",
+        "P_{X|Y}(x_i|y_j)=\\frac{p_{ij}}{p_{\\cdot j}}"
+      ],
+      "common_traps": [
+        "★ 只验证了联合密度可分离成 g(x)h(y)，却忽略其非零区域不是矩形，仍判为独立",
+        "求条件密度时忘记除以边缘密度，直接用联合密度",
+        "由『X 与 Y 不相关』推出『X 与 Y 独立』（不相关弱于独立）",
+        "离散型判定独立时只抽查了一两个 (i,j) 组合"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.28,
+      "weight_source": "derived",
+      "aliases": [
+        "f(x,y)=f_X(x)f_Y(y)",
+        "f_{Y|X}(y|x)=\\frac{f(x,y)}{f_X(x)}",
+        "条件分布",
+        "独立性的判定",
+        "独立性"
+      ]
+    },
+    {
+      "id": "math3.prob.rv2.function",
+      "name": "二维随机变量函数的分布",
+      "level": 3,
+      "parent_id": "math3.prob.rv2",
+      "is_leaf": false,
+      "exam_weight": 0.33
+    },
+    {
+      "id": "math3.prob.rv2.function.sums",
+      "name": "最大值最小值与和的分布",
+      "level": 4,
+      "parent_id": "math3.prob.rv2.function",
+      "is_leaf": true,
+      "definition": "设 X、Y 独立，则 M=max(X,Y) 的分布函数为 F_M(z)=F_X(z)F_Y(z)，N=min(X,Y) 的分布函数为 F_N(z)=1-[1-F_X(z)][1-F_Y(z)]。和的分布由卷积公式给出：连续型 f_Z(z)=∫f_X(x)f_Y(z-x)dx，正态分布具有可加性。",
+      "formulas": [
+        "F_{\\max}(z)=F_X(z)F_Y(z)",
+        "F_{\\min}(z)=1-[1-F_X(z)][1-F_Y(z)]",
+        "f_{X+Y}(z)=\\int_{-\\infty}^{+\\infty}f_X(x)f_Y(z-x)\\,dx",
+        "X\\sim N(\\mu_1,\\sigma_1^2),\\ Y\\sim N(\\mu_2,\\sigma_2^2)\\ \\text{独立} \\Rightarrow X+Y\\sim N(\\mu_1+\\mu_2,\\ \\sigma_1^2+\\sigma_2^2)"
+      ],
+      "common_traps": [
+        "★ 把 max 与 min 的分布函数公式记反（max 是分布函数相乘，min 不是）",
+        "卷积公式中积分限未按被积函数非零区域确定，直接写成 -∞ 到 +∞",
+        "误以为『独立正态变量的差』方差不等于 σ₁²+σ₂²（X-Y 的方差同样是 σ₁²+σ₂²）",
+        "把二项分布的可加性条件记错（要求两二项分布的 p 相同）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.39,
+      "weight_source": "derived",
+      "aliases": [
+        "Z=X+Y",
+        "M=\\max(X,Y)",
+        "N=\\min(X,Y)",
+        "f_Z(z)=\\int_{-\\infty}^{+\\infty}f(x,z-x)\\mathrm{d}x",
+        "最大值最小值",
+        "和的分布",
+        "分布"
+      ]
+    },
+    {
+      "id": "math3.prob.numeric",
+      "name": "随机变量的数字特征",
+      "level": 2,
+      "parent_id": "math3.prob",
+      "is_leaf": false,
+      "exam_weight": 0.95
+    },
+    {
+      "id": "math3.prob.numeric.expectation",
+      "name": "数学期望与方差",
+      "level": 3,
+      "parent_id": "math3.prob.numeric",
+      "is_leaf": false,
+      "exam_weight": 0.3
+    },
+    {
+      "id": "math3.prob.numeric.expectation.definition",
+      "name": "数学期望与方差的计算",
+      "level": 4,
+      "parent_id": "math3.prob.numeric.expectation",
+      "is_leaf": true,
+      "definition": "离散型 E(X)=∑x_i p_i，连续型 E(X)=∫xf(x)dx，要求级数或积分绝对收敛，否则期望不存在。方差 D(X)=E{[X-E(X)]²}，实用计算公式为 D(X)=E(X²)-[E(X)]²。E(X) 反映取值的中心位置，D(X) 反映取值的离散程度。",
+      "formulas": [
+        "E(X)=\\sum_{i}x_ip_i\\quad(\\text{离散}),\\qquad E(X)=\\int_{-\\infty}^{+\\infty}xf(x)\\,dx\\quad(\\text{连续})",
+        "D(X)=E\\{[X-E(X)]^2\\}=E(X^2)-[E(X)]^2",
+        "E(aX+b)=aE(X)+b,\\quad D(aX+b)=a^2D(X)",
+        "E(X+Y)=E(X)+E(Y),\\quad D(X\\pm Y)=D(X)+D(Y)\\pm 2\\operatorname{Cov}(X,Y)",
+        "E[g(X)]=\\int_{-\\infty}^{+\\infty}g(x)f(x)\\,dx"
+      ],
+      "common_traps": [
+        "★ 把 D(X)=E(X²)-[E(X)]² 写成 E(X²)-E(X)²（漏掉平方）或写成 E(X²)-2E(X)，公式记错是最高频失分点",
+        "认为 D(X-Y)=D(X)-D(Y)（方差没有减法，独立时 D(X-Y)=D(X)+D(Y)）",
+        "求 E[g(X)] 时未用『无意识统计学家公式』，先求 g(X) 的密度再积分导致繁琐且易错",
+        "忘记验证期望存在（级数或积分绝对收敛）就套用公式"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.4,
+      "weight_source": "derived",
+      "aliases": [
+        "E(X)=\\int_{-\\infty}^{+\\infty}xf(x)\\mathrm{d}x",
+        "D(X)=E(X^2)-[E(X)]^2",
+        "D(2X-3Y)",
+        "E(aX+b)=aE(X)+b",
+        "数学期望",
+        "方差的计算",
+        "方差"
+      ]
+    },
+    {
+      "id": "math3.prob.numeric.expectation.common",
+      "name": "常见分布的期望与方差",
+      "level": 4,
+      "parent_id": "math3.prob.numeric.expectation",
+      "is_leaf": true,
+      "definition": "必须熟记的常用结论：0-1 分布 E=p、D=p(1-p)；二项分布 B(n,p) 的 E=np、D=np(1-p)；泊松分布 P(λ) 的 E=D=λ；均匀分布 U(a,b) 的 E=(a+b)/2、D=(b-a)²/12；指数分布 E(λ) 的 E=1/λ、D=1/λ²；正态分布 N(μ,σ²) 的 E=μ、D=σ²。",
+      "formulas": [
+        "X\\sim B(n,p):\\ E(X)=np,\\quad D(X)=np(1-p)",
+        "X\\sim P(\\lambda):\\ E(X)=D(X)=\\lambda",
+        "X\\sim U(a,b):\\ E(X)=\\frac{a+b}{2},\\quad D(X)=\\frac{(b-a)^2}{12}",
+        "X\\sim E(\\lambda):\\ E(X)=\\frac{1}{\\lambda},\\quad D(X)=\\frac{1}{\\lambda^2}",
+        "X\\sim N(\\mu,\\sigma^2):\\ E(X)=\\mu,\\quad D(X)=\\sigma^2"
+      ],
+      "common_traps": [
+        "★ 指数分布与泊松分布的参数混淆：泊松 P(λ) 的期望是 λ，指数 E(λ) 的期望是 1/λ",
+        "均匀分布的方差写成 (b-a)²/12 时把 12 记成 2 或漏掉平方",
+        "正态分布的第二参数是方差 σ² 而不是标准差 σ，读 N(μ,σ²) 时误把 σ² 当作标准差",
+        "把二项分布的方差写成 np² 或 np(1-p²)"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.4,
+      "weight_source": "derived",
+      "aliases": [
+        "E(X)=\\frac{1}{\\lambda}",
+        "E(X)=np",
+        "D(X)=np(1-p)",
+        "E(X)=\\frac{a+b}{2}",
+        "常见分布的期望",
+        "期望",
+        "常见分布",
+        "方差"
+      ]
+    },
+    {
+      "id": "math3.prob.numeric.covariance",
+      "name": "协方差与相关系数",
+      "level": 3,
+      "parent_id": "math3.prob.numeric",
+      "is_leaf": false,
+      "exam_weight": 0.22
+    },
+    {
+      "id": "math3.prob.numeric.covariance.correlation",
+      "name": "协方差、相关系数与矩",
+      "level": 4,
+      "parent_id": "math3.prob.numeric.covariance",
+      "is_leaf": true,
+      "definition": "协方差 Cov(X,Y)=E{[X-E(X)][Y-E(Y)]}=E(XY)-E(X)E(Y)，相关系数 ρ_{XY}=Cov(X,Y)/√(D(X)D(Y))，取值必在 [-1,1] 内。ρ=0 时称 X 与 Y 不相关，等价于 Cov(X,Y)=0，但不蕴含独立。|ρ|=1 的充要条件是 Y 与 X 以概率 1 成线性关系。",
+      "formulas": [
+        "\\operatorname{Cov}(X,Y)=E(XY)-E(X)E(Y)",
+        "\\rho_{XY}=\\frac{\\operatorname{Cov}(X,Y)}{\\sqrt{D(X)}\\sqrt{D(Y)}},\\quad |\\rho_{XY}|\\le 1",
+        "D(X\\pm Y)=D(X)+D(Y)\\pm 2\\operatorname{Cov}(X,Y)",
+        "\\operatorname{Cov}(aX+b,\\ cY+d)=ac\\operatorname{Cov}(X,Y)",
+        "X,Y\\ \\text{独立} \\Rightarrow \\rho_{XY}=0\\ (\\text{反之不成立})"
+      ],
+      "common_traps": [
+        "★ 由 ρ=0 断定 X 与 Y 独立（不相关远弱于独立，只有二维正态情形下二者等价）",
+        "计算 E(XY) 时在 X、Y 不独立的情况下仍写成 E(X)E(Y)",
+        "把相关系数公式中的分母写成 D(X)D(Y) 而不是 √D(X)·√D(Y)",
+        "认为 |ρ|≤1 中的等号只能在 X、Y 完全线性相关且系数为正时取到（ρ=-1 也是等号）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2014,
+        2015,
+        2017,
+        2019,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.27,
+      "weight_source": "derived",
+      "aliases": [
+        "Cov(X,Y)=E(XY)-E(X)E(Y)",
+        "\\rho_{XY}=\\frac{Cov(X,Y)}{\\sqrt{D(X)}\\sqrt{D(Y)}}",
+        "协方差矩阵",
+        "协方差",
+        "相关系数"
+      ]
+    },
+    {
+      "id": "math3.prob.limit",
+      "name": "大数定律与中心极限定理",
+      "level": 2,
+      "parent_id": "math3.prob",
+      "is_leaf": false,
+      "exam_weight": 0.7
+    },
+    {
+      "id": "math3.prob.limit.laws",
+      "name": "大数定律与中心极限定理",
+      "level": 3,
+      "parent_id": "math3.prob.limit",
+      "is_leaf": false,
+      "exam_weight": 0.18
+    },
+    {
+      "id": "math3.prob.limit.laws.lln_clt",
+      "name": "切比雪夫不等式、大数定律与中心极限定理",
+      "level": 4,
+      "parent_id": "math3.prob.limit.laws",
+      "is_leaf": true,
+      "definition": "切比雪夫不等式给出偏离均值的概率上界。辛钦大数定律指出独立同分布且期望存在的随机变量序列，其算术平均依概率收敛于期望；伯努利大数定律是频率稳定性的理论依据。列维-林德伯格中心极限定理指出独立同分布且方差有限的序列，其标准化的部分和依分布收敛于标准正态分布。",
+      "formulas": [
+        "P\\{|X-E(X)|\\ge\\varepsilon\\}\\le\\frac{D(X)}{\\varepsilon^2}",
+        "P\\{|X-E(X)|<\\varepsilon\\}\\ge 1-\\frac{D(X)}{\\varepsilon^2}",
+        "\\frac{1}{n}\\sum_{i=1}^{n}X_i\\xrightarrow{P}\\mu\\quad(\\text{辛钦大数定律})",
+        "\\lim_{n\\to\\infty}P\\left\\{\\frac{\\sum_{i=1}^{n}X_i-n\\mu}{\\sqrt{n}\\sigma}\\le x\\right\\}=\\Phi(x)",
+        "\\sum_{i=1}^{n}X_i\\ \\text{近似}\\sim N(n\\mu,\\ n\\sigma^2)\\quad(n\\ \\text{充分大})"
+      ],
+      "common_traps": [
+        "★ 使用中心极限定理时忘记标准化，直接用 N(μ,σ²) 而非 N(nμ,nσ²) 处理 n 个变量之和",
+        "把大数定律与中心极限定理的结论混用：前者说的是平均值趋于期望，后者说的是标准化和趋于正态分布",
+        "切比雪夫不等式方向写反（应为 P≥ε ≤ D/ε²，不是 ≥）",
+        "忽略中心极限定理对独立同分布与方差有限的前提条件"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.21,
+      "weight_source": "derived",
+      "aliases": [
+        "P\\{|X-E(X)|\\ge\\varepsilon\\}\\le\\frac{D(X)}{\\varepsilon^2}",
+        "\\frac{1}{n}\\sum X_i\\to\\mu",
+        "\\frac{\\sum X_i-n\\mu}{\\sqrt{n}\\sigma}\\to N(0,1)",
+        "切比雪夫不等式",
+        "中心极限定理",
+        "大数定律"
+      ]
+    },
+    {
+      "id": "math3.prob.stats",
+      "name": "数理统计的基本概念",
+      "level": 2,
+      "parent_id": "math3.prob",
+      "is_leaf": false,
+      "exam_weight": 0.65,
+      "exam_scope_note": "数学（三）大纲要求数理统计的基本概念，但不考假设检验与区间估计的深入内容，重点为总体、样本、统计量及其分布、三大抽样分布与正态总体的抽样分布定理。"
+    },
+    {
+      "id": "math3.prob.stats.sample",
+      "name": "总体、样本与统计量",
+      "level": 3,
+      "parent_id": "math3.prob.stats",
+      "is_leaf": false,
+      "exam_weight": 0.22
+    },
+    {
+      "id": "math3.prob.stats.sample.statistics",
+      "name": "样本均值与样本方差",
+      "level": 4,
+      "parent_id": "math3.prob.stats.sample",
+      "is_leaf": true,
+      "definition": "设 X₁,…,X_n 是来自总体 X 的简单随机样本（相互独立且与 X 同分布）。样本均值 X̄=(1/n)∑X_i 与样本方差 S²=[1/(n-1)]∑(X_i-X̄)² 是最重要的两个统计量。样本方差用 n-1 作分母是为保证无偏性，即 E(S²)=D(X)。",
+      "formulas": [
+        "\\bar{X}=\\frac{1}{n}\\sum_{i=1}^{n}X_i,\\quad E(\\bar{X})=\\mu,\\quad D(\\bar{X})=\\frac{\\sigma^2}{n}",
+        "S^2=\\frac{1}{n-1}\\sum_{i=1}^{n}(X_i-\\bar{X})^2=\\frac{1}{n-1}\\left(\\sum_{i=1}^{n}X_i^2-n\\bar{X}^2\\right)",
+        "E(S^2)=\\sigma^2,\\quad E\\left[\\frac{1}{n}\\sum(X_i-\\bar{X})^2\\right]=\\frac{n-1}{n}\\sigma^2",
+        "\\frac{1}{\\sigma^2}\\sum_{i=1}^{n}(X_i-\\mu)^2\\sim\\chi^2(n)"
+      ],
+      "common_traps": [
+        "★ 样本方差的分母写成 n 而不是 n-1，导致 E(S²)≠σ²（无偏性丧失）",
+        "把 D(X̄)=σ²/n 写成 σ²（忘记除以 n）",
+        "认为 S² 与 X̄ 一定独立（只有在正态总体下才成立）",
+        "计算 ∑(X_i-X̄)² 时用 ∑X_i²-nX̄² 却把 nX̄² 写成 (nX̄)²"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.26,
+      "weight_source": "derived",
+      "aliases": [
+        "\\bar{X}=\\frac{1}{n}\\sum_{i=1}^{n}X_i",
+        "S^2=\\frac{1}{n-1}\\sum_{i=1}^{n}(X_i-\\bar{X})^2",
+        "样本均值",
+        "样本方差"
+      ]
+    },
+    {
+      "id": "math3.prob.stats.distributions",
+      "name": "常用统计分布与抽样分布定理",
+      "level": 3,
+      "parent_id": "math3.prob.stats",
+      "is_leaf": false,
+      "exam_weight": 0.24
+    },
+    {
+      "id": "math3.prob.stats.distributions.chi_t_f",
+      "name": "χ² 分布、t 分布与 F 分布",
+      "level": 4,
+      "parent_id": "math3.prob.stats.distributions",
+      "is_leaf": true,
+      "definition": "χ²(n) 是 n 个相互独立的标准正态变量平方和所服从的分布；t(n)=X/√(Y/n)，其中 X~N(0,1)、Y~χ²(n) 且相互独立；F(m,n)=(U/m)/(V/n)，其中 U~χ²(m)、V~χ²(n) 且相互独立。正态总体下 X̄ 与 S² 相互独立，由此得到三个基本的抽样分布定理。",
+      "formulas": [
+        "\\sum_{i=1}^{n}X_i^2\\sim\\chi^2(n)\\quad(X_i\\ \\text{独立同分布于}\\ N(0,1))",
+        "T=\\frac{X}{\\sqrt{Y/n}}\\sim t(n)",
+        "F=\\frac{U/m}{V/n}\\sim F(m,n),\\quad \\frac{1}{F}\\sim F(n,m)",
+        "\\frac{\\bar{X}-\\mu}{S/\\sqrt{n}}\\sim t(n-1)",
+        "\\frac{(n-1)S^2}{\\sigma^2}\\sim\\chi^2(n-1)"
+      ],
+      "common_traps": [
+        "★ t 分布与 χ² 分布的自由度记错：用 S 代替 σ 时自由度降为 n-1，用 σ 时才是 n",
+        "把 t(n) 与 N(0,1) 混用（n 很大时近似，但考试要求严格区分）",
+        "F 分布中分子分母的自由度顺序颠倒，或把 1/F 的分布写成 F(m,n)",
+        "χ² 分布的可加性条件记错（只有相互独立时才可加，自由度相加）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.28,
+      "weight_source": "derived",
+      "aliases": [
+        "\\chi^2=\\sum X_i^2",
+        "t=\\frac{X}{\\sqrt{Y/n}}",
+        "F=\\frac{X/n_1}{Y/n_2}",
+        "\\chi^2(n)",
+        "t(n)",
+        "F(m,n)",
+        "χ² 分布",
+        "t 分布",
+        "F 分布"
+      ]
+    },
+    {
+      "id": "math3.linalg.eigen.real_symmetric.properties",
+      "name": "实对称矩阵的性质与正交对角化",
+      "level": 4,
+      "parent_id": "math3.linalg.eigen.real_symmetric",
+      "is_leaf": true,
+      "definition": "实对称矩阵 A（A^T=A）的特征值全为实数；属于不同特征值的特征向量必正交；必可正交对角化，即存在正交矩阵 Q 使 Q^{-1}AQ=Q^TAQ=Λ 为对角矩阵。求 Q 的流程：求特征值与特征向量，对重根的特征向量做施密特正交化，最后全部单位化并按列排成 Q。",
+      "formulas": [
+        "A^T=A \\Rightarrow \\lambda_i\\in\\mathbb{R}",
+        "\\lambda_i\\neq\\lambda_j \\Rightarrow \\alpha_i\\perp\\alpha_j",
+        "\\exists Q\\ (Q^TQ=E):\\ Q^TAQ=\\operatorname{diag}(\\lambda_1,\\dots,\\lambda_n)",
+        "A=Q\\Lambda Q^T=\\sum_{i=1}^{n}\\lambda_i\\alpha_i\\alpha_i^T\\quad(\\alpha_i\\ \\text{为标准化特征向量})"
+      ],
+      "common_traps": [
+        "★ 对属于同一重根的特征向量忘记施密特正交化，导致构造出的 Q 不是正交矩阵",
+        "最后忘记单位化，或误以为只要特征向量线性无关就能构成正交矩阵",
+        "把『实对称矩阵必可对角化』推广到一般矩阵",
+        "验证 Q 是否为正交矩阵时只检查了 Q^TQ 的对角元为 1，未检查非对角元为 0"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.44,
+      "weight_source": "derived",
+      "aliases": [
+        "A^{T}=A",
+        "Q^{T}AQ=\\Lambda",
+        "Q^{-1}=Q^{T}",
+        "实对称矩阵的性质",
+        "实对称矩阵",
+        "正交对角化"
+      ]
+    },
+    {
+      "id": "math3.linalg.quadratic.standard.transform",
+      "name": "二次型的矩阵表示与化标准形",
+      "level": 4,
+      "parent_id": "math3.linalg.quadratic.standard",
+      "is_leaf": true,
+      "definition": "二次型 f(x₁,…,x_n)=∑∑a_ij x_i x_j 可写成 f=x^TAx，其中 A 为实对称矩阵，且 A 由 f 唯一确定（交叉项系数要平分给 a_ij 与 a_ji）。化标准形有两种方法：正交变换法（求 A 的特征值）与配方法。正交变换保持二次型的几何形状，配方法得到的变换矩阵不一定是正交的。",
+      "formulas": [
+        "f(x_1,\\dots,x_n)=x^TAx,\\quad A^T=A",
+        "f=\\sum_{i=1}^{n}\\sum_{j=1}^{n}a_{ij}x_ix_j,\\quad a_{ij}=a_{ji}",
+        "x=Qy \\Rightarrow f=y^T(Q^TAQ)y=\\lambda_1y_1^2+\\cdots+\\lambda_ny_n^2",
+        "\\text{交叉项}\\ 2bx_ix_j \\Rightarrow a_{ij}=a_{ji}=b"
+      ],
+      "common_traps": [
+        "★ 写二次型矩阵时把交叉项系数直接填成 a_ij 而未除以 2（如 4x₁x₂ 应写 a₁₂=a₂₁=2）",
+        "用配方法时得到的变换矩阵不可逆，导致不是合法的非退化线性替换",
+        "正交变换法与配方法的结果不同却认为算错（标准形不唯一，但正负惯性指数唯一）",
+        "忘记二次型的矩阵必须是对称矩阵，写出非对称的 A"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.44,
+      "weight_source": "derived",
+      "aliases": [
+        "f=x^{T}Ax",
+        "A^{T}=A",
+        "配方法",
+        "正交变换",
+        "二次型的矩阵表示",
+        "二次型",
+        "矩阵",
+        "化标准形"
+      ]
+    },
+    {
+      "id": "math3.calc.econ.interest.compound",
+      "name": "复利、连续复利与贴现",
+      "level": 4,
+      "parent_id": "math3.calc.econ.interest",
+      "is_leaf": true,
+      "definition": "一笔本金 A 以年利率 r 计息，t 年后的终值：按年复利为 A(1+r)^t，每年计 m 次为 A(1+r/m)^{mt}，连续复利为 Ae^{rt}（由 lim(1+r/m)^m=e^r 得到）。反向过程称贴现：t 年后的金额 B 按连续复利折算为现值 Be^{-rt}。数三常考变利率与连续收益流问题。",
+      "formulas": [
+        "A(t)=A(1+r)^t\\quad(\\text{按年复利})",
+        "A(t)=A\\left(1+\\frac{r}{m}\\right)^{mt}\\quad(\\text{每年计息}\\ m\\ \\text{次})",
+        "A(t)=Ae^{rt},\\quad \\lim_{m\\to\\infty}\\left(1+\\frac{r}{m}\\right)^{m}=e^{r}",
+        "PV=Be^{-rt}\\quad(\\text{连续复利贴现})",
+        "PV=\\int_0^{T}f(t)e^{-rt}\\,dt\\quad(\\text{连续收益流})"
+      ],
+      "common_traps": [
+        "★ 把『每年计息 m 次』写成 A(1+r)^{mt}（利率未除以 m）",
+        "现值与终值方向混淆，把贴现写成乘以 e^{rt}",
+        "按年复利的期数用错（t 年按年计息应为 t 期，按月计息应为 12t 期）",
+        "连续收益流贴现时漏掉对时间的积分，直接乘 T"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2014,
+        2016,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.13,
+      "weight_source": "derived",
+      "aliases": [
+        "(1+r)^n",
+        "e^{rt}",
+        "连续复利",
+        "贴现",
+        "复利"
+      ]
+    },
+    {
+      "id": "math3.prob.event.probability.classical",
+      "name": "古典概型与几何概型",
+      "level": 4,
+      "parent_id": "math3.prob.event.probability",
+      "is_leaf": true,
+      "definition": "古典概型要求样本空间有限且每个基本事件等可能，此时 P(A)=A 包含的基本事件数/基本事件总数。几何概型把『等可能』推广到无限样本空间，用测度之比（长度、面积、体积）计算概率。两者都必须先确认等可能性成立。",
+      "formulas": [
+        "P(A)=\\frac{k}{n}=\\frac{\\text{有利于}\\ A\\ \\text{的基本事件数}}{\\text{基本事件总数}}",
+        "P(A)=\\frac{\\mu(A)}{\\mu(\\Omega)}\\quad(\\text{几何概型，}\\ \\mu\\ \\text{为长度/面积/体积})",
+        "P(\\bar{A})=1-P(A)",
+        "P(\\varnothing)=0,\\quad P(\\Omega)=1"
+      ],
+      "common_traps": [
+        "★ 未检验『等可能』就直接用古典概型公式（如掷两枚骰子时把 (1,2) 与 (2,1) 当作一个基本事件）",
+        "几何概型中样本空间的测度选错（如把面积比写成半径比）",
+        "在『至少有一个』类问题中直接相加而忘记去重，未用对立事件 1-P(全不发生)",
+        "排列与组合混用，分子的计数方式与分母不一致"
+      ],
+      "exam_years": [
+        2010,
+        2013,
+        2015,
+        2018,
+        2021
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.33,
+      "weight_source": "derived",
+      "aliases": [
+        "P(A)=\\frac{m}{n}",
+        "P(A)=\\frac{S_A}{S_{\\Omega}}",
+        "等可能",
+        "古典概型",
+        "几何概型"
+      ]
+    },
+    {
+      "id": "math3.prob.rv1.common.continuous",
+      "name": "常见连续型分布",
+      "level": 4,
+      "parent_id": "math3.prob.rv1.common",
+      "is_leaf": true,
+      "definition": "均匀分布 U(a,b)、指数分布 E(λ)、正态分布 N(μ,σ²)。均匀分布的密度在区间内为常数 1/(b-a)；指数分布密度为 λe^{-λx}(x>0)，具有无记忆性；正态分布是最重要的分布，标准化后查标准正态分布表计算概率。",
+      "formulas": [
+        "f(x)=\\frac{1}{b-a},\\quad a<x<b\\quad(U(a,b))",
+        "f(x)=\\lambda e^{-\\lambda x},\\quad x>0;\\quad F(x)=1-e^{-\\lambda x}",
+        "f(x)=\\frac{1}{\\sqrt{2\\pi}\\sigma}e^{-\\frac{(x-\\mu)^2}{2\\sigma^2}}",
+        "P(X\\le x)=\\Phi\\!\\left(\\frac{x-\\mu}{\\sigma}\\right),\\quad \\Phi(-x)=1-\\Phi(x)",
+        "P(|X-\\mu|<\\sigma)=2\\Phi(1)-1\\approx 0.6826"
+      ],
+      "common_traps": [
+        "★ 正态分布概率计算时忘记标准化，直接用 Φ(x) 而非 Φ((x-μ)/σ)",
+        "标准正态分布函数记错对称性，写成 Φ(-x)=Φ(x) 而不是 1-Φ(x)",
+        "指数分布的无记忆性 P(X>s+t|X>s)=P(X>t) 与几何分布混用出现偏差",
+        "均匀分布的区间端点开闭弄错，或把 f(x)=1/(b-a) 的适用区间写成全体实数"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.29,
+      "weight_source": "derived",
+      "aliases": [
+        "X\\sim N(\\mu,\\sigma^2)",
+        "X\\sim U(a,b)",
+        "X\\sim E(\\lambda)",
+        "\\Phi(x)",
+        "标准正态分布",
+        "均匀分布",
+        "指数分布"
+      ]
+    },
+    {
+      "id": "math3.prob.rv1.function.distribution_method",
+      "name": "分布函数法求随机变量函数的分布",
+      "level": 4,
+      "parent_id": "math3.prob.rv1.function",
+      "is_leaf": true,
+      "definition": "求 Y=g(X) 的分布：先写 F_Y(y)=P(Y≤y)=P(g(X)≤y)，把不等式化为关于 X 的条件再用 X 的分布计算，最后对 y 求导得密度。当 g 单调可导时可用公式法 f_Y(y)=f_X(h(y))|h'(y)|，其中 h 是 g 的反函数。非单调的 g（如 Y=X²）必须用分布函数法。",
+      "formulas": [
+        "F_Y(y)=P(g(X)\\le y)=\\int_{\\{x:g(x)\\le y\\}}f_X(x)\\,dx",
+        "f_Y(y)=f_X[h(y)]\\,|h'(y)|\\quad(g\\ \\text{单调可导},\\ h=g^{-1})",
+        "Y=X^2:\\ f_Y(y)=\\frac{1}{2\\sqrt{y}}\\left[f_X(\\sqrt{y})+f_X(-\\sqrt{y})\\right],\\quad y>0",
+        "Y=aX+b\\ (a\\neq 0):\\ f_Y(y)=\\frac{1}{|a|}f_X\\!\\left(\\frac{y-b}{a}\\right)"
+      ],
+      "common_traps": [
+        "★ 公式法中漏掉雅可比因子 |h'(y)|（等价于忘记除以 |g'|）",
+        "对非单调函数（如 Y=X²）直接套用单调情形的公式，漏掉另一支的贡献",
+        "求 F_Y(y) 后忘记对 y 求导，或求导时忽略分段区间的边界",
+        "未先确定 Y 的取值范围，导致密度表达式中 y 的定义域写错"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.36,
+      "weight_source": "derived",
+      "aliases": [
+        "Y=g(X)",
+        "分布函数法",
+        "f_Y(y)=f_X(g^{-1}(y))|(g^{-1})'(y)|",
+        "分布",
+        "分布函数法求随机变量函数"
+      ]
+    },
+    {
+      "id": "math3.linalg.matrix.operation.basic",
+      "name": "矩阵的线性运算与乘法",
+      "level": 4,
+      "parent_id": "math3.linalg.matrix.operation",
+      "is_leaf": true,
+      "definition": "矩阵乘法要求左矩阵的列数等于右矩阵的行数，结果为 m×s 矩阵。乘法不满足交换律，一般不满足消去律（AB=AC 且 A≠O 推不出 B=C）。转置满足 (AB)^T=B^T A^T。方阵的幂与多项式运算只对同一矩阵有意义。",
+      "formulas": [
+        "(AB)_{ij}=\\sum_{k=1}^{n}a_{ik}b_{kj}",
+        "AB\\neq BA\\ (\\text{一般情形}),\\quad (AB)^T=B^TA^T",
+        "(AB)C=A(BC),\\quad A(B+C)=AB+AC",
+        "A^kA^l=A^{k+l},\\quad (A^k)^l=A^{kl}"
+      ],
+      "common_traps": [
+        "★ 误用消去律：由 AB=AC 且 A≠O 推出 B=C（A 不可逆时错误）",
+        "使用 (AB)^T=A^T B^T 或 (AB)^{-1}=A^{-1}B^{-1}（顺序写反）",
+        "把矩阵乘法当成可交换运算，展开 (A+B)² 时写成 A²+2AB+B²",
+        "忽略乘法的相容性条件，对维数不匹配的矩阵强行相乘"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        3
+      ],
+      "exam_weight": 0.32,
+      "weight_source": "derived",
+      "aliases": [
+        "(AB)^{T}=B^{T}A^{T}",
+        "(AB)^{-1}=B^{-1}A^{-1}",
+        "矩阵的线性运算",
+        "矩阵的线性",
+        "线性运算",
+        "线性",
+        "乘法"
+      ]
+    },
+    {
+      "id": "math3.linalg.det.computation.expansion",
+      "name": "按行列展开与余子式",
+      "level": 4,
+      "parent_id": "math3.linalg.det.computation",
+      "is_leaf": true,
+      "definition": "元素 a_ij 的余子式 M_ij 是划去第 i 行第 j 列后的 n-1 阶行列式，代数余子式 A_ij=(-1)^{i+j}M_ij。按行展开：|A|=∑_j a_ij A_ij；错位展开（某行元素乘另一行的代数余子式）恒为零。计算时优先找零元素多的行或列展开。",
+      "formulas": [
+        "|A|=\\sum_{j=1}^{n}a_{ij}A_{ij},\\quad A_{ij}=(-1)^{i+j}M_{ij}",
+        "\\sum_{j=1}^{n}a_{kj}A_{ij}=0\\quad(k\\neq i)",
+        "\\sum_{j=1}^{n}a_{ij}A_{kj}=\\begin{cases}|A|,& k=i\\\\ 0,& k\\neq i\\end{cases}",
+        "|kA|=k^n|A|,\\quad |AB|=|A||B|"
+      ],
+      "common_traps": [
+        "★ 代数余子式的符号 (-1)^{i+j} 漏写或下标 i+j 算错",
+        "把余子式 M_ij 与代数余子式 A_ij 混用，忘记考虑符号",
+        "记错 |kA|=k^n|A| 中的指数（n 是阶数，不是 1）",
+        "错位展开时误以为结果等于 |A|，实际上为零"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2016,
+        2018,
+        2020,
+        2023
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.24,
+      "weight_source": "derived",
+      "aliases": [
+        "\\sum_{j=1}^{n}a_{ij}A_{ij}",
+        "代数余子式",
+        "余子式",
+        "按行列展开"
+      ]
+    },
+    {
+      "id": "math3.calc.ode.first_order.separable",
+      "name": "可分离变量方程与齐次方程",
+      "level": 4,
+      "parent_id": "math3.calc.ode.first_order",
+      "is_leaf": true,
+      "definition": "可分离变量方程形如 dy/dx=f(x)g(y)，两边分离后各自积分即可，注意 g(y)=0 可能给出被遗漏的常数解。齐次方程形如 dy/dx=φ(y/x)，令 u=y/x（即 y=ux）化为可分离变量方程。判定齐次的关键是右端只依赖 y/x。",
+      "formulas": [
+        "\\frac{dy}{dx}=f(x)g(y) \\Rightarrow \\int\\frac{dy}{g(y)}=\\int f(x)\\,dx",
+        "\\frac{dy}{dx}=\\varphi\\!\\left(\\frac{y}{x}\\right),\\quad u=\\frac{y}{x} \\Rightarrow x\\frac{du}{dx}=\\varphi(u)-u",
+        "\\frac{dy}{dx}+P(x)y=0 \\Rightarrow y=Ce^{-\\int P(x)dx}",
+        "y'+y\\tan x=0 \\Rightarrow y=C\\cos x"
+      ],
+      "common_traps": [
+        "★ 分离变量时除以 g(y)，遗漏了 g(y)=0 对应的常数解（如 y'=y 漏掉 y≡0）",
+        "判断齐次方程时只看分子分母是否同次，未验证右端确实只含 y/x",
+        "令 y=ux 后忘记 y'=u+xu' 中的乘积求导项，只写 y'=u'",
+        "积分后未把通解中的 C 写完整，或未回代 u=y/x"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2015,
+        2017,
+        2020,
+        2022
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.55,
+      "weight_source": "derived",
+      "aliases": [
+        "y'=f(x)g(y)",
+        "\\frac{\\mathrm{d}y}{\\mathrm{d}x}=\\varphi(\\frac{y}{x})",
+        "可分离变量方程",
+        "齐次方程"
+      ]
+    },
+    {
+      "id": "math3.prob.rv1.function",
+      "name": "随机变量函数的分布",
+      "level": 3,
+      "parent_id": "math3.prob.rv1",
+      "is_leaf": false,
+      "exam_weight": 0.31
+    }
+  ]
+}

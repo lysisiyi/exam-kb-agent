@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>考研数学错题 Agent · UI 设计参考图 V1</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});"></script>
+<style>
+/* ============================================================
+   设计系统 Design Tokens
+   ============================================================ */
+:root{
+  --primary:#3B5BDB; --primary-strong:#2F49AF; --primary-weak:#EDF0FF; --primary-soft:#DDE3FF;
+  --success:#0CA678; --success-weak:#E6F7F1;
+  --warning:#E8850C; --warning-weak:#FFF4E5;
+  --danger:#E03131;  --danger-weak:#FFEBEB;
+  --purple:#7048E8;  --purple-weak:#F0EBFF;
+
+  --ink-1:#16181D; --ink-2:#4A4F5C; --ink-3:#8A909E; --ink-4:#B4BAC6;
+  --bg:#F6F7F9; --surface:#FFFFFF; --surface-2:#F1F2F5; --line:#E7E9EE;
+
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:20px;
+  --sh-1:0 1px 2px rgba(16,24,40,.06);
+  --sh-2:0 4px 14px rgba(16,24,40,.08);
+  --sh-3:0 12px 32px rgba(16,24,40,.14);
+}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased;}
+html,body{margin:0;padding:0;}
+body{
+  background:#EEF0F4;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  color:var(--ink-1); padding:40px 28px 80px;
+}
+.page-head{max-width:1400px;margin:0 auto 34px;}
+.page-head h1{font-size:26px;font-weight:700;margin:0 0 8px;letter-spacing:-.4px;}
+.page-head p{margin:0;color:var(--ink-2);font-size:14px;line-height:1.7;}
+.page-head code{background:#fff;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px;}
+
+/* token 图例 */
+.tokens{max-width:1400px;margin:0 auto 40px;background:#fff;border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:20px 24px;display:flex;flex-wrap:wrap;gap:26px;box-shadow:var(--sh-1);}
+.token-group{display:flex;flex-direction:column;gap:9px;}
+.token-group .t{font-size:11px;font-weight:700;color:var(--ink-3);letter-spacing:.8px;text-transform:uppercase;}
+.swatches{display:flex;gap:9px;}
+.sw{width:34px;height:34px;border-radius:9px;position:relative;}
+.sw span{position:absolute;bottom:-17px;left:0;font-size:9.5px;color:var(--ink-3);white-space:nowrap;}
+.type-row{display:flex;align-items:baseline;gap:12px;}
+.type-row b{font-size:22px;font-weight:700;letter-spacing:-.3px;}
+.type-row i{font-size:15px;font-weight:600;font-style:normal;}
+.type-row em{font-size:13px;font-style:normal;color:var(--ink-2);}
+.type-row u{font-size:11.5px;text-decoration:none;color:var(--ink-3);}
+
+/* ============================================================
+   屏幕容器
+   ============================================================ */
+.stage{max-width:1400px;margin:0 auto;display:flex;flex-wrap:wrap;gap:52px 44px;justify-content:flex-start;}
+.screen-wrap{display:flex;flex-direction:column;gap:14px;}
+.screen-label{display:flex;flex-direction:column;gap:3px;}
+.screen-label b{font-size:14.5px;font-weight:700;}
+.screen-label span{font-size:12.5px;color:var(--ink-3);line-height:1.5;max-width:390px;}
+
+.phone{
+  width:390px;height:844px;background:var(--bg);border-radius:44px;
+  border:11px solid #101318; box-shadow:var(--sh-3);
+  overflow:hidden;position:relative;display:flex;flex-direction:column;
+}
+.statusbar{
+  height:50px;flex:0 0 50px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 26px 0 32px;font-size:13.5px;font-weight:600;color:var(--ink-1);position:relative;z-index:5;
+}
+.statusbar .sb-icons{display:flex;align-items:center;gap:5px;font-size:12px;}
+.notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:118px;height:29px;
+  background:#101318;border-radius:16px;z-index:20;}
+
+.screen-body{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative;}
+
+/* ============================================================
+   通用组件
+   ============================================================ */
+.card{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--sh-1);}
+.card-flat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:7px;
+  font-size:11.5px;font-weight:600;line-height:1.5;white-space:nowrap;}
+.chip-kp{background:var(--primary-weak);color:var(--primary-strong);}
+.chip-err{background:var(--danger-weak);color:var(--danger);}
+.chip-ok{background:var(--success-weak);color:var(--success);}
+.chip-warn{background:var(--warning-weak);color:#B96A05;}
+.chip-purple{background:var(--purple-weak);color:var(--purple);}
+.chip-gray{background:var(--surface-2);color:var(--ink-2);}
+.chip-line{background:#fff;border:1px solid var(--line);color:var(--ink-2);font-weight:500;}
+
+.bar{height:5px;border-radius:3px;background:var(--surface-2);overflow:hidden;}
+.bar > i{display:block;height:100%;border-radius:3px;background:var(--primary);}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;border:none;
+  border-radius:var(--r-md);font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 4px 12px rgba(59,91,219,.28);}
+.btn-ghost{background:var(--surface-2);color:var(--ink-2);}
+.btn-line{background:#fff;border:1.2px solid var(--line);color:var(--ink-1);}
+
+.navbar{flex:0 0 74px;display:flex;align-items:flex-start;padding:9px 0 0;
+  background:rgba(255,255,255,.94);backdrop-filter:blur(20px);border-top:1px solid var(--line);}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;
+  font-size:10.5px;font-weight:600;color:var(--ink-4);}
+.nav-item svg{width:23px;height:23px;}
+.nav-item.active{color:var(--primary);}
+.nav-item.mid{position:relative;}
+.nav-fab{width:44px;height:44px;border-radius:14px;background:var(--primary);color:#fff;
+  display:flex;align-items:center;justify-content:center;margin-top:-13px;
+  box-shadow:0 6px 16px rgba(59,91,219,.36);}
+.nav-fab svg{width:24px;height:24px;}
+.nav-item.mid span{margin-top:1px;}
+
+.sec-title{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px;}
+.sec-title b{font-size:15px;font-weight:700;letter-spacing:-.2px;}
+.sec-title a{font-size:12.5px;color:var(--ink-3);font-weight:500;}
+.pad{padding:0 18px;}
+
+.formula{font-size:14.5px;line-height:2;color:var(--ink-1);}
+.formula .katex{font-size:1.03em;}
+/* 公式排版铁律：inline 公式允许折行，display 公式独立居中不溢出 */
+.katex{white-space:normal;}
+.katex-display{margin:9px 0 !important;overflow-x:auto;overflow-y:hidden;}
+.katex-display::-webkit-scrollbar{height:3px;}
+.katex-display::-webkit-scrollbar-thumb{background:var(--line);border-radius:2px;}
+p,div{word-break:break-word;}
+
+/* ============================================================
+   屏 1 · 今日复习
+   ============================================================ */
+.hero{background:linear-gradient(150deg,#4A66E0 0%,#3B5BDB 55%,#3450C9 100%);
+  padding:4px 20px 74px;color:#fff;position:relative;overflow:hidden;}
+.hero::after{content:"";position:absolute;width:230px;height:230px;border-radius:50%;
+  background:rgba(255,255,255,.09);top:-96px;right:-74px;}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:2;}
+.hero-top h2{margin:0;font-size:20px;font-weight:700;letter-spacing:-.3px;}
+.hero-top p{margin:5px 0 0;font-size:12.5px;opacity:.82;}
+.hero-count{text-align:right;}
+.hero-count b{font-size:33px;font-weight:700;line-height:1;letter-spacing:-1px;}
+.hero-count b em{font-size:14px;font-weight:600;font-style:normal;opacity:.8;margin-left:3px;}
+.hero-count span{display:block;font-size:11.5px;opacity:.78;margin-top:4px;}
+.hero-bar{margin-top:17px;height:6px;border-radius:3px;background:rgba(255,255,255,.24);
+  position:relative;z-index:2;overflow:hidden;}
+.hero-bar i{display:block;height:100%;width:11%;background:#fff;border-radius:3px;}
+.hero-bar-label{display:flex;justify-content:space-between;font-size:11px;opacity:.8;
+  margin-top:7px;position:relative;z-index:2;}
+
+.pull-up{margin-top:-56px;position:relative;z-index:3;padding:0 16px;}
+.task-card{background:#fff;border-radius:var(--r-xl);padding:17px 18px;box-shadow:var(--sh-2);}
+.task-head{display:flex;align-items:center;gap:11px;}
+.task-num{width:44px;height:44px;border-radius:13px;background:var(--primary-weak);color:var(--primary);
+  display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;flex:0 0 44px;}
+.task-txt{flex:1;}
+.task-txt b{display:block;font-size:15px;font-weight:700;letter-spacing:-.2px;}
+.task-txt span{font-size:12px;color:var(--ink-3);}
+.task-btn{width:100%;height:47px;margin-top:15px;border-radius:var(--r-md);
+  background:var(--primary);color:#fff;font-size:15.5px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 5px 15px rgba(59,91,219,.3);}
+.task-sub{display:flex;gap:9px;margin-top:11px;}
+.task-sub div{flex:1;background:var(--surface-2);border-radius:10px;padding:9px 11px;}
+.task-sub b{display:block;font-size:16px;font-weight:700;line-height:1.1;}
+.task-sub span{font-size:10.5px;color:var(--ink-3);}
+
+.blk{margin-top:22px;}
+.kp-list{display:flex;flex-direction:column;gap:9px;}
+.kp-row{display:flex;align-items:center;gap:11px;padding:12px 14px;background:#fff;
+  border-radius:var(--r-md);box-shadow:var(--sh-1);}
+.kp-rank{width:22px;height:22px;border-radius:7px;background:var(--danger-weak);color:var(--danger);
+  font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 22px;}
+.kp-mid{flex:1;min-width:0;}
+.kp-mid b{display:block;font-size:13.5px;font-weight:600;margin-bottom:6px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kp-mid .bar{height:4px;}
+.kp-right{font-size:11.5px;color:var(--ink-3);text-align:right;flex:0 0 auto;}
+.kp-right b{display:block;font-size:14px;color:var(--danger);font-weight:700;}
+
+.quick{display:flex;gap:10px;margin-top:10px;}
+.quick div{flex:1;background:#fff;border:1px solid var(--line);border-radius:var(--r-md);
+  padding:13px 6px;display:flex;flex-direction:column;align-items:center;gap:7px;
+  font-size:11.5px;font-weight:600;color:var(--ink-2);}
+.quick svg{width:21px;height:21px;color:var(--primary);}
+
+/* ============================================================
+   屏 2 · 录入
+   ============================================================ */
+.cap-head{padding:2px 18px 13px;display:flex;align-items:center;justify-content:space-between;
+  background:#fff;border-bottom:1px solid var(--line);}
+.cap-head b{font-size:16.5px;font-weight:700;}
+.cap-head .x{width:28px;height:28px;border-radius:50%;background:var(--surface-2);
+  display:flex;align-items:center;justify-content:center;color:var(--ink-2);}
+
+.photo-wrap{padding:13px 16px 0;}
+.photo{position:relative;border-radius:var(--r-lg);overflow:hidden;height:168px;
+  background:linear-gradient(160deg,#E9EBF0,#DCE0E8);border:1px solid var(--line);}
+.photo .grid{position:absolute;inset:0;opacity:.5;
+  background-image:linear-gradient(rgba(0,0,0,.045) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(0,0,0,.045) 1px,transparent 1px);
+  background-size:26px 26px;}
+.photo .paper{position:absolute;left:34px;right:34px;top:26px;bottom:30px;background:#fff;
+  border-radius:5px;box-shadow:0 3px 10px rgba(0,0,0,.09);padding:16px 15px;
+  font-family:"Times New Roman",serif;font-size:12.5px;color:#2A2D34;line-height:2.05;overflow:hidden;}
+.photo .paper .hand{color:#1E3A8A;}
+.detect{position:absolute;left:22px;right:22px;top:15px;bottom:19px;
+  border:2px solid #34D399;border-radius:9px;}
+.detect::before,.detect::after{content:"";position:absolute;width:15px;height:15px;
+  border:3px solid #34D399;border-radius:3px;}
+.detect::before{top:-3px;left:-3px;border-right:none;border-bottom:none;}
+.detect::after{bottom:-3px;right:-3px;border-left:none;border-top:none;}
+.detect-tag{position:absolute;top:-11px;left:12px;background:#34D399;color:#053B2C;
+  font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;}
+.photo-tools{position:absolute;right:9px;bottom:9px;display:flex;gap:7px;}
+.photo-tools div{width:30px;height:30px;border-radius:9px;background:rgba(16,19,24,.6);
+  color:#fff;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);}
+.photo-tools svg{width:16px;height:16px;}
+
+.scan-line{position:absolute;left:22px;right:22px;top:76px;height:2px;
+  background:linear-gradient(90deg,transparent,#34D399,transparent);box-shadow:0 0 12px #34D399;}
+
+.tabs{display:flex;gap:6px;padding:15px 18px 0;}
+.tab{padding:6px 13px;border-radius:9px;font-size:12.5px;font-weight:600;
+  background:var(--surface-2);color:var(--ink-3);}
+.tab.on{background:var(--ink-1);color:#fff;}
+
+.field{margin:13px 16px 0;background:#fff;border-radius:var(--r-md);box-shadow:var(--sh-1);padding:13px 14px;}
+.field-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.field-h b{font-size:11.5px;font-weight:700;color:var(--ink-3);letter-spacing:.5px;}
+.field-h .edit{font-size:11.5px;color:var(--primary);font-weight:600;}
+.stem{font-size:14px;line-height:1.95;color:var(--ink-1);}
+.stem .hl{background:var(--warning-weak);border-radius:3px;padding:1px 2px;
+  box-shadow:inset 0 -1px 0 #F0B45E;}
+
+.fml-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;
+  background:var(--surface-2);margin-top:8px;}
+.fml-row .idx{width:19px;height:19px;border-radius:6px;background:var(--primary);color:#fff;
+  font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 19px;}
+.fml-row .code{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:11.5px;color:var(--primary-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fml-row .conf{font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;flex:0 0 auto;}
+.conf.hi{background:var(--success-weak);color:var(--success);}
+.conf.lo{background:var(--warning-weak);color:#B96A05;}
+.fml-row.low{background:var(--warning-weak);}
+
+.tag-grid{display:flex;flex-wrap:wrap;gap:7px;}
+.cause{display:flex;flex-wrap:wrap;gap:8px;}
+.cause div{padding:8px 13px;border-radius:10px;font-size:12.5px;font-weight:600;
+  background:var(--surface-2);color:var(--ink-2);border:1.4px solid transparent;}
+.cause div.on{background:var(--primary-weak);color:var(--primary-strong);border-color:var(--primary-soft);}
+.cause div.on::before{content:"✓ ";}
+.cause-note{font-size:11px;color:var(--ink-3);margin-top:9px;line-height:1.5;}
+
+.cap-foot{margin-top:auto;padding:13px 16px 16px;background:rgba(246,247,249,.96);
+  border-top:1px solid var(--line);display:flex;gap:10px;}
+.cap-foot .btn{height:47px;}
+.cap-foot .btn-primary{flex:1;}
+
+/* ============================================================
+   屏 3 · 错题本
+   ============================================================ */
+.bk-head{background:#fff;padding:0 18px 11px;border-bottom:1px solid var(--line);}
+.bk-title{display:flex;align-items:baseline;justify-content:space-between;padding:6px 0 12px;}
+.bk-title b{font-size:22px;font-weight:700;letter-spacing:-.5px;}
+.bk-title span{font-size:12.5px;color:var(--ink-3);}
+.search{display:flex;align-items:center;gap:8px;height:38px;background:var(--surface-2);
+  border-radius:11px;padding:0 12px;color:var(--ink-3);font-size:13.5px;}
+.search svg{width:16px;height:16px;flex:0 0 16px;}
+.filters{display:flex;gap:7px;padding:11px 18px 0;overflow:hidden;background:#fff;
+  border-bottom:1px solid var(--line);padding-bottom:12px;}
+.filters .f{padding:5px 11px;border-radius:8px;font-size:12px;font-weight:600;
+  background:var(--surface-2);color:var(--ink-2);white-space:nowrap;}
+.filters .f.on{background:var(--ink-1);color:#fff;}
+.filters .f.on2{background:var(--primary-weak);color:var(--primary-strong);}
+
+.bk-list{padding:13px 16px 0;display:flex;flex-direction:column;gap:11px;overflow:hidden;}
+.p-item{background:#fff;border-radius:var(--r-lg);padding:13px 14px;box-shadow:var(--sh-1);}
+.p-top{display:flex;align-items:center;gap:7px;margin-bottom:9px;flex-wrap:wrap;}
+.p-top .src{font-size:11px;color:var(--ink-4);margin-left:auto;font-weight:500;}
+.p-stem{font-size:13.5px;line-height:1.85;color:var(--ink-1);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.p-bot{display:flex;align-items:center;gap:9px;margin-top:11px;padding-top:10px;
+  border-top:1px dashed var(--line);}
+.p-bot .m{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-3);font-weight:600;}
+.p-bot .m i{width:6px;height:6px;border-radius:50%;display:block;}
+.p-bot .grow{flex:1;}
+.p-bot .bar{width:52px;height:4px;}
+.p-bot .pct{font-size:11px;font-weight:700;color:var(--ink-2);}
+
+/* ============================================================
+   屏 4 · 复习会话
+   ============================================================ */
+.rev-head{padding:2px 18px 14px;background:#fff;border-bottom:1px solid var(--line);}
+.rev-head-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;}
+.rev-head-top b{font-size:15px;font-weight:700;}
+.rev-head-top span{font-size:12.5px;color:var(--ink-3);font-weight:600;}
+.rev-prog{display:flex;gap:4px;}
+.rev-prog i{flex:1;height:4px;border-radius:2px;background:var(--surface-2);}
+.rev-prog i.done{background:var(--success);}
+.rev-prog i.now{background:var(--primary);}
+
+.rev-body{flex:1;overflow:hidden;padding:16px 16px 0;}
+.q-card{background:#fff;border-radius:var(--r-xl);padding:19px 18px;box-shadow:var(--sh-2);}
+.q-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:14px;}
+.q-text{font-size:15px;line-height:2.15;color:var(--ink-1);}
+.q-text .katex{font-size:1.06em;}
+
+.self-check{margin-top:16px;background:#fff;border-radius:var(--r-lg);padding:15px 16px;box-shadow:var(--sh-1);}
+.self-check .t{font-size:12.5px;font-weight:700;color:var(--ink-2);margin-bottom:11px;
+  display:flex;align-items:center;gap:6px;}
+.rate{display:flex;gap:9px;}
+.rate div{flex:1;border-radius:13px;padding:13px 4px;text-align:center;
+  border:1.6px solid var(--line);background:#fff;}
+.rate div .e{font-size:22px;line-height:1;display:block;margin-bottom:6px;}
+.rate div b{font-size:12.5px;font-weight:700;display:block;}
+.rate div span{font-size:10px;color:var(--ink-3);display:block;margin-top:3px;line-height:1.35;}
+.rate div.r1{border-color:#F5B5B5;background:var(--danger-weak);}
+.rate div.r1 b{color:var(--danger);}
+.rate div.r2{border-color:#F5D08E;background:var(--warning-weak);}
+.rate div.r2 b{color:#B96A05;}
+.rate div.r3{border-color:#9CE0C8;background:var(--success-weak);}
+.rate div.r3 b{color:var(--success);}
+
+.answer{background:#fff;border-radius:var(--r-lg);padding:15px 16px;box-shadow:var(--sh-1);margin-top:13px;}
+.answer .ah{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;
+  color:var(--success);margin-bottom:10px;}
+.answer .sol{font-size:13.5px;line-height:2.05;color:var(--ink-2);}
+.rev-foot{padding:12px 16px 16px;display:flex;gap:10px;border-top:1px solid var(--line);
+  background:rgba(246,247,249,.96);}
+.rev-foot .btn{height:47px;}
+
+/* ============================================================
+   屏 5 · 组卷
+   ============================================================ */
+.pa-head{background:#fff;padding:2px 18px 13px;border-bottom:1px solid var(--line);}
+.pa-head b{font-size:22px;font-weight:700;letter-spacing:-.5px;display:block;padding:6px 0 0;}
+.pa-body{padding:14px 16px 0;display:flex;flex-direction:column;gap:13px;overflow:hidden;}
+.pa-card{background:#fff;border-radius:var(--r-lg);padding:14px 15px;box-shadow:var(--sh-1);}
+.pa-card .lbl{font-size:11.5px;font-weight:700;color:var(--ink-3);letter-spacing:.5px;margin-bottom:10px;}
+.opts{display:flex;gap:8px;}
+.opt{flex:1;border:1.6px solid var(--line);border-radius:11px;padding:10px 6px;text-align:center;}
+.opt b{display:block;font-size:13px;font-weight:700;}
+.opt span{display:block;font-size:10px;color:var(--ink-3);margin-top:3px;}
+.opt.on{border-color:var(--primary);background:var(--primary-weak);}
+.opt.on b{color:var(--primary-strong);}
+.opt.on span{color:var(--primary);}
+
+.mix-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.mix-row .nm{width:38px;font-size:12px;font-weight:600;color:var(--ink-2);flex:0 0 38px;}
+.mix-row .bar{flex:1;height:7px;}
+.mix-row .bar i{background:var(--primary);}
+.mix-row .bar i.b2{background:var(--purple);}
+.mix-row .bar i.b3{background:var(--warning);}
+.mix-row .v{width:74px;text-align:right;font-size:11px;color:var(--ink-3);font-weight:600;flex:0 0 74px;}
+
+.paper-preview{margin:2px 16px 0;background:#fff;border-radius:var(--r-lg);
+  box-shadow:var(--sh-2);padding:17px 18px;overflow:hidden;}
+.pp-head{text-align:center;border-bottom:1.5px solid var(--ink-1);padding-bottom:11px;margin-bottom:13px;}
+.pp-head b{font-size:15.5px;font-weight:700;letter-spacing:1px;display:block;}
+.pp-head span{font-size:10.5px;color:var(--ink-3);display:block;margin-top:4px;}
+.pp-q{font-size:12.5px;line-height:1.95;color:var(--ink-1);margin-bottom:11px;display:flex;gap:7px;}
+.pp-q .n{font-weight:700;flex:0 0 auto;color:var(--ink-2);}
+.pp-q .katex{font-size:.98em;}
+.pp-tag{display:inline-block;font-size:9.5px;background:var(--warning-weak);color:#B96A05;
+  padding:1px 5px;border-radius:4px;font-weight:700;margin-left:4px;vertical-align:1px;}
+.pa-foot{margin-top:auto;padding:12px 16px 16px;border-top:1px solid var(--line);
+  background:rgba(246,247,249,.96);display:flex;gap:10px;}
+.pa-foot .btn{height:47px;}
+
+/* 标注气泡 */
+.note{display:flex;gap:8px;background:#FFFDF5;border:1px solid #F3E4BC;border-radius:10px;
+  padding:10px 12px;margin-top:11px;font-size:11.5px;line-height:1.65;color:#7A5B10;}
+.note b{color:#5C4409;}
+
+.dim{opacity:.45;}
+
+/* KaTeX CDN 不可达时的兜底：公式以等宽源码显示，保证版面不塌 */
+body.no-katex .katex-fallback{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.86em; color:var(--primary-strong);
+  background:var(--primary-weak); border-radius:4px; padding:1px 4px;
+}
+.katex-fallback{display:none;}
+body.no-katex .katex-fallback{display:inline;}
+.cdn-warn{display:none;max-width:1400px;margin:0 auto 26px;padding:12px 18px;
+  background:#FFF4E5;border:1px solid #F0CE96;border-radius:12px;
+  font-size:13px;color:#8A5A0B;line-height:1.7;}
+body.no-katex .cdn-warn{display:block;}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>考研数学错题 Agent · UI 设计参考图 V1</h1>
+  <p>五屏高保真原型，对应前五轮讨论确定的 V1 范围：<code>纯本地架构</code> · <code>Markdown 存储</code> · <code>端侧 OCR + 云端公式识别</code> · <code>FSRS 复习</code> · <code>贪心组卷</code>。<br>
+  所有尺寸按 iPhone 14/15 逻辑分辨率 390×844 设计，Flutter 的 <code>logical pixel</code> 可直接对应。公式渲染与真机一致（KaTeX = <code>katex</code> Dart 包同源解析器）。</p>
+  <p style="margin-top:12px">
+    <a href="ipad.html" style="display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:600;color:var(--primary-strong);text-decoration:none;box-shadow:var(--sh-1)">
+      查看 iPad 版（1194×834 多栏布局）参考图 →
+    </a>
+  </p>
+</div>
+
+<div class="tokens">
+  <div class="token-group">
+    <div class="t">Brand &amp; Semantic</div>
+    <div class="swatches">
+      <div class="sw" style="background:#3B5BDB"><span>Primary</span></div>
+      <div class="sw" style="background:#0CA678"><span>Success</span></div>
+      <div class="sw" style="background:#E8850C"><span>Warning</span></div>
+      <div class="sw" style="background:#E03131"><span>Danger</span></div>
+      <div class="sw" style="background:#7048E8"><span>Purple</span></div>
+    </div>
+  </div>
+  <div class="token-group">
+    <div class="t">Neutral</div>
+    <div class="swatches">
+      <div class="sw" style="background:#16181D"><span>Ink-1</span></div>
+      <div class="sw" style="background:#4A4F5C"><span>Ink-2</span></div>
+      <div class="sw" style="background:#8A909E"><span>Ink-3</span></div>
+      <div class="sw" style="background:#E7E9EE"><span>Line</span></div>
+      <div class="sw" style="background:#F6F7F9;border:1px solid #E7E9EE"><span>BG</span></div>
+    </div>
+  </div>
+  <div class="token-group">
+    <div class="t">Type Scale</div>
+    <div class="type-row"><b>22/700</b><em>页面标题 · -0.5px</em></div>
+    <div class="type-row"><i>16/700</i><em>区块标题</em></div>
+    <div class="type-row"><u>14/400 lh1.95</u><em>题干正文 · 公式行高 2.0+</em></div>
+    <div class="type-row"><u>11.5/600</u><em>标签 · 元信息</em></div>
+  </div>
+  <div class="token-group">
+    <div class="t">Radius / Space</div>
+    <div class="type-row"><u>8 小控件 · 12 按钮 · 16 卡片 · 20 主卡</u></div>
+    <div class="type-row"><u>页边距 16–18 · 卡片间距 11–13 · 触控区 ≥ 44</u></div>
+  </div>
+</div>
+
+<div class="stage">
+
+<!-- ══════════════════ 屏 1 · 今日复习 ══════════════════ -->
+<div class="screen-wrap">
+  <div class="screen-label">
+    <b>屏 1 · 今日复习（首页）</b>
+    <span>打开 App 第一眼要回答三个问题：今天做什么、还剩多少、我最弱在哪。大数字 + 单一主按钮，避免选择困难。</span>
+  </div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="statusbar"><span>9:41</span><span class="sb-icons">▮▮▮ ⌾ ▰</span></div>
+    <div class="screen-body" style="background:var(--bg)">
+
+      <div class="hero">
+        <div class="hero-top">
+          <div>
+            <h2>早上好</h2>
+            <p>3 月 15 日 · 距考研还有 282 天</p>
+          </div>
+          <div class="hero-count"><b>32<em>天</em></b><span>连续复习</span></div>
+        </div>
+        <div class="hero-bar"><i></i></div>
+        <div class="hero-bar-label"><span>今日已完成 3 / 28</span><span>11%</span></div>
+      </div>
+
+      <div class="pull-up">
+        <div class="task-card">
+          <div class="task-head">
+            <div class="task-num">25</div>
+            <div class="task-txt">
+              <b>待复习错题</b>
+              <span>其中 6 道是你的顽固错题</span>
+            </div>
+          </div>
+          <div class="task-sub">
+            <div><b style="color:var(--danger)">6</b><span>顽固（错≥3次）</span></div>
+            <div><b style="color:var(--warning)">9</b><span>上次吃力</span></div>
+            <div><b style="color:var(--success)">10</b><span>巩固中</span></div>
+          </div>
+          <div class="task-btn">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            开始复习
+          </div>
+        </div>
+      </div>
+
+      <div class="pad blk">
+        <div class="sec-title"><b>最薄弱的考点</b><a>全部 ›</a></div>
+        <div class="kp-list">
+          <div class="kp-row">
+            <div class="kp-rank">1</div>
+            <div class="kp-mid">
+              <b>中值定理与辅助函数构造</b>
+              <div class="bar"><i style="width:26%;background:var(--danger)"></i></div>
+            </div>
+            <div class="kp-right"><b>错 8</b>掌握 26%</div>
+          </div>
+          <div class="kp-row">
+            <div class="kp-rank" style="background:var(--warning-weak);color:#B96A05">2</div>
+            <div class="kp-mid">
+              <b>等价无穷小与泰勒展开</b>
+              <div class="bar"><i style="width:38%;background:var(--warning)"></i></div>
+            </div>
+            <div class="kp-right"><b style="color:#B96A05">错 5</b>掌握 38%</div>
+          </div>
+          <div class="kp-row">
+            <div class="kp-rank" style="background:var(--warning-weak);color:#B96A05">3</div>
+            <div class="kp-mid">
+              <b>特征值与二次型</b>
+              <div class="bar"><i style="width:47%;background:var(--warning)"></i></div>
+            </div>
+            <div class="kp-right"><b style="color:#B96A05">错 4</b>掌握 47%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pad blk" style="margin-top:20px">
+        <div class="sec-title"><b>快速录入</b></div>
+        <div class="quick">
+          <div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            拍照
+          </div>
+          <div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+            粘贴
+          </div>
+          <div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+            手输
+          </div>
+          <div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            导入
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="navbar">
+      <div class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/></svg>
+        今日
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M8 8h8"/></svg>
+        错题本
+      </div>
+      <div class="nav-item mid">
+        <div class="nav-fab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+        <span>录入</span>
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="14" x2="15" y2="14"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+        组卷
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+        我的
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 屏 2 · 录入 ══════════════════ -->
+<div class="screen-wrap">
+  <div class="screen-label">
+    <b>屏 2 · 录入闭环（核心屏）</b>
+    <span>这一屏决定产品成败。原图始终可对照、公式独立可编辑、低置信度明确标黄、错因必须用户点一下。目标：拍照到保存 &lt; 30 秒。</span>
+  </div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="statusbar"><span>9:41</span><span class="sb-icons">▮▮▮ ⌾ ▰</span></div>
+    <div class="screen-body">
+      <div class="cap-head">
+        <div class="x">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+        <b>识别结果</b>
+        <div style="font-size:12.5px;color:var(--primary);font-weight:600;width:28px;text-align:right">存草稿</div>
+      </div>
+
+      <div style="flex:1;overflow:hidden">
+        <div class="photo-wrap">
+          <div class="photo">
+            <div class="grid"></div>
+            <div class="paper">
+              设 <span class="hand">f(x)</span> 在 [0,1] 上连续，且<br>
+              ∫₀¹ <span class="hand">f(x)</span>dx = 0，<span class="hand">f(1)</span> = 0.<br>
+              证明：存在 ξ ∈ (0,1)，使 <span class="hand">f(ξ)</span> = 0.
+            </div>
+            <div class="detect"><div class="detect-tag">已识别</div></div>
+            <div class="scan-line"></div>
+            <div class="photo-tools">
+              <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg></div>
+              <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab on">题干</div>
+          <div class="tab">答案</div>
+          <div class="tab">解析</div>
+          <div class="tab">我的笔记</div>
+        </div>
+
+        <div class="field">
+          <div class="field-h"><b>识别文本 · 可直接编辑</b><span class="edit">编辑</span></div>
+          <div class="stem">
+            设 $f(x)$ 在 $[0,1]$ 上连续，且 <span class="hl">$\int_0^1 f(x)\mathrm{d}x = 0$</span>，$f(1)=0$。证明：存在 $\xi \in (0,1)$，使得 $f(\xi)=0$。
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-h"><b>识别到的公式 · 2 个</b><span class="edit">全部编辑</span></div>
+          <div class="fml-row low">
+            <div class="idx">1</div>
+            <div class="code">\int_0^1 f(x)\mathrm{d}x = 0</div>
+            <div class="conf lo">71%</div>
+          </div>
+          <div class="fml-row">
+            <div class="idx">2</div>
+            <div class="code">\xi \in (0,1)</div>
+            <div class="conf hi">98%</div>
+          </div>
+          <div class="cause-note" style="color:#B96A05">
+            ⚠️ 第 1 个公式置信度较低，请重点核对积分上下限与微分符号
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-h"><b>AI 建议标签</b><span class="edit">修改</span></div>
+          <div class="tag-grid">
+            <span class="chip chip-kp">积分中值定理 · 主考点 82%</span>
+            <span class="chip chip-line">构造辅助函数 · 次 70%</span>
+          </div>
+          <div class="tag-grid" style="margin-top:9px">
+            <span class="chip chip-gray">题型 解答</span>
+            <span class="chip chip-warn">难度 综合</span>
+            <span class="chip chip-line">2023 数一 T18</span>
+          </div>
+        </div>
+
+        <div class="field" style="margin-bottom:14px">
+          <div class="field-h"><b>我为什么错 · 必选</b><span class="edit">可多选</span></div>
+          <div class="cause">
+            <div>概念不清</div>
+            <div class="on">思路缺失</div>
+            <div>计算失误</div>
+            <div>审题错误</div>
+            <div>方法选择</div>
+            <div>时间不够</div>
+          </div>
+          <div class="cause-note">
+            这一步只有你能回答，AI 只给建议。它是系统给你开处方的依据 —— 同样是错，"不会"和"算错"的处方完全不同。
+          </div>
+        </div>
+      </div>
+
+      <div class="cap-foot">
+        <button class="btn btn-line" style="width:96px">仅保存</button>
+        <button class="btn btn-primary">保存并加入复习</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 屏 3 · 错题本 ══════════════════ -->
+<div class="screen-wrap">
+  <div class="screen-label">
+    <b>屏 3 · 错题本</b>
+    <span>列表项只保留决策必需的四个信息：考点、错因、错误次数、掌握度。题干压到两行——列表是"索引"不是"阅读器"。</span>
+  </div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="statusbar"><span>9:41</span><span class="sb-icons">▮▮▮ ⌾ ▰</span></div>
+    <div class="screen-body">
+      <div class="bk-head">
+        <div class="bk-title"><b>错题本</b><span>共 247 题 · 未掌握 63</span></div>
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.7" y2="16.7"/></svg>
+          搜索题干、公式或考点…
+        </div>
+      </div>
+      <div class="filters">
+        <div class="f on">全部</div>
+        <div class="f on2">薄弱优先</div>
+        <div class="f">中值定理</div>
+        <div class="f">错因 ▾</div>
+        <div class="f">难度 ▾</div>
+      </div>
+
+      <div class="bk-list">
+        <div class="p-item">
+          <div class="p-top">
+            <span class="chip chip-kp">积分中值定理</span>
+            <span class="chip chip-err">思路缺失</span>
+            <span class="src">2023 数一 T18</span>
+          </div>
+          <div class="p-stem">设 $f(x)$ 在 $[0,1]$ 上连续，且 $\int_0^1 f(x)\mathrm{d}x=0$，$f(1)=0$。证明：存在 $\xi\in(0,1)$，使得 $f(\xi)=0$。</div>
+          <div class="p-bot">
+            <span class="m"><i style="background:var(--danger)"></i>错 3 次</span>
+            <span class="grow"></span>
+            <div class="bar"><i style="width:26%;background:var(--danger)"></i></div>
+            <span class="pct" style="color:var(--danger)">26%</span>
+          </div>
+        </div>
+
+        <div class="p-item">
+          <div class="p-top">
+            <span class="chip chip-kp">等价无穷小替换</span>
+            <span class="chip chip-err">计算失误</span>
+            <span class="src">2022 数一 T02</span>
+          </div>
+          <div class="p-stem">当 $x\to 0$ 时，$\dfrac{\sin x - x\cos x}{x^3}$ 的极限为（　）</div>
+          <div class="p-bot">
+            <span class="m"><i style="background:var(--warning)"></i>错 2 次</span>
+            <span class="grow"></span>
+            <div class="bar"><i style="width:48%;background:var(--warning)"></i></div>
+            <span class="pct" style="color:#B96A05">48%</span>
+          </div>
+        </div>
+
+        <div class="p-item">
+          <div class="p-top">
+            <span class="chip chip-kp">特征值与二次型</span>
+            <span class="chip chip-err">概念不清</span>
+            <span class="src">880 线代 第 6 章</span>
+          </div>
+          <div class="p-stem">设 $A$ 为 3 阶实对称矩阵，$\lambda_1,\lambda_2,\lambda_3$ 为其特征值，且 $\lambda_1+\lambda_2+\lambda_3=0$，求 $|A+E|$。</div>
+          <div class="p-bot">
+            <span class="m"><i style="background:var(--success)"></i>错 1 次</span>
+            <span class="grow"></span>
+            <div class="bar"><i style="width:72%;background:var(--success)"></i></div>
+            <span class="pct" style="color:var(--success)">72%</span>
+          </div>
+        </div>
+
+        <div class="p-item" style="opacity:.6">
+          <div class="p-top">
+            <span class="chip chip-kp">洛必达法则</span>
+            <span class="chip chip-err">审题错误</span>
+            <span class="src">2021 数一 T01</span>
+          </div>
+          <div class="p-stem">设 $f(x)$ 在 $x=0$ 处可导，$f(0)=0$，则 $\lim\limits_{x\to 0}\dfrac{f(x)}{x}=$（　）</div>
+          <div class="p-bot">
+            <span class="m"><i style="background:var(--success)"></i>错 1 次</span>
+            <span class="grow"></span>
+            <div class="bar"><i style="width:88%;background:var(--success)"></i></div>
+            <span class="pct" style="color:var(--success)">88%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="navbar">
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/></svg>
+        今日
+      </div>
+      <div class="nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M8 8h8"/></svg>
+        错题本
+      </div>
+      <div class="nav-item mid">
+        <div class="nav-fab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+        <span>录入</span>
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="14" x2="15" y2="14"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+        组卷
+      </div>
+      <div class="nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+        我的
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 屏 4 · 复习会话 ══════════════════ -->
+<div class="screen-wrap">
+  <div class="screen-label">
+    <b>屏 4 · 复习会话</b>
+    <span>只有三档反馈（忘了 / 吃力 / 轻松），不做 Anki 的四档。先让用户自己判断，再展开答案——避免"看了答案就以为会了"。</span>
+  </div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="statusbar"><span>9:41</span><span class="sb-icons">▮▮▮ ⌾ ▰</span></div>
+    <div class="screen-body">
+      <div class="rev-head">
+        <div class="rev-head-top"><b>复习进行中</b><span>4 / 25</span></div>
+        <div class="rev-prog">
+          <i class="done"></i><i class="done"></i><i class="done"></i><i class="now"></i>
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+      </div>
+
+      <div class="rev-body">
+        <div class="q-card">
+          <div class="q-meta">
+            <span class="chip chip-kp">积分中值定理</span>
+            <span class="chip chip-warn">第 3 次复习</span>
+            <span class="chip chip-gray">解答 · 综合</span>
+          </div>
+          <div class="q-text">
+            设 $f(x)$ 在 $[0,1]$ 上连续，且
+            $$\int_0^1 f(x)\,\mathrm{d}x = 0,\qquad f(1)=0$$
+            证明：存在 $\xi \in (0,1)$，使得 $f(\xi)=0$。
+          </div>
+        </div>
+
+        <div class="self-check">
+          <div class="t">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
+            先自己想，再对答案 —— 你这次做得怎么样？
+          </div>
+          <div class="rate">
+            <div class="r1"><span class="e">😰</span><b>忘了</b><span>完全没思路</span></div>
+            <div class="r2"><span class="e">😐</span><b>吃力</b><span>做出来了但很费劲</span></div>
+            <div class="r3"><span class="e">😎</span><b>轻松</b><span>一眼就有思路</span></div>
+          </div>
+        </div>
+
+        <div class="answer">
+          <div class="ah">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            解析
+          </div>
+          <div class="sol">
+            由积分中值定理，存在 $c\in[0,1]$ 使
+            $$\int_0^1 f(x)\,\mathrm{d}x=f(c)\cdot 1=0\ \Rightarrow\ f(c)=0$$
+            又 $f(1)=0$，故 $c$ 与 $1$ 是两个零点。对 $f$ 在 $[c,1]$ 上用罗尔定理即得结论。
+          </div>
+          <div class="note">
+            <b>你上次卡在哪：</b>没意识到"证明存在零点"应该先去找第二个零点，而是直接想用介值定理。这类"先造条件再用定理"是思路缺失型错误，建议看同类型的 3 道例题。
+          </div>
+        </div>
+      </div>
+
+      <div class="rev-foot">
+        <button class="btn btn-ghost" style="width:96px">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          稍后再看
+        </button>
+        <button class="btn btn-primary" style="flex:1">下一题</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 屏 5 · 组卷 ══════════════════ -->
+<div class="screen-wrap">
+  <div class="screen-label">
+    <b>屏 5 · 组卷 + 试卷预览</b>
+    <span>组卷参数用"模板卡 + 一键生成"，不让用户面对一堆滑块。预览里错题带角标——让用户看见"这份卷子是为我出的"。</span>
+  </div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="statusbar"><span>9:41</span><span class="sb-icons">▮▮▮ ⌾ ▰</span></div>
+    <div class="screen-body">
+      <div class="pa-head" style="padding-bottom:12px">
+        <b>智能组卷</b>
+      </div>
+
+      <div class="pa-body">
+        <div class="pa-card">
+          <div class="lbl">科目</div>
+          <div class="opts">
+            <div class="opt on"><b>数学一</b><span>247 题可用</span></div>
+            <div class="opt"><b>数学二</b><span>182 题</span></div>
+            <div class="opt"><b>数学三</b><span>163 题</span></div>
+          </div>
+        </div>
+
+        <div class="pa-card">
+          <div class="lbl">组卷规格</div>
+          <div class="opts">
+            <div class="opt on"><b>真题结构</b><span>10+6+6 · 150分</span></div>
+            <div class="opt"><b>突击模考</b><span>5+3+3</span></div>
+            <div class="opt"><b>错题专练</b><span>只出我做错的</span></div>
+          </div>
+        </div>
+
+        <div class="pa-card">
+          <div class="lbl">难度配比 · 自动匹配真题</div>
+          <div class="mix-row">
+            <span class="nm">基础</span>
+            <div class="bar"><i style="width:40%"></i></div>
+            <span class="v">40% · 10 题</span>
+          </div>
+          <div class="mix-row">
+            <span class="nm">综合</span>
+            <div class="bar"><i class="b2" style="width:40%"></i></div>
+            <span class="v">40% · 10 题</span>
+          </div>
+          <div class="mix-row" style="margin-bottom:0">
+            <span class="nm">拓展</span>
+            <div class="bar"><i class="b3" style="width:20%"></i></div>
+            <span class="v">20% · 5 题</span>
+          </div>
+          <div class="note" style="background:var(--primary-weak);border-color:var(--primary-soft);color:var(--primary-strong)">
+            <b>已自动加权：</b>你的薄弱考点将获得约 2.5 倍抽题权重，同时保证每章至少覆盖 1 题。
+          </div>
+        </div>
+
+        <div class="paper-preview">
+          <div class="pp-head">
+            <b>2026 考研数学（一）模拟检测卷</b>
+            <span>满分 150 分 · 考试时间 180 分钟 · 共 22 题</span>
+          </div>
+          <div class="pp-q">
+            <span class="n">18.</span>
+            <span>设 $f(x)$ 在 $[0,1]$ 上连续，$\int_0^1 f(x)\mathrm{d}x=0$，$f(1)=0$。证明存在 $\xi\in(0,1)$ 使 $f(\xi)=0$。<span class="pp-tag">你的错题</span></span>
+          </div>
+          <div class="pp-q" style="margin-bottom:0">
+            <span class="n">19.</span>
+            <span>计算二重积分 $\displaystyle\iint_D \frac{x}{x^2+y^2}\,\mathrm{d}x\mathrm{d}y$，其中 $D$ 由 $y=x,\ y=2x,\ x=1$ 围成。<span class="pp-tag">薄弱考点</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pa-foot">
+        <button class="btn btn-line" style="width:96px">换一题</button>
+        <button class="btn btn-primary" style="flex:1">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          导出 PDF
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /stage -->
+
+<script>
+/* CDN 可达性检测：若 KaTeX 未加载，降级为等宽源码显示并给出提示，避免版面塌掉 */
+(function () {
+  function check() {
+    var ok = typeof window.katex !== 'undefined'
+             && document.querySelector('.katex') !== null;
+    if (!ok) {
+      document.body.classList.add('no-katex');
+      console.warn('[mockup] KaTeX 未加载：公式显示为原始 LaTeX 源码。'
+        + '本机浏览器联网后刷新即可正常渲染。');
+    }
+  }
+  // 等 auto-render 跑完再判定
+  window.addEventListener('load', function () { setTimeout(check, 600); });
+})();
+</script>
+<div class="cdn-warn">
+  ⚠️ <b>未能加载 KaTeX（公式渲染库）</b> —— 你当前处于离线状态。公式位置会以等宽 LaTeX 源码显示，其他版式不受影响。联网后刷新本页即可恢复正常渲染。
+</div>
+</body>
+</html>

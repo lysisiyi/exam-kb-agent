@@ -1,0 +1,2756 @@
+{
+  "version": "1.0.0",
+  "subject": "math3",
+  "subject_name": "考研数学（三）",
+  "years_covered": [
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024
+  ],
+  "note": "本数据为基于公开命题规律的估算，非官方逐题统计。appearances 与 years 字段存在误差，仅供加权参考，不应作为唯一依据。生产环境建议用真实真题逐题标注后替换。补充说明：（1）本章节划分以 data/knowledge_points/math3.json 的「节」层为准，共 42 个可考查单元（高等数学 21、线性代数 9、概率论与数理统计 12）。数学（三）知识点树为 5 层（math3 → 学科 → 章 → 节 → 知识点），故单元 id 深度为 4 段（如 math3.calc.limit.funclimit），比数学（一）的 3 段 id 多一层，跨科目脚本不要按固定段数解析。（2）一次「出现」指一道题中该单元内容占主导；跨单元综合题只计入主导单元，因此各单元 total_appearances 之和（339）略小于 2010–2024 年实际题量（约 343 道）。（3）同一道题可同时计入同一单元的多个 hotspot，因此 hotspot 的 appearances 之和允许大于所属单元的 total_appearances。（4）2010–2022 年试卷结构为 8 道选择题（每题 4 分）+ 6 道填空题（每题 4 分）+ 9 道解答题；2023 年起为 10 道选择题（每题 5 分）+ 6 道填空题（每题 5 分）+ 6 道解答题，客观题分值占比上升，故 2023–2024 年 choice/fill 计数偏高属试卷结构性变化，并非考频突增。（5）years 为近似集合：高频单元按「每年均出现」记录，中低频单元与绝大多数 hotspots 的 years 为不完全列举，真实统计中很可能还有其他年份。（6）数学（三）不考曲线积分与曲面积分、三重积分、空间解析几何、傅里叶级数、欧拉方程；概率论与数理统计不考参数估计（矩估计、最大似然估计）、假设检验与区间估计的深入内容，故本文件不设相关单元与热点。（7）经济应用（边际分析、弹性分析、复利与贴现）与差分方程属数学（三）特色且新增的考点，可参照的真题样本少，相关 4 个单元已标注 confidence: low。",
+  "data_confidence": {
+    "overall": "medium-low",
+    "basis": "模型对考研数学（三）历年真题命题规律的训练知识，未逐题核对官方真题原文",
+    "verified_against_official_papers": false,
+    "appearances_uncertainty": "单元级约 ±20%~40%；hotspots 级约 ±50% 或更高",
+    "score_uncertainty": "avg_score 与 typical_score 为区间中值估计，单题分值随试卷结构调整而变化",
+    "years_uncertainty": "高频单元（函数极限、定积分、不定积分、多元复合求导、条件极值、二重积分、线性方程组、特征值、二维随机变量、数字特征等）的年份集合较可靠；中低频单元与所有 hotspots 的 years 为不完全列举，存在遗漏，也可能有个别年份归属有误",
+    "granularity_uncertainty": "本文件按 knowledge_points/math3.json 的「节」层（42 个单元）统计，粒度比数学（一）的 19 章更细，单次出现的平均分值被摊薄，avg_score 更易受跨单元综合题的归属判断影响，故单元间的 exam_weight 差异不宜按精确比例解读",
+    "econ_and_difference_uncertainty": "经济应用（math3.calc.econ.*）与差分方程（math3.calc.ode.difference）是数学（三）区别于数学（一）（二）的特色考点，可参照的真题样本少，其 appearances 与 years 最不可靠，已标注 confidence: low",
+    "paper_structure_change": "2010–2020 年间数学一/二/三的分卷与大纲曾多次调整（2009 年起数学三与数学四合并为现行数学（三）；2021 年全国数学大纲修订，调整了部分考点要求与试卷结构；2023 年起题型结构由 8+6+9 改为 10+6+6）。早期年份（尤其 2010–2012）部分题目在调整前后的归属存在不确定性。本文件不声称逐年精确，years 集合应视为近似而非逐年核对结果。",
+    "recommended_use": "仅用于错题软件的薄弱点加权排序与组卷软偏好；不要在 UI 上展示为官方统计，建议文案标注「估算值」。"
+  },
+  "exam_weight_method": "raw = total_appearances × avg_score；exam_weight = round(raw / max(raw), 2)（本科目内部归一化）",
+  "integration_notes": {
+    "id_convention": "chapter.id 与 data/knowledge_points/math3.json 的「节」层节点 id 逐字一致，共 42 个：math3.calc.* 21 个、math3.linalg.* 9 个、math3.prob.* 12 个。",
+    "unit_selection_rule": "取「直接挂有 is_leaf: true 子节点的节点」为考频单元，排除根节点 math3 与三个学科分段节点 math3.calc / math3.linalg / math3.prob。",
+    "chapter_count": 42,
+    "section_distribution": "高等数学 21 个单元、线性代数 9 个单元、概率论与数理统计 12 个单元。",
+    "normalization_base": "本文件的归一化基准（max）为 math3.calc.integral.definite（定积分）：raw = total_appearances × avg_score = 15 × 8.5 = 127.5，故其 exam_weight = 1.00；其余 41 个单元的 exam_weight 均以 127.5 为分母四舍五入到两位小数。",
+    "max_chapter": "math3.calc.integral.definite",
+    "max_raw_value": 127.5,
+    "min_chapter": "math3.calc.econ.interest",
+    "min_raw_value": 15.0,
+    "field_mapping": "本章.years 对应 knowledge_points 节点的 exam_years 语义（该单元出现过的年份）；本文件 exam_weight 为「节」级权重。节点级权重建议由 knowledge_points/math3.json 的 exam_weight_formula 派生（leaf = clamp(chapter × hotspot_boost × year_factor, 0.10, 1.00)），两套定义不同，不要混用。",
+    "formula_conflict": "data/knowledge_points/math3.json 记录叶子级公式 leaf = clamp(chapter × hotspot_boost × year_factor, 0.10, 1.00)，其中 chapter 取自该文件节点上的 exam_weight 人工值。本文件在 42 个「节」上独立归一化，直接替换知识点文件中的章节权重会改变叶子权重分布。集成时需人工决定统一采用哪一套定义。",
+    "scope_exclusions": "不含曲线积分与曲面积分、三重积分、空间解析几何、傅里叶级数、欧拉方程；概率部分不含参数估计（矩估计、最大似然估计）、假设检验与区间估计单元。上述内容或在数学（三）考纲之外，或要求显著低于数学（一）。",
+    "cross_file_consistency": "20 个「章」级节点 id（如 math3.calc.limit、math3.linalg.eigen、math3.prob.stats）不是本文件的单元；如需章级汇总，可对本文件的 4 段 id 做前缀聚合（去掉最后一段）后合并。",
+    "qtype_note": "qtype_frequency 的 choice + fill + solve 之和恒等于该单元的 total_appearances；由于 2023 年起解答题由 9 题减为 6 题，2023–2024 年的 solve 计数偏低、choice 偏高，属结构变化而非考频变化。",
+    "hotspot_overlap_note": "同一单元的多个 hotspot 可由同一道题命中，因此 hotspot 层 appearances 之和允许大于该单元 total_appearances；反之，热点层计数之和也不应被当作单元总次数使用。"
+  },
+  "chapters": [
+    {
+      "id": "math3.calc.limit.seq",
+      "name": "数列极限",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 2,
+        "fill": 1,
+        "solve": 4
+      },
+      "total_appearances": 7,
+      "avg_score": 9.0,
+      "years": [
+        2014,
+        2017,
+        2018,
+        2020,
+        2021,
+        2023,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "数列极限的存在准则",
+          "appearances": 4,
+          "years": [
+            2014,
+            2017,
+            2020,
+            2023
+          ],
+          "typical_score": 10,
+          "note": "单调有界准则处理递推数列 x_{n+1}=f(x_n)：必须先证有界与单调，再对递推式两边取极限；跳过存在性证明直接解 a=f(a) 是最典型的丢分点"
+        },
+        {
+          "name": "n 项和的极限与定积分定义",
+          "appearances": 3,
+          "years": [
+            2011,
+            2018,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "配凑 1/n 因子化为 ∫₀¹f(x)dx；配不上标准形式时应改用夹逼准则或裂项相消，多出现在填空与选择"
+        },
+        {
+          "name": "夹逼准则与放缩技巧",
+          "appearances": 2,
+          "years": [
+            2015,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "两侧放缩方向易错，两侧极限不相等时不能下结论；常与根式型、含 n 的指数型数列结合"
+        }
+      ],
+      "exam_weight": 0.49,
+      "confidence": "medium",
+      "confidence_note": "「数列极限每隔一两年出现一次」这一判断较可靠，但单调有界证明题的具体年份与分值波动大；本单元的 appearances 与 years 均为估算，实际可能有遗漏年份。"
+    },
+    {
+      "id": "math3.calc.limit.funclimit",
+      "name": "函数极限",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 7,
+        "fill": 6,
+        "solve": 4
+      },
+      "total_appearances": 17,
+      "avg_score": 6.0,
+      "years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "等价无穷小替换",
+          "appearances": 7,
+          "years": [
+            2010,
+            2012,
+            2014,
+            2016,
+            2020,
+            2023,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "只能用于乘除因子，加减法中滥用是最高频错误；x 趋于非 0 值时须先做变量代换再套等价表"
+        },
+        {
+          "name": "洛必达法则",
+          "appearances": 5,
+          "years": [
+            2010,
+            2013,
+            2015,
+            2017,
+            2021
+          ],
+          "typical_score": 5,
+          "note": "使用前必须验证确为 0/0 或 ∞/∞ 型，且导数之比的极限存在；反复洛必达陷入循环时应改用泰勒或等价无穷小"
+        },
+        {
+          "name": "泰勒公式求极限",
+          "appearances": 5,
+          "years": [
+            2011,
+            2013,
+            2018,
+            2022,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "加减型未定式的首选方法；展开阶数不足（首项相消后无法判定）是最典型错误，选择题难度较高"
+        },
+        {
+          "name": "无穷小的比较与阶",
+          "appearances": 4,
+          "years": [
+            2011,
+            2015,
+            2018,
+            2022
+          ],
+          "typical_score": 4,
+          "note": "求阶数时系数必须归一化；x-sin x 这类相消后阶数升高的情形易被误判；基本只出现在客观题"
+        },
+        {
+          "name": "未定式的分类与化简",
+          "appearances": 3,
+          "years": [
+            2013,
+            2019,
+            2021
+          ],
+          "typical_score": 4,
+          "note": "0·∞、∞-∞、1^∞ 等类型须先化为 0/0 或 ∞/∞ 型（通分、取对数），与洛必达、等价替换配合使用"
+        }
+      ],
+      "exam_weight": 0.8,
+      "confidence": "high",
+      "confidence_note": "「函数极限必考、且以客观题为主」是数学（三）最稳定的规律，单元级考频与分值判断可靠；各热点的具体次数与年份仍有误差。"
+    },
+    {
+      "id": "math3.calc.diff.derivative",
+      "name": "导数与微分",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 6,
+        "fill": 3,
+        "solve": 5
+      },
+      "total_appearances": 14,
+      "avg_score": 6.0,
+      "years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "导数的定义与可导性",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2015,
+            2018,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "分段函数分界点必须用定义比较左右导数；抽象函数极限中 lim[f(x₀+h)-f(x₀-h)]/h 实为 2f'(x₀)，是最常见的概念陷阱"
+        },
+        {
+          "name": "求导法则与高阶导数",
+          "appearances": 6,
+          "years": [
+            2010,
+            2011,
+            2013,
+            2016,
+            2019,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "复合函数漏乘内层导数是最高频计算失误；求 f⁽ⁿ⁾(0) 时优先用泰勒展开或莱布尼茨公式而非逐阶硬算"
+        },
+        {
+          "name": "分段函数与绝对值函数的可导性",
+          "appearances": 3,
+          "years": [
+            2012,
+            2019,
+            2021
+          ],
+          "typical_score": 5,
+          "note": "含 |x-a|、max/min 结构的函数在分界点处不可导或需分段讨论，常以概念辨析型选择题出现"
+        }
+      ],
+      "exam_weight": 0.66,
+      "confidence": "high",
+      "confidence_note": "导数的计算与可导性判断属每年必考的基本板块，规律明确；本单元只计入以导数计算或可导性判定为主考点的题目，与微分中值定理、导数的应用有归属重叠。"
+    },
+    {
+      "id": "math3.calc.diff.theorem",
+      "name": "微分中值定理",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 1,
+        "fill": 2,
+        "solve": 7
+      },
+      "total_appearances": 10,
+      "avg_score": 10.0,
+      "years": [
+        2010,
+        2013,
+        2014,
+        2015,
+        2016,
+        2018,
+        2019,
+        2021,
+        2022,
+        2023
+      ],
+      "hotspots": [
+        {
+          "name": "罗尔定理与拉格朗日中值定理",
+          "appearances": 5,
+          "years": [
+            2010,
+            2013,
+            2015,
+            2021,
+            2023
+          ],
+          "typical_score": 11,
+          "note": "三个条件（闭区间连续、开区间可导、端点值相等）缺一不可；结论中的 ξ 是开区间内的点，不能写成闭区间或中点"
+        },
+        {
+          "name": "柯西中值定理与泰勒中值定理",
+          "appearances": 3,
+          "years": [
+            2014,
+            2019,
+            2022
+          ],
+          "typical_score": 11,
+          "note": "使用柯西中值定理须验证 g'(x)≠0，且两个中值定理的 ξ 一般不是同一点；泰勒中值定理常用于证明不等式与控制余项符号"
+        },
+        {
+          "name": "辅助函数的构造与不等式证明",
+          "appearances": 4,
+          "years": [
+            2011,
+            2016,
+            2018,
+            2021
+          ],
+          "typical_score": 11,
+          "note": "证明 f'(ξ)=0 类问题的关键是构造 F(x)=e^{kx}f(x)、f(x)g(x) 等辅助函数；多区间使用时须说明各 ξ 落在互不相交的子区间内"
+        }
+      ],
+      "exam_weight": 0.78,
+      "confidence": "high",
+      "confidence_note": "「中值定理证明题是数学（三）高数压轴来源之一」这一判断可靠；但证明题是否出现、以何种形式出现年份间波动较大，单年分值可能为 10–12 分。"
+    },
+    {
+      "id": "math3.calc.diff.apply",
+      "name": "导数的应用",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 4,
+        "fill": 4,
+        "solve": 4
+      },
+      "total_appearances": 12,
+      "avg_score": 8.0,
+      "years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2016,
+        2017,
+        2018,
+        2019,
+        2021,
+        2022,
+        2023
+      ],
+      "hotspots": [
+        {
+          "name": "凹凸性与拐点",
+          "appearances": 5,
+          "years": [
+            2011,
+            2013,
+            2016,
+            2018,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "只由 f''(x₀)=0 不能断定拐点，必须验证两侧 f'' 变号；f'' 不存在的点也可能是拐点；国内教材「凸」的符号约定与部分英文教材相反"
+        },
+        {
+          "name": "渐近线与函数作图",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2014,
+            2019,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "水平、铅直、斜渐近线的完整判定；求斜渐近线时只算 a 忘记求 b 是常见错误，渐近线求解是填空题常客"
+        },
+        {
+          "name": "单调性与极值最值",
+          "appearances": 4,
+          "years": [
+            2013,
+            2017,
+            2021,
+            2023
+          ],
+          "typical_score": 8,
+          "note": "常与方程根的存在性与个数讨论、不等式证明结合成解答题；注意端点与不可导点也可能是最值点"
+        }
+      ],
+      "exam_weight": 0.75,
+      "confidence": "medium",
+      "confidence_note": "导数的应用属高频板块，但「单调性/极值」常与方程根、不等式证明合并命题，归属划分不唯一，appearances 误差较大；渐近线判断比具体次数更可靠。"
+    },
+    {
+      "id": "math3.calc.integral.indefinite",
+      "name": "不定积分",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 6,
+        "solve": 4
+      },
+      "total_appearances": 13,
+      "avg_score": 6.5,
+      "years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "基本积分表与凑微分法",
+          "appearances": 6,
+          "years": [
+            2010,
+            2011,
+            2013,
+            2015,
+            2020,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "基本功，几乎年年出现；∫dx/x=ln|x|+C 漏绝对值、凑微分后忘记补常数因子是高频失误"
+        },
+        {
+          "name": "第二类换元积分法",
+          "appearances": 4,
+          "years": [
+            2011,
+            2014,
+            2017,
+            2021
+          ],
+          "typical_score": 6,
+          "note": "三角代换三类标准形式；定积分用换元时忘记同步变换积分上下限是最高频错误之一"
+        },
+        {
+          "name": "分部积分法",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2015,
+            2019,
+            2023
+          ],
+          "typical_score": 6,
+          "note": "u 的选取按「反、对、幂、指、三」优先；∫e^{ax}sin bx dx 这类循环型积分须两次分部后移项解出"
+        },
+        {
+          "name": "有理函数与三角有理式积分",
+          "appearances": 2,
+          "years": [
+            2014,
+            2019
+          ],
+          "typical_score": 5,
+          "note": "部分分式分解与万能代换 t=tan(x/2)；通常作为大题中的计算步骤而非独立成题"
+        }
+      ],
+      "exam_weight": 0.66,
+      "confidence": "high",
+      "confidence_note": "不定积分计算是每年必考的基本功，单元级考频判断可靠；但多数题目中积分只是解题步骤而非「主导考点」，故 appearances 偏保守，实际重要性高于本单元权重所显示的排序。"
+    },
+    {
+      "id": "math3.calc.integral.definite",
+      "name": "定积分",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 6,
+        "fill": 4,
+        "solve": 5
+      },
+      "total_appearances": 15,
+      "avg_score": 8.5,
+      "years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "变限积分与牛顿-莱布尼茨公式",
+          "appearances": 7,
+          "years": [
+            2010,
+            2012,
+            2013,
+            2015,
+            2017,
+            2021,
+            2024
+          ],
+          "typical_score": 8,
+          "note": "上下限含 x 时漏乘上下限导数是最典型错误；被积函数含 x 时须先提出去或做变量替换再求导；常与极限、导数应用综合成解答题"
+        },
+        {
+          "name": "定积分的定义与性质",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2016,
+            2018,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "定积分是确定的数，与积分变量记号无关；可积的充分条件是有界且只有有限个间断点；保号性不能反向使用"
+        },
+        {
+          "name": "反常积分的敛散性",
+          "appearances": 4,
+          "years": [
+            2011,
+            2013,
+            2016,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "两类基准结论方向相反：∫₁^{+∞}dx/x^p 要求 p>1，∫₀¹dx/x^p 要求 p<1；须先识别瑕点位置，多个瑕点要拆分区间"
+        },
+        {
+          "name": "积分中值定理与积分不等式",
+          "appearances": 3,
+          "years": [
+            2013,
+            2017,
+            2020
+          ],
+          "typical_score": 10,
+          "note": "证明题方向，与微分中值定理常互为主次；使用积分中值定理须验证 f 在 [a,b] 上连续"
+        },
+        {
+          "name": "定积分的对称性与周期性化简",
+          "appearances": 3,
+          "years": [
+            2014,
+            2019,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "奇偶函数在对称区间上的积分为零或二倍，是化简利器；须先确认积分区间的对称性与被积函数的奇偶性"
+        }
+      ],
+      "exam_weight": 1.0,
+      "confidence": "high",
+      "confidence_note": "定积分（含变限积分）是分值最高的单元之一，本数据以它为归一化基准（exam_weight = 1.00）。「变限积分求导与极限结合」这一题型判断尤其可靠；具体年份与分值仍有误差。"
+    },
+    {
+      "id": "math3.calc.integral.apply",
+      "name": "定积分的应用",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 1,
+        "fill": 2,
+        "solve": 5
+      },
+      "total_appearances": 8,
+      "avg_score": 9.5,
+      "years": [
+        2010,
+        2011,
+        2013,
+        2016,
+        2019,
+        2021,
+        2023,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "平面图形面积与旋转体体积",
+          "appearances": 5,
+          "years": [
+            2010,
+            2011,
+            2013,
+            2019,
+            2023
+          ],
+          "typical_score": 10,
+          "note": "面积须先求交点并判断上下关系，否则会漏分段或得负值；绕 y 轴时误用 π∫f²(x)dx（该式只适用于绕 x 轴）是典型错误"
+        },
+        {
+          "name": "极坐标与参数方程下的面积",
+          "appearances": 3,
+          "years": [
+            2011,
+            2016,
+            2024
+          ],
+          "typical_score": 6,
+          "note": "极坐标面积公式漏乘 1/2 或把 r 与 θ 的积分限搞混；数学（三）不考曲线弧长与旋转曲面面积，本热点只涉及面积与体积"
+        },
+        {
+          "name": "定积分的物理与经济应用",
+          "appearances": 2,
+          "years": [
+            2016,
+            2021
+          ],
+          "typical_score": 8,
+          "note": "由边际函数积分求总量（须加初始条件）、收益与成本的累积量；年份与分值最不确定，需按题意建模"
+        }
+      ],
+      "exam_weight": 0.6,
+      "confidence": "medium",
+      "confidence_note": "「面积与旋转体体积是解答题常见来源」判断可靠，但数学（三）该单元出现频率低于数学（一），且是否单独成题年份波动大；本单元不含弧长与旋转曲面面积（数三考纲不要求）。"
+    },
+    {
+      "id": "math3.calc.multidiff.basic",
+      "name": "多元函数的基本概念",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 5,
+        "fill": 3,
+        "solve": 1
+      },
+      "total_appearances": 9,
+      "avg_score": 5.0,
+      "years": [
+        2010,
+        2011,
+        2012,
+        2014,
+        2016,
+        2017,
+        2019,
+        2021,
+        2022
+      ],
+      "hotspots": [
+        {
+          "name": "全微分与可微性判定",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2014,
+            2019,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "判定可微必须计算 lim[Δz-f_xΔx-f_yΔy]/ρ，只验证偏导存在不够；这是数学（三）选择题最爱设的概念陷阱"
+        },
+        {
+          "name": "二元函数的极限与连续",
+          "appearances": 3,
+          "years": [
+            2011,
+            2014,
+            2019
+          ],
+          "typical_score": 5,
+          "note": "极限存在要求沿任意路径趋近都相等；沿两条不同路径得到不同极限即可断定不存在，但只验证几条路径相同不能断定存在"
+        },
+        {
+          "name": "连续、偏导存在与可微的关系",
+          "appearances": 3,
+          "years": [
+            2016,
+            2017,
+            2021
+          ],
+          "typical_score": 5,
+          "note": "偏导连续 ⟹ 可微 ⟹ 偏导存在且连续；把「偏导数存在」当作「可微」的充分条件是最常见的逻辑错误"
+        }
+      ],
+      "exam_weight": 0.35,
+      "confidence": "medium",
+      "confidence_note": "本单元以概念辨析型客观题为主，每年至多一题且是否出现波动大；「可微性判定是常考陷阱」这一定性判断比 appearances 与 years 的具体数字更可靠。"
+    },
+    {
+      "id": "math3.calc.multidiff.derivative",
+      "name": "多元函数求导法则",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 3,
+        "solve": 5
+      },
+      "total_appearances": 11,
+      "avg_score": 6.5,
+      "years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2015,
+        2016,
+        2017,
+        2019,
+        2020,
+        2021,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "多元复合函数求导",
+          "appearances": 6,
+          "years": [
+            2010,
+            2012,
+            2015,
+            2017,
+            2021,
+            2024
+          ],
+          "typical_score": 6,
+          "note": "链式法则实质是沿所有中间变量路径求和，做题前先画变量关系树；抽象函数记号 f₁' 表示对第一个中间变量求导而非对 x 求导"
+        },
+        {
+          "name": "隐函数求导",
+          "appearances": 5,
+          "years": [
+            2011,
+            2013,
+            2016,
+            2018,
+            2022
+          ],
+          "typical_score": 6,
+          "note": "dy/dx=-F_x/F_y 与 ∂z/∂x=-F_x/F_z 的负号与位置最易写错；须检查 F_y≠0（或 F_z≠0）的前提条件"
+        },
+        {
+          "name": "抽象函数的二阶偏导数",
+          "appearances": 3,
+          "years": [
+            2013,
+            2019,
+            2020
+          ],
+          "typical_score": 8,
+          "note": "求二阶偏导时须注意 f₁'、f₂' 仍是复合函数、要继续用链式法则；常作为解答题的第一问或中间步骤"
+        }
+      ],
+      "exam_weight": 0.56,
+      "confidence": "high",
+      "confidence_note": "多元复合与隐函数求导是数学（三）每年必考的板块，且常出现在解答题中；单元级判断可靠，热点间的次数分配误差较大。"
+    },
+    {
+      "id": "math3.calc.multidiff.extremum",
+      "name": "多元函数的极值",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 2,
+        "solve": 5
+      },
+      "total_appearances": 10,
+      "avg_score": 9.0,
+      "years": [
+        2011,
+        2012,
+        2013,
+        2015,
+        2016,
+        2017,
+        2019,
+        2020,
+        2022,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "条件极值与拉格朗日乘数法",
+          "appearances": 6,
+          "years": [
+            2011,
+            2013,
+            2016,
+            2019,
+            2022,
+            2024
+          ],
+          "typical_score": 10,
+          "note": "构造 L=f+λφ 时漏乘 λ、或忘记把 L_λ=0（即约束本身）纳入方程组是最常见错误；求出驻点后须比较函数值确定最值"
+        },
+        {
+          "name": "多元函数的经济应用",
+          "appearances": 3,
+          "years": [
+            2012,
+            2015,
+            2020
+          ],
+          "typical_score": 10,
+          "note": "交叉价格弹性、柯布-道格拉斯生产函数 Q=AL^αK^β 的规模报酬判定（看 α+β 与 1 的关系）；属数学（三）特色考点，年份判断把握中等"
+        },
+        {
+          "name": "多元函数的无条件极值",
+          "appearances": 4,
+          "years": [
+            2012,
+            2015,
+            2017,
+            2020
+          ],
+          "typical_score": 6,
+          "note": "先用一阶条件求驻点，再用 AC-B² 判别；边界上的最值需另行讨论，不能只看驻点"
+        }
+      ],
+      "exam_weight": 0.71,
+      "confidence": "high",
+      "confidence_note": "「多元函数极值（尤其拉格朗日乘数法）几乎每年以解答题形式出现」判断可靠；其中经济应用型题目的年份与归属把握中等。"
+    },
+    {
+      "id": "math3.calc.multiintegral.rect",
+      "name": "直角坐标下的计算",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 3,
+        "solve": 4
+      },
+      "total_appearances": 10,
+      "avg_score": 8.5,
+      "years": [
+        2010,
+        2011,
+        2013,
+        2014,
+        2016,
+        2018,
+        2019,
+        2020,
+        2023,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "交换积分次序",
+          "appearances": 5,
+          "years": [
+            2011,
+            2013,
+            2016,
+            2018,
+            2020
+          ],
+          "typical_score": 5,
+          "note": "只把 dx、dy 位置互换而保留原来的上下限是最典型的错误；标准步骤是由原累次积分写出区域不等式、画草图、再按另一方向重新描述区域"
+        },
+        {
+          "name": "直角坐标下二重积分的计算",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2014,
+            2019,
+            2023
+          ],
+          "typical_score": 10,
+          "note": "数学（三）几乎每年都有二重积分题，且多为解答题；选择 X 型还是 Y 型区域直接影响计算量，须先画图"
+        },
+        {
+          "name": "累次积分的转化与区域描述",
+          "appearances": 3,
+          "years": [
+            2014,
+            2020,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "由不等式反解边界时漏掉曲线的另一支（如 y=x² 反解为 x=±√y 而只取一支）会导致区域判断错误"
+        }
+      ],
+      "exam_weight": 0.67,
+      "confidence": "high",
+      "confidence_note": "「二重积分几乎每年必考、且以直角坐标计算为主」这一判断可靠；本单元与极坐标单元、以及定积分应用（面积体积）在综合题中的归属划分存在少量重叠。"
+    },
+    {
+      "id": "math3.calc.multiintegral.polar",
+      "name": "极坐标下的计算",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 3,
+        "solve": 4
+      },
+      "total_appearances": 10,
+      "avg_score": 9.5,
+      "years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2017,
+        2018,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "极坐标变换与雅可比因子",
+          "appearances": 6,
+          "years": [
+            2010,
+            2012,
+            2014,
+            2016,
+            2021,
+            2024
+          ],
+          "typical_score": 10,
+          "note": "化极坐标时漏乘雅可比因子 r 是最高频错误，会直接导致答案错误；dσ=r dr dθ 中的 r 来自 |∂(x,y)/∂(r,θ)|"
+        },
+        {
+          "name": "对称性与轮换对称性的利用",
+          "appearances": 4,
+          "years": [
+            2011,
+            2014,
+            2017,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "奇偶性结论要求区域本身也关于相应坐标轴对称；轮换对称性只在区域关于 y=x 对称时成立，可作客观题考点"
+        },
+        {
+          "name": "极坐标下积分限的确定",
+          "appearances": 3,
+          "years": [
+            2016,
+            2018,
+            2023
+          ],
+          "typical_score": 6,
+          "note": "圆环、偏心圆（如 x²+y²≤2x 即 r≤2cosθ）等区域的 θ 范围与 r 的上下限最容易取错；r 的上下限通常是 θ 的函数而非常数"
+        }
+      ],
+      "exam_weight": 0.75,
+      "confidence": "high",
+      "confidence_note": "「含 x²+y² 或圆形区域的二重积分必转极坐标」是稳定规律，单元级判断可靠；具体年份的归属与直角坐标单元可能互换，误差较大。"
+    },
+    {
+      "id": "math3.calc.series.number",
+      "name": "常数项级数",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 4,
+        "fill": 2,
+        "solve": 3
+      },
+      "total_appearances": 9,
+      "avg_score": 5.5,
+      "years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "正项级数判别法",
+          "appearances": 5,
+          "years": [
+            2010,
+            2013,
+            2016,
+            2020,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "比较判别法及其极限形式、比值判别法、根值判别法、积分判别法；含 n 次幂或阶乘时优先用比值法，多为客观题"
+        },
+        {
+          "name": "交错级数与绝对收敛",
+          "appearances": 4,
+          "years": [
+            2011,
+            2015,
+            2019,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "莱布尼茨判别法只判收敛，须另行讨论绝对收敛与条件收敛；注意与数一相比，数三不涉及傅里叶级数相关的收敛性讨论"
+        },
+        {
+          "name": "收敛的必要条件与通项极限",
+          "appearances": 3,
+          "years": [
+            2013,
+            2018,
+            2022
+          ],
+          "typical_score": 4,
+          "note": "通项不趋于零则级数发散，但通项趋于零不能判定收敛；常用于反例型选择题"
+        }
+      ],
+      "exam_weight": 0.39,
+      "confidence": "high",
+      "confidence_note": "「级数是必考板块、以客观题为主」判断可靠；但常数项级数常与幂级数收敛域合并命题，两个单元间的归属划分不唯一。"
+    },
+    {
+      "id": "math3.calc.series.power",
+      "name": "幂级数",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 2,
+        "fill": 2,
+        "solve": 3
+      },
+      "total_appearances": 7,
+      "avg_score": 9.0,
+      "years": [
+        2011,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022
+      ],
+      "hotspots": [
+        {
+          "name": "幂级数的收敛半径与收敛域",
+          "appearances": 4,
+          "years": [
+            2011,
+            2014,
+            2018,
+            2022
+          ],
+          "typical_score": 6,
+          "note": "先求收敛半径，再单独判断两个端点的敛散性；缺项幂级数不能直接套系数比值公式，须用变量代换或根值法"
+        },
+        {
+          "name": "函数展开为幂级数",
+          "appearances": 3,
+          "years": [
+            2012,
+            2016,
+            2020
+          ],
+          "typical_score": 8,
+          "note": "数学（三）只要求掌握 e^x、sin x、cos x、ln(1+x)、(1+x)^α 等常用展开与简单间接展开，不要求傅里叶级数"
+        },
+        {
+          "name": "幂级数求和函数",
+          "appearances": 2,
+          "years": [
+            2014,
+            2018
+          ],
+          "typical_score": 8,
+          "note": "通过逐项求导或逐项积分化为已知和函数，须注意收敛域在求导积分后的端点变化；数三对该技巧的要求低于数一"
+        }
+      ],
+      "exam_weight": 0.49,
+      "confidence": "high",
+      "confidence_note": "幂级数收敛域几乎每年以客观题出现，判断可靠；求和函数类解答题的出现频率低于数一，年份把握中等。"
+    },
+    {
+      "id": "math3.calc.ode.first_order",
+      "name": "一阶微分方程",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 4,
+        "solve": 2
+      },
+      "total_appearances": 9,
+      "avg_score": 7.0,
+      "years": [
+        2010,
+        2011,
+        2013,
+        2014,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "hotspots": [
+        {
+          "name": "一阶线性微分方程",
+          "appearances": 5,
+          "years": [
+            2010,
+            2013,
+            2015,
+            2019,
+            2023
+          ],
+          "typical_score": 7,
+          "note": "通解公式 y=e^{-∫Pdx}(∫Qe^{∫Pdx}dx+C) 必须熟记；化为标准形式 y'+P(x)y=Q(x) 时符号易错，多以填空或客观题出现"
+        },
+        {
+          "name": "可分离变量方程与齐次方程",
+          "appearances": 4,
+          "years": [
+            2010,
+            2011,
+            2014,
+            2017
+          ],
+          "typical_score": 7,
+          "note": "齐次方程用 u=y/x 代换化可分离；注意代换后 dx 与 du 的同步变换，以及分离变量时除以零的讨论"
+        },
+        {
+          "name": "一阶微分方程的应用建模",
+          "appearances": 2,
+          "years": [
+            2015,
+            2021
+          ],
+          "typical_score": 10,
+          "note": "变化率、冷却、增长等模型；年份与分值最不确定，需按题意自行建立方程"
+        }
+      ],
+      "exam_weight": 0.49,
+      "confidence": "high",
+      "confidence_note": "「微分方程每年至少一题、一阶可分离与一阶线性是主力」判断可靠；应用建模类题目的年份把握低。"
+    },
+    {
+      "id": "math3.calc.ode.higher_order",
+      "name": "高阶与二阶常系数方程",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 3,
+        "solve": 3
+      },
+      "total_appearances": 9,
+      "avg_score": 8.0,
+      "years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2017,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "二阶常系数线性微分方程",
+          "appearances": 6,
+          "years": [
+            2010,
+            2012,
+            2014,
+            2017,
+            2020,
+            2024
+          ],
+          "typical_score": 8,
+          "note": "由特征方程 r²+pr+q=0 的根型写出齐次通解；重根情形须补乘 x；数学（三）不考欧拉方程"
+        },
+        {
+          "name": "非齐次项与待定系数法",
+          "appearances": 4,
+          "years": [
+            2012,
+            2016,
+            2018,
+            2022
+          ],
+          "typical_score": 8,
+          "note": "自由项为 P_m(x)e^{λx} 或含三角项时的特解形式；λ 是特征根时须补乘 x^k，从特征根表里查 k 是常见失分点"
+        },
+        {
+          "name": "线性微分方程解的结构与降阶法",
+          "appearances": 2,
+          "years": [
+            2014,
+            2018
+          ],
+          "typical_score": 6,
+          "note": "已知一个特解时用常数变易或降阶求另一解；解的结构（齐次通解加特解）也常以概念题出现"
+        }
+      ],
+      "exam_weight": 0.56,
+      "confidence": "high",
+      "confidence_note": "二阶常系数线性方程是微分方程单元中最稳定的考点，判断可靠；待定系数法的具体年份与分值波动较大。"
+    },
+    {
+      "id": "math3.calc.ode.difference",
+      "name": "差分方程",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 2,
+        "fill": 1,
+        "solve": 1
+      },
+      "total_appearances": 4,
+      "avg_score": 5.0,
+      "years": [
+        2016,
+        2019,
+        2022,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "一阶常系数线性差分方程",
+          "appearances": 3,
+          "years": [
+            2016,
+            2019,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "【low 置信度】数学（三）特色考点，与微分方程平行；y_{t+1}-ay_t=b 的通解由平衡解加齐次解构成，年份最不可靠"
+        },
+        {
+          "name": "差分方程在经济模型中的应用",
+          "appearances": 2,
+          "years": [
+            2019,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "【low 置信度】蛛网模型、乘数-加速数等离散经济模型；真题样本极少，appearances 与 years 仅供参考，很可能有明显偏差"
+        }
+      ],
+      "exam_weight": 0.16,
+      "confidence": "low",
+      "confidence_note": "差分方程属数学（三）新增且真题样本极少的考点，我对具体年份与出现次数最没有把握；本单元的 appearances、years、avg_score 均可能明显偏差。建议软件仍保留该考点（考纲范围内），但不要向学生展示精确次数，也不要因权重低而删除练习。"
+    },
+    {
+      "id": "math3.calc.econ.margin",
+      "name": "边际分析",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 1,
+        "fill": 2,
+        "solve": 2
+      },
+      "total_appearances": 5,
+      "avg_score": 8.0,
+      "years": [
+        2010,
+        2013,
+        2016,
+        2018,
+        2021
+      ],
+      "hotspots": [
+        {
+          "name": "边际函数与成本收益",
+          "appearances": 4,
+          "years": [
+            2010,
+            2013,
+            2016,
+            2021
+          ],
+          "typical_score": 6,
+          "note": "【low 置信度】MC=C'(Q)、MR=R'(Q)、ML=MR-MC；把「边际成本」误解为平均成本 C(Q)/Q 是最常见错误；由边际函数积分求总量须加初始条件"
+        },
+        {
+          "name": "利润最大化与边际分析",
+          "appearances": 3,
+          "years": [
+            2013,
+            2018,
+            2021
+          ],
+          "typical_score": 8,
+          "note": "【low 置信度】一阶条件 MR=MC，还须验证二阶条件；常与需求函数 P=P(Q) 下 R=PQ 的求导（别漏 P 是 Q 的函数）结合"
+        }
+      ],
+      "exam_weight": 0.31,
+      "confidence": "low",
+      "confidence_note": "经济应用是数学（三）区别于数学（一）（二）的标志性考点，但真题样本少、常与导数应用或最值问题合并命题，归属划分不唯一；本单元 appearances 与 years 把握低，定性结论（「边际与弹性是数三必练」）比具体数字可靠。"
+    },
+    {
+      "id": "math3.calc.econ.elasticity",
+      "name": "弹性分析",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 2,
+        "fill": 2,
+        "solve": 1
+      },
+      "total_appearances": 5,
+      "avg_score": 6.0,
+      "years": [
+        2011,
+        2012,
+        2015,
+        2019,
+        2022
+      ],
+      "hotspots": [
+        {
+          "name": "需求弹性与收益的关系",
+          "appearances": 4,
+          "years": [
+            2011,
+            2015,
+            2019,
+            2022
+          ],
+          "typical_score": 6,
+          "note": "【low 置信度】η=-(dQ/dP)·(P/Q)；η>1 时降价增收、η<1 时涨价增收、η=1 时收益取极值；忘记取绝对值或把导数直接当弹性是常见错误"
+        },
+        {
+          "name": "交叉弹性与供给弹性",
+          "appearances": 2,
+          "years": [
+            2012,
+            2019
+          ],
+          "typical_score": 5,
+          "note": "【low 置信度】交叉价格弹性的分子分母方向易写反（应为需求量对价格）；出现频率低于需求弹性，年份判断把握很低"
+        }
+      ],
+      "exam_weight": 0.24,
+      "confidence": "low",
+      "confidence_note": "弹性分析是数学（三）特色考点，但常以一道小题或大题中的一问出现，独立成题次数少且年份不稳定；本单元 appearances 与 years 不确定性高。"
+    },
+    {
+      "id": "math3.calc.econ.interest",
+      "name": "复利与贴现",
+      "section": "高等数学",
+      "qtype_frequency": {
+        "choice": 1,
+        "fill": 2,
+        "solve": 0
+      },
+      "total_appearances": 3,
+      "avg_score": 5.0,
+      "years": [
+        2014,
+        2019,
+        2023
+      ],
+      "hotspots": [
+        {
+          "name": "复利、连续复利与贴现",
+          "appearances": 3,
+          "years": [
+            2014,
+            2019,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "【low 置信度】连续复利极限 lim(1+r/n)^{nt}=e^{rt}，贴现为反向运算；属数三特色考点，年份与次数把握最低"
+        },
+        {
+          "name": "资本现值与投资决策",
+          "appearances": 2,
+          "years": [
+            2019,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "【low 置信度】把未来现金流按连续复利折现后积分或求和；真题样本极少，本热点的 appearances 很可能高估"
+        }
+      ],
+      "exam_weight": 0.12,
+      "confidence": "low",
+      "confidence_note": "复利与贴现是数学（三）新增特色考点中样本最少的一项，本单元是全篇 exam_weight 最低者（0.12），但这只反映「独立成题的次数少」，不代表可以不练；appearances 与 years 把握很低。"
+    },
+    {
+      "id": "math3.linalg.det.definition",
+      "name": "行列式的定义与性质",
+      "section": "线性代数",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 2,
+        "solve": 0
+      },
+      "total_appearances": 5,
+      "avg_score": 4.0,
+      "years": [
+        2010,
+        2012,
+        2014,
+        2017,
+        2019
+      ],
+      "hotspots": [
+        {
+          "name": "n 阶行列式的定义与基本性质",
+          "appearances": 4,
+          "years": [
+            2010,
+            2012,
+            2017,
+            2019
+          ],
+          "typical_score": 4,
+          "note": "转置不变、两行互换变号、某行乘 k 则行列式乘 k、两行成比例为零、某行加另一行 k 倍不变；做初等行变换时忘记同步改变行列式值是最常见错误"
+        },
+        {
+          "name": "行列式的性质与初等变换",
+          "appearances": 3,
+          "years": [
+            2010,
+            2014,
+            2019
+          ],
+          "typical_score": 4,
+          "note": "把「某行加另一行的 k 倍值不变」误推广为「两行可随意相加减」是典型误用；多作为其他题目的计算步骤而非独立成题"
+        }
+      ],
+      "exam_weight": 0.16,
+      "confidence": "medium",
+      "confidence_note": "行列式的性质很少独立成题，其内容大量隐含在方程组、矩阵与特征值题目中；本单元 appearances 很可能低估其实际重要性，years 集合也不可靠。建议不要因权重低而降低行列式基本功的练习优先级。"
+    },
+    {
+      "id": "math3.linalg.det.computation",
+      "name": "行列式的计算",
+      "section": "线性代数",
+      "qtype_frequency": {
+        "choice": 2,
+        "fill": 3,
+        "solve": 1
+      },
+      "total_appearances": 6,
+      "avg_score": 4.5,
+      "years": [
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2022
+      ],
+      "hotspots": [
+        {
+          "name": "特殊行列式与范德蒙德行列式",
+          "appearances": 3,
+          "years": [
+            2011,
+            2015,
+            2019
+          ],
+          "typical_score": 4,
+          "note": "三角行列式等于主对角线之积；副对角线三角行列式须乘 (-1)^{n(n-1)/2}；范德蒙德行列式的连乘顺序应为 ∏(x_j-x_i)（i<j）"
+        },
+        {
+          "name": "按行列展开与余子式",
+          "appearances": 3,
+          "years": [
+            2013,
+            2017,
+            2022
+          ],
+          "typical_score": 4,
+          "note": "展开前先用性质制造零元素以减少计算量；代数余子式的符号 (-1)^{i+j} 最易漏写"
+        },
+        {
+          "name": "抽象行列式与 |kA|、|A*|",
+          "appearances": 3,
+          "years": [
+            2015,
+            2019,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "|kA|=k^n|A|、|A*|=|A|^{n-1}、|AB|=|A||B|；用特征值之积求 |A| 是最常见的考法，与特征值单元高度联动"
+        }
+      ],
+      "exam_weight": 0.21,
+      "confidence": "medium",
+      "confidence_note": "数值行列式计算近年单独考查频率下降，抽象行列式多与特征值、伴随矩阵结合；本单元与矩阵单元的归属划分不唯一，appearances 误差较大。"
+    },
+    {
+      "id": "math3.linalg.matrix.operation",
+      "name": "矩阵运算",
+      "section": "线性代数",
+      "qtype_frequency": {
+        "choice": 6,
+        "fill": 1,
+        "solve": 1
+      },
+      "total_appearances": 8,
+      "avg_score": 4.5,
+      "years": [
+        2010,
+        2012,
+        2013,
+        2015,
+        2016,
+        2019,
+        2021,
+        2023
+      ],
+      "hotspots": [
+        {
+          "name": "矩阵的线性运算与乘法",
+          "appearances": 5,
+          "years": [
+            2010,
+            2013,
+            2016,
+            2019,
+            2023
+          ],
+          "typical_score": 4,
+          "note": "乘法不满足交换律、消去律，(AB)^T=B^TA^T；以客观题为主，常与转置、对称矩阵、反对称矩阵的性质结合"
+        },
+        {
+          "name": "矩阵方程与转置运算",
+          "appearances": 4,
+          "years": [
+            2012,
+            2015,
+            2019,
+            2021
+          ],
+          "typical_score": 6,
+          "note": "AX=B 型方程用初等行变换解或求逆后相乘；注意 A 不可逆时不能用 A^{-1} 直接左乘，须回到方程组处理"
+        }
+      ],
+      "exam_weight": 0.28,
+      "confidence": "medium",
+      "confidence_note": "矩阵运算是线代题的公共语言，几乎每道线代题都涉及；本单元只计入「以矩阵运算本身为主要考点」的题目（多为客观题），appearances 偏保守。"
+    },
+    {
+      "id": "math3.linalg.matrix.inverse",
+      "name": "逆矩阵与伴随矩阵",
+      "section": "线性代数",
+      "qtype_frequency": {
+        "choice": 6,
+        "fill": 2,
+        "solve": 2
+      },
+      "total_appearances": 10,
+      "avg_score": 6.0,
+      "years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2015,
+        2016,
+        2017,
+        2018,
+        2020,
+        2021
+      ],
+      "hotspots": [
+        {
+          "name": "矩阵的秩与可逆性",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2015,
+            2017,
+            2021
+          ],
+          "typical_score": 5,
+          "note": "A 可逆 ⟺ r(A)=n ⟺ |A|≠0 ⟺ Ax=0 仅有零解；误用 r(A+B)=r(A)+r(B) 或 r(AB)=r(A)r(B) 是最典型的错误"
+        },
+        {
+          "name": "伴随矩阵",
+          "appearances": 5,
+          "years": [
+            2010,
+            2011,
+            2016,
+            2018,
+            2020
+          ],
+          "typical_score": 5,
+          "note": "AA*=A*A=|A|E 是核心恒等式；伴随矩阵秩的三分结论（n / 1 / 0）与 |A*|=|A|^{n-1} 是选择题高频考点"
+        },
+        {
+          "name": "逆矩阵的求法与秩的不等式",
+          "appearances": 4,
+          "years": [
+            2011,
+            2013,
+            2017,
+            2021
+          ],
+          "typical_score": 5,
+          "note": "(A^{-1})^{-1}=A、(kA)^{-1}=k^{-1}A^{-1}、r(AB)≤min{r(A),r(B)}、A 可逆时 r(AB)=r(B)；秩的不等式常用于证明题"
+        },
+        {
+          "name": "初等变换与初等矩阵",
+          "appearances": 3,
+          "years": [
+            2012,
+            2016,
+            2018
+          ],
+          "typical_score": 4,
+          "note": "左乘初等矩阵对应行变换、右乘对应列变换（左行右列）；初等矩阵的逆仍是同类初等矩阵"
+        }
+      ],
+      "exam_weight": 0.47,
+      "confidence": "high",
+      "confidence_note": "矩阵的秩与可逆性、伴随矩阵是线代客观题最稳定的来源，判断可靠；本单元同时容纳了初等变换内容，粒度较粗，热点间次数分配误差较大。"
+    },
+    {
+      "id": "math3.linalg.vector.independence",
+      "name": "向量组的线性相关性",
+      "section": "线性代数",
+      "qtype_frequency": {
+        "choice": 6,
+        "fill": 1,
+        "solve": 3
+      },
+      "total_appearances": 10,
+      "avg_score": 6.0,
+      "years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2017,
+        2019,
+        2020,
+        2021,
+        2023,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "线性相关与线性无关",
+          "appearances": 6,
+          "years": [
+            2010,
+            2014,
+            2016,
+            2019,
+            2021,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "判定的标准手段是以向量组为列构造矩阵 A，r(A)<s 则相关；含零向量或成比例的向量组必相关；几乎每年都考"
+        },
+        {
+          "name": "向量组的秩与最大无关组",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2017,
+            2020,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "对矩阵做初等行变换后，必须回到原向量组取主元列对应的向量，直接把变换后矩阵的列当作最大无关组是最典型的错误"
+        },
+        {
+          "name": "向量的线性表示",
+          "appearances": 4,
+          "years": [
+            2012,
+            2016,
+            2019,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "β 可由 α₁,…,α_s 线性表示 ⟺ r(α₁,…,α_s)=r(α₁,…,α_s,β)；与线性方程组的可解性判定完全等价"
+        },
+        {
+          "name": "向量组等价与秩的关系",
+          "appearances": 3,
+          "years": [
+            2014,
+            2020,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "等价向量组的秩相等，但秩相等不一定等价；这是常见的反例型选择题考点"
+        }
+      ],
+      "exam_weight": 0.47,
+      "confidence": "high",
+      "confidence_note": "「线性相关性几乎每年都考，且与秩、方程组解的存在性联动」判断可靠；但题目在线性相关性与线性方程组之间的归属划分不唯一，appearances 误差较大。"
+    },
+    {
+      "id": "math3.linalg.system.solvability",
+      "name": "线性方程组的解的判定",
+      "section": "线性代数",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 2,
+        "solve": 6
+      },
+      "total_appearances": 11,
+      "avg_score": 8.5,
+      "years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2018,
+        2019,
+        2021,
+        2023
+      ],
+      "hotspots": [
+        {
+          "name": "解的判定定理与解的结构",
+          "appearances": 6,
+          "years": [
+            2010,
+            2011,
+            2013,
+            2015,
+            2019,
+            2023
+          ],
+          "typical_score": 8,
+          "note": "对 Ax=b 须同时比较 r(A) 与 r(A,b)：前者小于后者无解、等于 n 唯一解、小于 n 无穷多解；只比较 r(A) 与 n 是最常见的失分点"
+        },
+        {
+          "name": "基础解系与通解的求法",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2014,
+            2016,
+            2018
+          ],
+          "typical_score": 8,
+          "note": "化行最简形后令自由未知量依次取单位向量；自由未知量不取单位向量会导致解向量组不线性无关；基础解系含 n-r(A) 个向量"
+        },
+        {
+          "name": "含参数方程组的讨论",
+          "appearances": 4,
+          "years": [
+            2012,
+            2014,
+            2019,
+            2021
+          ],
+          "typical_score": 10,
+          "note": "按参数分类讨论秩的变化，属中高难度解答题；常与行列式为零的参数值、同解条件结合"
+        },
+        {
+          "name": "同解方程组与公共解",
+          "appearances": 3,
+          "years": [
+            2013,
+            2016,
+            2021
+          ],
+          "typical_score": 8,
+          "note": "同解条件用秩的比较表述；公共解可由两方程组的联立求解或通解相等得到，常与秩结合出题"
+        }
+      ],
+      "exam_weight": 0.73,
+      "confidence": "high",
+      "confidence_note": "线性方程组是线代解答题的主战场，2010 年以来几乎每年至少一题，规律明确；含参数讨论题的年份与分值波动较大。"
+    },
+    {
+      "id": "math3.linalg.eigen.computation",
+      "name": "特征值与特征向量的计算",
+      "section": "线性代数",
+      "qtype_frequency": {
+        "choice": 5,
+        "fill": 2,
+        "solve": 4
+      },
+      "total_appearances": 11,
+      "avg_score": 7.5,
+      "years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2015,
+        2017,
+        2018,
+        2019,
+        2020,
+        2022,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "特征值与特征向量的定义与性质",
+          "appearances": 6,
+          "years": [
+            2010,
+            2011,
+            2013,
+            2015,
+            2019,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "特征值是 |λE-A|=0 的根，特征向量必须非零；∑λ_i=tr(A)、∏λ_i=|A| 是最常用的两个恒等式"
+        },
+        {
+          "name": "相似矩阵与可对角化",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2014,
+            2018,
+            2024
+          ],
+          "typical_score": 8,
+          "note": "可对角化 ⟺ 有 n 个线性无关的特征向量；特征值互不相同只是充分条件，有重根时必须检查几何重数 n-r(λE-A) 是否等于代数重数"
+        },
+        {
+          "name": "特征值的计算与相似对角化",
+          "appearances": 4,
+          "years": [
+            2011,
+            2015,
+            2017,
+            2020
+          ],
+          "typical_score": 8,
+          "note": "构造 P 时特征向量的排列顺序必须与对角矩阵中特征值的顺序一一对应，错位是最常见失误"
+        },
+        {
+          "name": "抽象矩阵的特征值",
+          "appearances": 3,
+          "years": [
+            2012,
+            2018,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "f(A) 的特征值为 f(λ)、A^{-1} 的特征值为 1/λ、A* 的特征值为 |A|/λ；多与行列式、伴随矩阵结合出客观题"
+        }
+      ],
+      "exam_weight": 0.65,
+      "confidence": "high",
+      "confidence_note": "特征值是线代的第二主线，几乎每年都有解答题或两道客观题，规律明确；本单元把特征值计算与相似对角化合并统计，粒度较粗。"
+    },
+    {
+      "id": "math3.linalg.eigen.real_symmetric",
+      "name": "实对称矩阵的对角化",
+      "section": "线性代数",
+      "qtype_frequency": {
+        "choice": 1,
+        "fill": 1,
+        "solve": 5
+      },
+      "total_appearances": 7,
+      "avg_score": 7.0,
+      "years": [
+        2010,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "实对称矩阵的性质与正交对角化",
+          "appearances": 5,
+          "years": [
+            2010,
+            2014,
+            2016,
+            2020,
+            2024
+          ],
+          "typical_score": 8,
+          "note": "实对称矩阵特征值全为实数、不同特征值的特征向量必正交、必可正交对角化；这类题多为解答题且常在奇数年出现（该规律置信度一般）"
+        },
+        {
+          "name": "施密特正交化与正交矩阵",
+          "appearances": 4,
+          "years": [
+            2010,
+            2014,
+            2018,
+            2022
+          ],
+          "typical_score": 8,
+          "note": "只对重根对应的特征向量做施密特正交化，最后全部单位化并按列排成 Q；漏掉单位化是常见丢分点"
+        },
+        {
+          "name": "实对称矩阵与二次型的联系",
+          "appearances": 3,
+          "years": [
+            2016,
+            2020,
+            2022
+          ],
+          "typical_score": 8,
+          "note": "正交变换法化二次型为标准形即实对称矩阵的正交对角化，是连接特征值单元与二次型单元的桥梁，归属划分不唯一"
+        }
+      ],
+      "exam_weight": 0.38,
+      "confidence": "medium",
+      "confidence_note": "「实对称矩阵必考正交对角化」判断可靠，但该内容常与二次型合并成一道解答题，两个单元之间的归属划分不唯一，appearances 误差较大；「奇数年出现」这类周期规律把握很低，不建议采信。"
+    },
+    {
+      "id": "math3.linalg.quadratic.standard",
+      "name": "二次型的标准形与规范形",
+      "section": "线性代数",
+      "qtype_frequency": {
+        "choice": 2,
+        "fill": 0,
+        "solve": 5
+      },
+      "total_appearances": 7,
+      "avg_score": 7.0,
+      "years": [
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "hotspots": [
+        {
+          "name": "二次型的矩阵表示与化标准形",
+          "appearances": 5,
+          "years": [
+            2011,
+            2013,
+            2015,
+            2019,
+            2023
+          ],
+          "typical_score": 8,
+          "note": "写二次型矩阵时交叉项系数须取一半（a_ij 对应 x_i x_j 的系数除以 2），这是最高频的低级失误；配方法与正交变换法均需掌握"
+        },
+        {
+          "name": "惯性指数与正定性",
+          "appearances": 4,
+          "years": [
+            2011,
+            2015,
+            2017,
+            2021
+          ],
+          "typical_score": 5,
+          "note": "p+q=r(A)，符号差 p-q；正定 ⟺ p=n ⟺ 各阶顺序主子式全大于零；只算 |A|>0 或只算部分阶数是最常见错误"
+        },
+        {
+          "name": "配方法与正交变换法",
+          "appearances": 3,
+          "years": [
+            2013,
+            2017,
+            2021
+          ],
+          "typical_score": 8,
+          "note": "配方法所得标准形系数不唯一但惯性指数唯一；正交变换法所得系数即特征值，须与实对称矩阵单元配合"
+        },
+        {
+          "name": "合同变换与正定二次型的判定",
+          "appearances": 3,
+          "years": [
+            2013,
+            2019,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "A 与 B 合同 ⟺ 正负惯性指数相同；合同看惯性指数、相似看特征值，两者混用是概念题常设的陷阱"
+        }
+      ],
+      "exam_weight": 0.38,
+      "confidence": "high",
+      "confidence_note": "二次型是线代每年必考的第二主线（常与特征值合并为一道解答题），单元级判断可靠；由于与实对称矩阵正交对角化高度重叠，两单元间的次数分配误差较大。"
+    },
+    {
+      "id": "math3.prob.event.probability",
+      "name": "概率的定义与计算公式",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 1,
+        "solve": 3
+      },
+      "total_appearances": 7,
+      "avg_score": 5.5,
+      "years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2023
+      ],
+      "hotspots": [
+        {
+          "name": "条件概率、乘法公式与全概率公式",
+          "appearances": 4,
+          "years": [
+            2010,
+            2011,
+            2015,
+            2019
+          ],
+          "typical_score": 5,
+          "note": "使用全概率公式前必须验证 B₁,…,B_n 构成完备事件组（两两互斥且并为 Ω）；条件概率的分母是 P(B) 而不是 1"
+        },
+        {
+          "name": "事件的独立性与伯努利概型",
+          "appearances": 3,
+          "years": [
+            2011,
+            2013,
+            2019
+          ],
+          "typical_score": 4,
+          "note": "由两两独立推出相互独立是错误推理；独立与互斥不能混用（互斥且概率均大于零则必不独立）；n 重伯努利概型常考「至少一次」"
+        },
+        {
+          "name": "古典概型与几何概型",
+          "appearances": 3,
+          "years": [
+            2013,
+            2017,
+            2023
+          ],
+          "typical_score": 4,
+          "note": "数学（三）考纲明确要求古典型与几何型概率；近年单独考查频率较低，多与条件概率合并出题"
+        },
+        {
+          "name": "贝叶斯公式",
+          "appearances": 3,
+          "years": [
+            2010,
+            2013,
+            2017
+          ],
+          "typical_score": 5,
+          "note": "由结果反推原因；把 P(A|B) 与 P(B|A) 当作同一个量（因果颠倒）是最高频错误，多出现在选择或解答题第一问"
+        }
+      ],
+      "exam_weight": 0.3,
+      "confidence": "medium",
+      "confidence_note": "概率论开篇内容常与后续章节混合命题，纯「事件与概率」题目数量波动较大；「全概率与贝叶斯是常考点」这一定性判断可靠，具体年份与次数误差较大。"
+    },
+    {
+      "id": "math3.prob.rv1.distribution",
+      "name": "分布函数与概率密度",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 2,
+        "fill": 2,
+        "solve": 3
+      },
+      "total_appearances": 7,
+      "avg_score": 6.0,
+      "years": [
+        2010,
+        2012,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "hotspots": [
+        {
+          "name": "分布函数的性质与计算",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2015,
+            2019,
+            2023
+          ],
+          "typical_score": 6,
+          "note": "F(x)=P(X≤x) 单调不减、右连续、F(-∞)=0、F(+∞)=1；计算 P(a<X≤b)=F(b)-F(a) 时上下限开闭处理错误是最典型失误"
+        },
+        {
+          "name": "概率密度及其性质",
+          "appearances": 5,
+          "years": [
+            2010,
+            2012,
+            2018,
+            2020,
+            2024
+          ],
+          "typical_score": 6,
+          "note": "密度满足 f(x)≥0 与 ∫f=1，在 f 的连续点处 F'(x)=f(x)；f(x) 的值不是概率（可以大于 1）"
+        },
+        {
+          "name": "待定常数的确定与归一性",
+          "appearances": 3,
+          "years": [
+            2012,
+            2017,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "利用 ∫f(x)dx=1 或 ∑p_i=1 求参数；含绝对值的密度须分区间讨论，漏区间是常见错误"
+        }
+      ],
+      "exam_weight": 0.33,
+      "confidence": "high",
+      "confidence_note": "一维随机变量的分布函数与密度是概率论的基石板块，几乎每年涉及；具体年份与次数仍有误差。"
+    },
+    {
+      "id": "math3.prob.rv1.common",
+      "name": "常见分布",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 1,
+        "solve": 2
+      },
+      "total_appearances": 6,
+      "avg_score": 5.0,
+      "years": [
+        2011,
+        2013,
+        2014,
+        2016,
+        2020,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "常见离散型分布",
+          "appearances": 4,
+          "years": [
+            2011,
+            2013,
+            2016,
+            2020
+          ],
+          "typical_score": 5,
+          "note": "0-1、二项、泊松、几何、超几何分布；二项分布漏掉组合数 C(n,k)、几何分布两种定义的期望差 1 是常见错误"
+        },
+        {
+          "name": "常见连续型分布",
+          "appearances": 4,
+          "years": [
+            2013,
+            2014,
+            2016,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "均匀、正态、指数分布；数学（三）考纲明确要求掌握这三种及其应用，指数分布的参数与泊松分布的参数含义不同（期望 1/λ 与 λ）"
+        },
+        {
+          "name": "正态分布的标准化与概率计算",
+          "appearances": 3,
+          "years": [
+            2011,
+            2014,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "标准化 Z=(X-μ)/σ 后查 Φ 表；注意 N(μ,σ²) 的第二参数是方差而非标准差；正态分布是数三概率最核心的分布"
+        }
+      ],
+      "exam_weight": 0.24,
+      "confidence": "high",
+      "confidence_note": "「常见分布（尤其正态分布）是数三必考内容」判断可靠；数三考纲对离散型分布的要求包含泊松定理的应用，但该点近年考查较少。"
+    },
+    {
+      "id": "math3.prob.rv1.function",
+      "name": "随机变量函数的分布",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 1,
+        "fill": 1,
+        "solve": 3
+      },
+      "total_appearances": 5,
+      "avg_score": 8.0,
+      "years": [
+        2010,
+        2012,
+        2014,
+        2018,
+        2021
+      ],
+      "hotspots": [
+        {
+          "name": "分布函数法求随机变量函数的分布",
+          "appearances": 4,
+          "years": [
+            2010,
+            2012,
+            2018,
+            2021
+          ],
+          "typical_score": 8,
+          "note": "先求 F_Y(y)=P(g(X)≤y)，再对 y 求导得密度；这是处理一切单调与非单调变换的通法，须分段讨论 y 的取值范围"
+        },
+        {
+          "name": "单调变换的密度公式",
+          "appearances": 3,
+          "years": [
+            2010,
+            2014,
+            2018
+          ],
+          "typical_score": 8,
+          "note": "g 严格单调时 f_Y(y)=f_X(g^{-1}(y))·|(g^{-1})'(y)|，绝对值不能漏；多用于线性变换与指数变换"
+        },
+        {
+          "name": "非单调变换（X² 型）的处理",
+          "appearances": 3,
+          "years": [
+            2012,
+            2014,
+            2021
+          ],
+          "typical_score": 8,
+          "note": "g 非单调时不能直接套单调公式，须用分布函数法分区间讨论（如 Y=X² 时须考虑 ±√y 两支）"
+        }
+      ],
+      "exam_weight": 0.31,
+      "confidence": "medium",
+      "confidence_note": "随机变量函数的分布是数三概率解答题的常见落点，判断可靠；但该内容常与一维分布函数单元合并命题，两个单元间的归属划分不唯一。"
+    },
+    {
+      "id": "math3.prob.rv2.joint",
+      "name": "联合分布与边缘分布",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 1,
+        "fill": 1,
+        "solve": 3
+      },
+      "total_appearances": 5,
+      "avg_score": 7.0,
+      "years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018
+      ],
+      "hotspots": [
+        {
+          "name": "二维随机变量的联合分布与边缘分布",
+          "appearances": 4,
+          "years": [
+            2010,
+            2012,
+            2014,
+            2018
+          ],
+          "typical_score": 6,
+          "note": "由联合求边缘是解答题的常见首问；联合分布能唯一确定边缘分布，但边缘分布不能唯一确定联合分布"
+        },
+        {
+          "name": "边缘密度的积分限确定",
+          "appearances": 4,
+          "years": [
+            2010,
+            2012,
+            2016,
+            2018
+          ],
+          "typical_score": 6,
+          "note": "积分限必须按联合密度非零区域确定，写成常数区间是二维问题最典型的错误；建议先画区域图"
+        },
+        {
+          "name": "条件分布与条件密度",
+          "appearances": 3,
+          "years": [
+            2012,
+            2014,
+            2016
+          ],
+          "typical_score": 6,
+          "note": "f_{X|Y}(x|y)=f(x,y)/f_Y(y)（f_Y(y)>0）；求条件密度时忘记除以边缘密度是常见错误，数三考纲明确要求掌握条件分布"
+        }
+      ],
+      "exam_weight": 0.27,
+      "confidence": "high",
+      "confidence_note": "二维随机变量的联合分布与边缘分布是数三概率解答题的主要来源，规律较明确；今年份集合为不完全列举。"
+    },
+    {
+      "id": "math3.prob.rv2.independence",
+      "name": "随机变量的独立性",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 2,
+        "fill": 1,
+        "solve": 2
+      },
+      "total_appearances": 5,
+      "avg_score": 6.0,
+      "years": [
+        2011,
+        2013,
+        2015,
+        2019,
+        2022
+      ],
+      "hotspots": [
+        {
+          "name": "独立性的判定与条件分布",
+          "appearances": 4,
+          "years": [
+            2011,
+            2013,
+            2015,
+            2019
+          ],
+          "typical_score": 6,
+          "note": "X 与 Y 独立 ⟺ F(x,y)=F_X(x)F_Y(y)，连续型等价于 f(x,y)=f_X(x)f_Y(y)（在连续点）；离散型等价于 p_ij=p_i·p_·j"
+        },
+        {
+          "name": "可分离性与矩形区域判定",
+          "appearances": 3,
+          "years": [
+            2011,
+            2015,
+            2019
+          ],
+          "typical_score": 6,
+          "note": "联合密度能分离为 g(x)h(y) 且非零区域是矩形时才可判独立；只验证可分离而忽略定义域形状是最常见的错误"
+        },
+        {
+          "name": "独立与不相关的区别",
+          "appearances": 3,
+          "years": [
+            2013,
+            2015,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "独立 ⟹ 不相关，反之不成立；只有二维正态情形下二者等价（数三考纲明确要求理解这一关系）"
+        }
+      ],
+      "exam_weight": 0.24,
+      "confidence": "medium",
+      "confidence_note": "独立性判定是常考点，但很少单独成题，多与边缘分布、数字特征合并；本单元与联合分布单元、数字特征单元的归属划分不唯一。"
+    },
+    {
+      "id": "math3.prob.rv2.function",
+      "name": "二维随机变量函数的分布",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 1,
+        "fill": 1,
+        "solve": 3
+      },
+      "total_appearances": 5,
+      "avg_score": 8.5,
+      "years": [
+        2010,
+        2013,
+        2016,
+        2020,
+        2023
+      ],
+      "hotspots": [
+        {
+          "name": "最大值最小值与和的分布",
+          "appearances": 4,
+          "years": [
+            2010,
+            2013,
+            2016,
+            2020
+          ],
+          "typical_score": 9,
+          "note": "F_max(z)=F_X(z)F_Y(z)，F_min(z)=1-[1-F_X(z)][1-F_Y(z)]；两个公式记反是最典型错误，属高频难点"
+        },
+        {
+          "name": "卷积公式与积分限确定",
+          "appearances": 3,
+          "years": [
+            2013,
+            2016,
+            2023
+          ],
+          "typical_score": 9,
+          "note": "f_{X+Y}(z)=∫f_X(x)f_Y(z-x)dx，积分限须按被积函数非零区域确定，不能直接写成 -∞ 到 +∞"
+        },
+        {
+          "name": "正态分布的可加性",
+          "appearances": 3,
+          "years": [
+            2010,
+            2020,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "独立正态变量之和仍为正态，参数为均值之和与方差之和；注意 X-Y 的方差同样是 σ₁²+σ₂²（不是相减）"
+        }
+      ],
+      "exam_weight": 0.33,
+      "confidence": "high",
+      "confidence_note": "二维随机变量函数的分布（尤其最大值最小值分布与卷积公式）是数三概率解答题的高频难点，判断可靠；具体年份为不完全列举。"
+    },
+    {
+      "id": "math3.prob.numeric.expectation",
+      "name": "数学期望与方差",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 2,
+        "solve": 2
+      },
+      "total_appearances": 7,
+      "avg_score": 5.5,
+      "years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2022
+      ],
+      "hotspots": [
+        {
+          "name": "数学期望与方差的计算",
+          "appearances": 6,
+          "years": [
+            2010,
+            2011,
+            2013,
+            2017,
+            2019,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "D(X)=E(X²)-[E(X)]² 是最易记错的公式；D(X-Y)=D(X)+D(Y)-2Cov（独立时相加，不是相减）也常被写错"
+        },
+        {
+          "name": "常见分布的期望与方差",
+          "appearances": 5,
+          "years": [
+            2010,
+            2011,
+            2015,
+            2019,
+            2022
+          ],
+          "typical_score": 4,
+          "note": "必须背熟的基础结论：B(n,p) 的 np 与 np(1-p)、P(λ) 的 λ、U(a,b) 的 (b-a)²/12、E(λ) 的 1/λ 与 1/λ²、N(μ,σ²) 的 μ 与 σ²"
+        },
+        {
+          "name": "随机变量函数的期望",
+          "appearances": 3,
+          "years": [
+            2011,
+            2015,
+            2017
+          ],
+          "typical_score": 5,
+          "note": "直接用 E[g(X)]=∫g(x)f(x)dx 而无须先求 g(X) 的密度（无意识统计学家公式）；忘记验证期望存在也是常见问题"
+        }
+      ],
+      "exam_weight": 0.3,
+      "confidence": "high",
+      "confidence_note": "数字特征渗透在几乎所有概率题中，「期望方差必考」判断可靠；本单元只计入以其为主要考点的题目，故 appearances 偏保守，实际重要性高于权重排序。"
+    },
+    {
+      "id": "math3.prob.numeric.covariance",
+      "name": "协方差与相关系数",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 2,
+        "fill": 1,
+        "solve": 2
+      },
+      "total_appearances": 5,
+      "avg_score": 5.5,
+      "years": [
+        2012,
+        2014,
+        2016,
+        2020,
+        2023
+      ],
+      "hotspots": [
+        {
+          "name": "协方差、相关系数与矩",
+          "appearances": 4,
+          "years": [
+            2012,
+            2014,
+            2016,
+            2023
+          ],
+          "typical_score": 5,
+          "note": "Cov(X,Y)=E(XY)-E(X)E(Y)，ρ=Cov/√(D(X)D(Y)) 且 |ρ|≤1；分母写成 D(X)D(Y) 而非 √D(X)·√D(Y) 是常见错误"
+        },
+        {
+          "name": "不相关与独立的关系",
+          "appearances": 3,
+          "years": [
+            2012,
+            2016,
+            2020
+          ],
+          "typical_score": 5,
+          "note": "ρ=0 只表示不相关，不蕴含独立（仅二维正态下等价）；由 ρ=0 断定独立是选择题最常设的陷阱"
+        },
+        {
+          "name": "方差的性质与切比雪夫型不等式",
+          "appearances": 3,
+          "years": [
+            2014,
+            2016,
+            2020
+          ],
+          "typical_score": 5,
+          "note": "D(X±Y)=D(X)+D(Y)±2Cov(X,Y)、Cov(aX+b,cY+d)=ac·Cov(X,Y)；与切比雪夫不等式结合可作客观题"
+        }
+      ],
+      "exam_weight": 0.22,
+      "confidence": "medium",
+      "confidence_note": "协方差与相关系数多与二维随机变量、数字特征合并考查，单独成题次数少；「不相关与独立的区别是必考辨析点」比具体年份更可靠。"
+    },
+    {
+      "id": "math3.prob.limit.laws",
+      "name": "大数定律与中心极限定理",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 3,
+        "fill": 1,
+        "solve": 1
+      },
+      "total_appearances": 5,
+      "avg_score": 4.5,
+      "years": [
+        2011,
+        2013,
+        2017,
+        2021,
+        2024
+      ],
+      "hotspots": [
+        {
+          "name": "切比雪夫不等式",
+          "appearances": 3,
+          "years": [
+            2011,
+            2013,
+            2017
+          ],
+          "typical_score": 4,
+          "note": "P{|X-E(X)|≥ε}≤D(X)/ε²；不等号方向写反、或把上界当成精确概率是常见错误，数三考纲要求「了解」"
+        },
+        {
+          "name": "大数定律（辛钦、伯努利）",
+          "appearances": 3,
+          "years": [
+            2013,
+            2017,
+            2021
+          ],
+          "typical_score": 4,
+          "note": "辛钦：独立同分布且期望存在时算术平均依概率收敛于期望；伯努利：频率依概率收敛于概率。以概念辨析型选择题为主"
+        },
+        {
+          "name": "中心极限定理的近似计算",
+          "appearances": 3,
+          "years": [
+            2011,
+            2013,
+            2021
+          ],
+          "typical_score": 5,
+          "note": "n 个独立同分布变量之和近似 N(nμ,nσ²)；忘记标准化（用 σ² 而非 nσ²）是最典型错误，数三考纲要求「会用相关定理近似计算概率」"
+        },
+        {
+          "name": "棣莫弗-拉普拉斯定理",
+          "appearances": 2,
+          "years": [
+            2017,
+            2024
+          ],
+          "typical_score": 5,
+          "note": "二项分布以正态分布为极限分布，用于 n 较大时近似计算二项概率；常与独立性、伯努利概型结合出客观题"
+        }
+      ],
+      "exam_weight": 0.18,
+      "confidence": "medium",
+      "confidence_note": "本单元每年最多一道小题，是否出现波动很大，我对具体年份与次数最没有把握之一；「切比雪夫不等式与中心极限定理近似计算是常客」这一定性判断比 appearances 可靠。"
+    },
+    {
+      "id": "math3.prob.stats.sample",
+      "name": "总体、样本与统计量",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 1,
+        "fill": 1,
+        "solve": 3
+      },
+      "total_appearances": 5,
+      "avg_score": 5.5,
+      "years": [
+        2010,
+        2012,
+        2014,
+        2018,
+        2020
+      ],
+      "hotspots": [
+        {
+          "name": "样本均值与样本方差",
+          "appearances": 4,
+          "years": [
+            2010,
+            2012,
+            2014,
+            2020
+          ],
+          "typical_score": 6,
+          "note": "S²=[1/(n-1)]∑(X_i-X̄)² 的分母必须是 n-1 才能保证 E(S²)=σ²；写成 n 会丧失无偏性，是最典型的失分点"
+        },
+        {
+          "name": "统计量的数字特征与无偏性",
+          "appearances": 3,
+          "years": [
+            2010,
+            2014,
+            2018
+          ],
+          "typical_score": 5,
+          "note": "E(X̄)=μ、D(X̄)=σ²/n（忘记除以 n 是常见错误）；E[∑(X_i-X̄)²]=(n-1)σ²；正态总体下 X̄ 与 S² 相互独立"
+        },
+        {
+          "name": "简单随机样本与统计量",
+          "appearances": 3,
+          "years": [
+            2012,
+            2018,
+            2020
+          ],
+          "typical_score": 5,
+          "note": "简单随机样本要求 X₁,…,X_n 相互独立且与总体同分布；统计量是不含未知参数的样本函数，这一概念辨析偶以选择题出现"
+        }
+      ],
+      "exam_weight": 0.22,
+      "confidence": "medium",
+      "confidence_note": "「样本方差与样本均值的性质是数三统计部分的核心」判断可靠；但数学（三）概率统计的第 6 部分只有数理统计的基本概念，题量有限，年份集合不可靠。"
+    },
+    {
+      "id": "math3.prob.stats.distributions",
+      "name": "常用统计分布与抽样分布定理",
+      "section": "概率论与数理统计",
+      "qtype_frequency": {
+        "choice": 1,
+        "fill": 1,
+        "solve": 3
+      },
+      "total_appearances": 5,
+      "avg_score": 6.0,
+      "years": [
+        2011,
+        2013,
+        2015,
+        2019,
+        2022
+      ],
+      "hotspots": [
+        {
+          "name": "χ² 分布、t 分布与 F 分布",
+          "appearances": 4,
+          "years": [
+            2011,
+            2013,
+            2015,
+            2022
+          ],
+          "typical_score": 5,
+          "note": "三个分布的典型模式与自由度是必背内容；t(n)=X/√(Y/n)、F=(U/m)/(V/n)，分子分母自由度顺序颠倒或把 1/F 写成 F(m,n) 是常见错误"
+        },
+        {
+          "name": "正态总体的抽样分布定理",
+          "appearances": 4,
+          "years": [
+            2011,
+            2013,
+            2019,
+            2022
+          ],
+          "typical_score": 6,
+          "note": "(X̄-μ)/(S/√n)~t(n-1)、(n-1)S²/σ²~χ²(n-1)；用 S 代替 σ 时自由度降为 n-1，用 σ 时才是 n，这是最常考也最易错的点"
+        },
+        {
+          "name": "上侧分位数与自由度",
+          "appearances": 3,
+          "years": [
+            2011,
+            2015,
+            2019
+          ],
+          "typical_score": 4,
+          "note": "数三考纲要求了解标准正态分布、t 分布、F 分布和 χ² 分布的上侧 α 分位数并会查相应的数值表；不涉及参数估计与假设检验，故分位数只用于抽样分布计算"
+        }
+      ],
+      "exam_weight": 0.24,
+      "confidence": "medium",
+      "confidence_note": "数学（三）统计部分只考数理统计的基本概念（总体、样本、统计量、抽样分布），不考参数估计与假设检验，故本单元的考点范围明显窄于数学（一）；「三大抽样分布与正态总体抽样分布定理必考」判断可靠，具体年份把握中等。"
+    }
+  ]
+}

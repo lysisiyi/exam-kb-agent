@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>考研数学错题 Agent · iPad UI 设计参考图</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});"></script>
+<style>
+/* ============================================================
+   设计系统（与手机版共用同一套 token）
+   ============================================================ */
+:root{
+  --primary:#3B5BDB; --primary-strong:#2F49AF; --primary-weak:#EDF0FF; --primary-soft:#DDE3FF;
+  --success:#0CA678; --success-weak:#E6F7F1;
+  --warning:#E8850C; --warning-weak:#FFF4E5;
+  --danger:#E03131;  --danger-weak:#FFEBEB;
+  --purple:#7048E8;  --purple-weak:#F0EBFF;
+
+  --ink-1:#16181D; --ink-2:#4A4F5C; --ink-3:#8A909E; --ink-4:#B4BAC6;
+  --bg:#F6F7F9; --surface:#FFFFFF; --surface-2:#F1F2F5; --line:#E7E9EE;
+  --sidebar:#FBFAF9;
+
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:20px;
+  --sh-1:0 1px 2px rgba(16,24,40,.06);
+  --sh-2:0 4px 14px rgba(16,24,40,.08);
+  --sh-3:0 12px 34px rgba(16,24,40,.15);
+}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased;}
+html,body{margin:0;padding:0;}
+body{
+  background:#E8EBF0;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  color:var(--ink-1); padding:38px 26px 90px;
+}
+.page-head{max-width:1520px;margin:0 auto 30px;}
+.page-head h1{font-size:26px;font-weight:700;margin:0 0 9px;letter-spacing:-.4px;}
+.page-head p{margin:0;color:var(--ink-2);font-size:14px;line-height:1.75;}
+.page-head code{background:#fff;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px;}
+.cdn-warn{display:none;max-width:1520px;margin:0 auto 24px;padding:12px 18px;
+  background:#FFF4E5;border:1px solid #F0CE96;border-radius:12px;font-size:13px;color:#8A5A0B;line-height:1.7;}
+body.no-katex .cdn-warn{display:block;}
+
+/* 适配规则卡 */
+.rules{max-width:1520px;margin:0 auto 38px;background:#fff;border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:22px 26px;box-shadow:var(--sh-1);}
+.rules h3{margin:0 0 15px;font-size:15px;font-weight:700;letter-spacing:-.2px;}
+.rules h3 span{font-weight:500;color:var(--ink-3);font-size:12.5px;margin-left:8px;}
+.rules-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:20px 28px;}
+.rule b{display:block;font-size:12.5px;font-weight:700;color:var(--primary-strong);margin-bottom:6px;}
+.rule p{margin:0;font-size:12.5px;line-height:1.72;color:var(--ink-2);}
+.rule code{background:var(--surface-2);border-radius:4px;padding:1px 5px;font-size:11.5px;}
+
+/* ============================================================
+   舞台与缩放
+   ============================================================ */
+.stage{max-width:1520px;margin:0 auto;display:flex;flex-direction:column;gap:64px;}
+.screen-wrap{display:flex;flex-direction:column;gap:15px;}
+.screen-label{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+.screen-label b{font-size:16px;font-weight:700;letter-spacing:-.2px;}
+.screen-label .tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;
+  background:var(--primary-weak);color:var(--primary-strong);}
+.screen-label .tag.port{background:var(--purple-weak);color:var(--purple);}
+.screen-label span{font-size:13px;color:var(--ink-3);line-height:1.6;flex:1 1 100%;max-width:1080px;}
+
+.scaler{transform:scale(.64);transform-origin:top left;}
+
+.ipad{
+  width:1194px;height:834px;background:var(--bg);border-radius:20px;
+  border:1px solid #C9CED8;box-shadow:var(--sh-3);overflow:hidden;
+  display:flex;flex-direction:column;position:relative;
+}
+.ipad.portrait{width:834px;height:1194px;}
+.ipad-status{flex:0 0 26px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 22px;font-size:11.5px;font-weight:600;color:var(--ink-2);}
+.ipad-body{flex:1;display:flex;overflow:hidden;}
+
+/* ============================================================
+   通用组件
+   ============================================================ */
+.card{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--sh-1);}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:7px;
+  font-size:11.5px;font-weight:600;line-height:1.5;white-space:nowrap;}
+.chip-kp{background:var(--primary-weak);color:var(--primary-strong);}
+.chip-err{background:var(--danger-weak);color:var(--danger);}
+.chip-ok{background:var(--success-weak);color:var(--success);}
+.chip-warn{background:var(--warning-weak);color:#B96A05;}
+.chip-purple{background:var(--purple-weak);color:var(--purple);}
+.chip-gray{background:var(--surface-2);color:var(--ink-2);}
+.chip-line{background:#fff;border:1px solid var(--line);color:var(--ink-2);font-weight:500;}
+
+.bar{height:5px;border-radius:3px;background:var(--surface-2);overflow:hidden;}
+.bar > i{display:block;height:100%;border-radius:3px;background:var(--primary);}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;
+  border-radius:var(--r-md);font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 4px 12px rgba(59,91,219,.26);}
+.btn-ghost{background:var(--surface-2);color:var(--ink-2);}
+.btn-line{background:#fff;border:1.2px solid var(--line);color:var(--ink-1);}
+.btn-sm{height:34px;padding:0 14px;font-size:13px;border-radius:10px;}
+.btn-md{height:42px;padding:0 18px;}
+
+.sec-t{display:flex;align-items:center;justify-content:space-between;margin:0 0 11px;}
+.sec-t b{font-size:14px;font-weight:700;letter-spacing:-.2px;}
+.sec-t a{font-size:12px;color:var(--ink-3);font-weight:500;}
+
+.katex{white-space:normal;}
+.katex-display{margin:9px 0 !important;overflow-x:auto;overflow-y:hidden;}
+p,div,span{word-break:break-word;}
+body.no-katex .katex-fallback{font-family:ui-monospace,Menlo,monospace;font-size:.86em;
+  color:var(--primary-strong);background:var(--primary-weak);border-radius:4px;padding:1px 4px;}
+
+/* ============================================================
+   屏 1 · 三栏工作台
+   ============================================================ */
+.sidebar{flex:0 0 216px;background:var(--sidebar);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;padding:16px 12px 14px;}
+.sb-logo{display:flex;align-items:center;gap:9px;padding:0 8px 18px;}
+.sb-logo .m{width:31px;height:31px;border-radius:9px;background:var(--primary);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;}
+.sb-logo b{font-size:14.5px;font-weight:700;letter-spacing:-.2px;}
+.sb-logo span{display:block;font-size:10.5px;color:var(--ink-3);font-weight:500;}
+.sb-group{font-size:10.5px;font-weight:700;color:var(--ink-4);letter-spacing:.7px;padding:12px 10px 6px;}
+.sb-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;
+  font-size:13.5px;font-weight:600;color:var(--ink-2);margin-bottom:2px;}
+.sb-item svg{width:19px;height:19px;flex:0 0 19px;}
+.sb-item.on{background:var(--primary-weak);color:var(--primary-strong);}
+.sb-item .badge{margin-left:auto;background:var(--danger);color:#fff;font-size:10px;
+  font-weight:700;padding:1px 6px;border-radius:8px;}
+.sb-item.on .badge{background:var(--primary);}
+.sb-foot{margin-top:auto;padding:12px 10px 0;border-top:1px solid var(--line);}
+.sb-foot .u{display:flex;align-items:center;gap:9px;}
+.sb-foot .av{width:30px;height:30px;border-radius:50%;background:linear-gradient(140deg,#4A66E0,#7048E8);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;}
+.sb-foot b{font-size:12.5px;display:block;}
+.sb-foot span{font-size:10.5px;color:var(--ink-3);}
+
+/* 第二栏 */
+.col2{flex:0 0 328px;background:#fff;border-right:1px solid var(--line);
+  display:flex;flex-direction:column;overflow:hidden;}
+.c2-head{padding:16px 16px 11px;border-bottom:1px solid var(--line);}
+.c2-head h3{margin:0 0 3px;font-size:19px;font-weight:700;letter-spacing:-.4px;}
+.c2-head p{margin:0;font-size:11.5px;color:var(--ink-3);}
+.c2-review{margin:13px 16px 0;background:linear-gradient(145deg,#4A66E0,#3B5BDB);
+  border-radius:14px;padding:14px 15px;color:#fff;}
+.c2-review .n{font-size:30px;font-weight:700;line-height:1;letter-spacing:-1px;}
+.c2-review .n em{font-size:12.5px;font-style:normal;font-weight:600;opacity:.82;margin-left:3px;}
+.c2-review .t{font-size:11.5px;opacity:.85;margin-top:5px;}
+.c2-review .bar{margin-top:11px;height:5px;background:rgba(255,255,255,.24);}
+.c2-review .bar i{background:#fff;width:11%;}
+.c2-review .go{margin-top:12px;height:36px;background:#fff;color:var(--primary);
+  border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:13.5px;font-weight:700;gap:6px;}
+.c2-filter{display:flex;gap:6px;padding:13px 16px 11px;flex-wrap:wrap;}
+.c2-list{flex:1;overflow:hidden;padding:0 12px 12px;display:flex;flex-direction:column;gap:8px;}
+.li{background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 12px;}
+.li.on{border-color:var(--primary);background:var(--primary-weak);
+  box-shadow:0 0 0 2.5px var(--primary-soft);}
+.li .t{display:flex;align-items:center;gap:6px;margin-bottom:7px;flex-wrap:wrap;}
+.li .t .src{font-size:10px;color:var(--ink-4);margin-left:auto;}
+.li .s{font-size:12px;line-height:1.72;color:var(--ink-1);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.li .b{display:flex;align-items:center;gap:8px;margin-top:8px;}
+.li .b .m{font-size:10.5px;color:var(--ink-3);font-weight:600;display:flex;align-items:center;gap:4px;}
+.li .b .m i{width:5px;height:5px;border-radius:50%;display:block;}
+.li .b .g{flex:1;}
+.li .b .bar{width:44px;height:4px;}
+.li .b .p{font-size:10.5px;font-weight:700;}
+
+/* 第三栏（详情） */
+.col3{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+.c3-head{padding:15px 24px 13px;background:#fff;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.c3-head .sp{flex:1;}
+.c3-scroll{flex:1;overflow:hidden;padding:18px 24px 20px;display:flex;gap:18px;}
+.c3-main{flex:1;display:flex;flex-direction:column;gap:14px;min-width:0;}
+.c3-aside{flex:0 0 250px;display:flex;flex-direction:column;gap:12px;}
+.q-block{background:#fff;border-radius:var(--r-lg);padding:18px 20px;box-shadow:var(--sh-1);}
+.q-block .lab{font-size:10.5px;font-weight:700;color:var(--ink-3);letter-spacing:.6px;margin-bottom:11px;}
+.q-stem{font-size:15.5px;line-height:2.2;color:var(--ink-1);}
+.q-sol{font-size:14px;line-height:2.1;color:var(--ink-2);}
+.note{background:#FFFDF5;border:1px solid #F3E4BC;border-radius:11px;padding:12px 14px;
+  font-size:12px;line-height:1.7;color:#7A5B10;}
+.note b{color:#5C4409;}
+.note.blue{background:var(--primary-weak);border-color:var(--primary-soft);color:var(--primary-strong);}
+.note.blue b{color:var(--primary-strong);}
+.kp-mini{background:#fff;border-radius:var(--r-md);padding:12px 13px;box-shadow:var(--sh-1);}
+.kp-mini .h{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.kp-mini .h b{font-size:12.5px;}
+.kp-mini .h span{font-size:10.5px;font-weight:700;color:var(--danger);}
+.kp-mini .r{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.kp-mini .r span{font-size:11px;color:var(--ink-2);width:96px;flex:0 0 96px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kp-mini .r .bar{flex:1;height:4px;}
+.kp-mini .r em{font-size:10px;font-style:normal;color:var(--ink-3);width:30px;text-align:right;}
+
+/* ============================================================
+   屏 2 · 录入 + 批注
+   ============================================================ */
+.ing-3{flex:1;display:flex;overflow:hidden;}
+.ing-col{display:flex;flex-direction:column;overflow:hidden;}
+.ing-col.c-a{flex:0 0 400px;border-right:1px solid var(--line);background:#fff;}
+.ing-col.c-b{flex:0 0 356px;border-right:1px solid var(--line);background:#fff;overflow-y:auto;}
+.ing-col.c-c{flex:1;background:#F0F2F6;position:relative;}
+.ing-head{padding:14px 18px 12px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;}
+.ing-head b{font-size:14.5px;font-weight:700;}
+.ing-head span{font-size:11px;color:var(--ink-3);}
+
+.shot{margin:14px 16px 0;position:relative;border-radius:14px;overflow:hidden;height:250px;
+  background:linear-gradient(160deg,#E9EBF0,#DCE0E8);border:1px solid var(--line);}
+.shot .grid{position:absolute;inset:0;opacity:.5;
+  background-image:linear-gradient(rgba(0,0,0,.045) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(0,0,0,.045) 1px,transparent 1px);
+  background-size:26px 26px;}
+.shot .paper{position:absolute;left:48px;right:48px;top:34px;bottom:40px;background:#fff;
+  border-radius:5px;box-shadow:0 3px 10px rgba(0,0,0,.09);padding:18px 17px;
+  font-family:"Times New Roman",serif;font-size:13px;color:#2A2D34;line-height:2.1;}
+.shot .paper .h{color:#1E3A8A;}
+.detect{position:absolute;left:28px;right:28px;top:20px;bottom:24px;
+  border:2px solid #34D399;border-radius:9px;}
+.detect::before,.detect::after{content:"";position:absolute;width:15px;height:15px;
+  border:3px solid #34D399;border-radius:3px;}
+.detect::before{top:-3px;left:-3px;border-right:none;border-bottom:none;}
+.detect::after{bottom:-3px;right:-3px;border-left:none;border-top:none;}
+.detect-tag{position:absolute;top:-11px;left:14px;background:#34D399;color:#053B2C;
+  font-size:10px;font-weight:700;padding:3px 9px;border-radius:5px;}
+.shot-tools{position:absolute;right:11px;bottom:11px;display:flex;gap:7px;}
+.shot-tools div{width:32px;height:32px;border-radius:9px;background:rgba(16,19,24,.6);color:#fff;
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);}
+.shot-tools svg{width:16px;height:16px;}
+
+.cam-row{display:flex;gap:10px;margin:14px 16px 0;}
+.cam-row .b{flex:1;height:40px;border-radius:11px;background:var(--surface-2);
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  font-size:12.5px;font-weight:600;color:var(--ink-2);}
+.cam-row .b svg{width:17px;height:17px;}
+.cam-row .b.pri{background:var(--primary);color:#fff;box-shadow:0 4px 12px rgba(59,91,219,.26);}
+
+.field{margin:13px 16px 0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 14px;}
+.field.plain{border:none;box-shadow:var(--sh-1);}
+.field-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.field-h b{font-size:10.5px;font-weight:700;color:var(--ink-3);letter-spacing:.5px;}
+.field-h .e{font-size:11.5px;color:var(--primary);font-weight:600;}
+.tabs{display:flex;gap:6px;padding:14px 18px 0;}
+.tab{padding:6px 13px;border-radius:9px;font-size:12.5px;font-weight:600;
+  background:var(--surface-2);color:var(--ink-3);}
+.tab.on{background:var(--ink-1);color:#fff;}
+.stem{font-size:13.5px;line-height:2.05;}
+.stem .hl{background:var(--warning-weak);border-radius:3px;padding:1px 2px;
+  box-shadow:inset 0 -1px 0 #F0B45E;}
+.fml-row{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;
+  background:var(--surface-2);margin-top:8px;}
+.fml-row .ix{width:19px;height:19px;border-radius:6px;background:var(--primary);color:#fff;
+  font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 19px;}
+.fml-row .cd{flex:1;font-family:ui-monospace,Menlo,monospace;font-size:11px;
+  color:var(--primary-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fml-row .cf{font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px;flex:0 0 auto;}
+.cf.hi{background:var(--success-weak);color:var(--success);}
+.cf.lo{background:var(--warning-weak);color:#B96A05;}
+.fml-row.low{background:var(--warning-weak);}
+.cause{display:flex;flex-wrap:wrap;gap:7px;}
+.cause div{padding:8px 13px;border-radius:10px;font-size:12.5px;font-weight:600;
+  background:var(--surface-2);color:var(--ink-2);border:1.4px solid transparent;}
+.cause div.on{background:var(--primary-weak);color:var(--primary-strong);border-color:var(--primary-soft);}
+.cause div.on::before{content:"✓ ";}
+
+/* 批注画布 */
+.annot-canvas{position:absolute;inset:0;overflow:hidden;}
+.annot-canvas .paperbg{position:absolute;left:26px;right:26px;top:22px;bottom:88px;background:#fff;
+  border-radius:12px;box-shadow:var(--sh-2);overflow:hidden;}
+.annot-canvas .paperbg .dotgrid{position:absolute;inset:0;
+  background-image:radial-gradient(circle,#D7DBE3 1px,transparent 1px);background-size:22px 22px;}
+.annot-q{position:absolute;left:44px;right:44px;top:40px;font-size:13.5px;line-height:2.05;
+  color:var(--ink-2);}
+.stroke{position:absolute;font-family:"Bradley Hand","Segoe Script","STKaiti",cursive;
+  color:#1E3A8A;font-size:17px;line-height:1.6;transform:rotate(-1deg);}
+.stroke.b{color:#B02A2A;}
+.annot-tag{position:absolute;background:#1E3A8A;color:#fff;font-size:9.5px;font-weight:700;
+  padding:2px 7px;border-radius:5px;}
+.psel{position:absolute;border:1.8px dashed #7048E8;border-radius:8px;background:rgba(112,72,232,.06);}
+
+.pen-bar{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;
+  background:rgba(255,255,255,.97);backdrop-filter:blur(20px);border-radius:16px;
+  box-shadow:0 8px 26px rgba(16,24,40,.16);padding:9px 12px;display:flex;align-items:center;gap:7px;
+  border:1px solid var(--line);}
+.pen-bar .p{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+  color:var(--ink-2);}
+.pen-bar .p svg{width:19px;height:19px;}
+.pen-bar .p.on{background:var(--ink-1);color:#fff;}
+.pen-bar .p.dot{position:relative;}
+.pen-bar .p.dot i{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);
+  width:12px;height:3px;border-radius:2px;}
+.pen-bar .sep{width:1px;height:24px;background:var(--line);margin:0 3px;}
+.pen-bar .sw{width:24px;height:24px;border-radius:50%;border:2.5px solid #fff;
+  box-shadow:0 0 0 1px var(--line);}
+.pen-bar .sw.on{box-shadow:0 0 0 2.5px var(--primary);}
+
+/* ============================================================
+   屏 3 · 竖屏复习 + 草稿纸
+   ============================================================ */
+.portrait-split{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.ps-top{flex:0 0 auto;padding:16px 22px 14px;background:#fff;border-bottom:1px solid var(--line);}
+.ps-top .h{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.ps-top .h .sp{flex:1;}
+.ps-prog{display:flex;gap:4px;}
+.ps-prog i{flex:1;height:4px;border-radius:2px;background:var(--surface-2);}
+.ps-prog i.d{background:var(--success);}
+.ps-prog i.n{background:var(--primary);}
+.ps-q{background:var(--bg);padding:15px 22px;}
+.ps-q .qb{background:#fff;border-radius:var(--r-lg);padding:17px 19px;box-shadow:var(--sh-1);}
+.ps-q .qt{font-size:15px;line-height:2.2;}
+.ps-draft{flex:1;position:relative;background:#fff;margin:0 22px 0;border-radius:14px 14px 0 0;
+  border:1px solid var(--line);border-bottom:none;overflow:hidden;}
+.ps-draft .dotgrid{position:absolute;inset:0;
+  background-image:radial-gradient(circle,#DDE1E8 1px,transparent 1px);background-size:24px 24px;}
+.ps-draft .hint{position:absolute;top:16px;left:20px;font-size:11.5px;color:var(--ink-4);font-weight:600;}
+.draft-tools{position:absolute;right:14px;top:12px;display:flex;gap:6px;}
+.draft-tools div{width:32px;height:32px;border-radius:9px;background:var(--surface-2);
+  display:flex;align-items:center;justify-content:center;color:var(--ink-2);}
+.draft-tools div.on{background:var(--ink-1);color:#fff;}
+.draft-tools svg{width:16px;height:16px;}
+.ps-foot{padding:13px 22px 16px;background:#fff;border-top:1px solid var(--line);}
+.rate{display:flex;gap:11px;margin-bottom:11px;}
+.rate div{flex:1;border-radius:13px;padding:12px 6px;text-align:center;
+  border:1.6px solid var(--line);background:#fff;}
+.rate div .e{font-size:21px;line-height:1;display:block;margin-bottom:5px;}
+.rate div b{font-size:12.5px;font-weight:700;display:block;}
+.rate div span{font-size:10px;color:var(--ink-3);display:block;margin-top:3px;}
+.rate div.r1{border-color:#F5B5B5;background:var(--danger-weak);}
+.rate div.r1 b{color:var(--danger);}
+.rate div.r2{border-color:#F5D08E;background:var(--warning-weak);}
+.rate div.r2 b{color:#B96A05;}
+.rate div.r3{border-color:#9CE0C8;background:var(--success-weak);}
+.rate div.r3 b{color:var(--success);}
+.ps-actions{display:flex;gap:10px;}
+.ps-actions .btn{flex:1;height:44px;}
+
+/* ============================================================
+   屏 4 · 掌握度仪表盘
+   ============================================================ */
+.dash{flex:1;overflow:hidden;padding:18px 22px;display:flex;gap:16px;}
+.dash-col{display:flex;flex-direction:column;gap:14px;min-width:0;}
+.dash-col.a{flex:1.35;}
+.dash-col.b{flex:1;}
+.dash-col.c{flex:0 0 316px;}
+.dcard{background:#fff;border-radius:var(--r-lg);padding:15px 17px;box-shadow:var(--sh-1);}
+.dcard .h{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;}
+.dcard .h b{font-size:13.5px;font-weight:700;}
+.dcard .h span{font-size:11px;color:var(--ink-3);}
+
+.heat{display:flex;flex-direction:column;gap:7px;}
+.heat-row{display:flex;align-items:center;gap:9px;}
+.heat-row .nm{width:76px;flex:0 0 76px;font-size:11.5px;color:var(--ink-2);font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.heat-cells{display:flex;gap:5px;flex:1;}
+.heat-cells i{flex:1;height:26px;border-radius:6px;position:relative;}
+.heat-cells i::after{content:attr(data-v);position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:#fff;opacity:.92;}
+.heat-legend{display:flex;align-items:center;gap:9px;margin-top:13px;font-size:10.5px;color:var(--ink-3);}
+.heat-legend .sc{display:flex;gap:3px;}
+.heat-legend .sc i{width:17px;height:11px;border-radius:3px;}
+
+.weak-row{display:flex;align-items:center;gap:10px;margin-bottom:11px;}
+.weak-row:last-child{margin-bottom:0;}
+.weak-row .rk{width:21px;height:21px;border-radius:7px;background:var(--danger-weak);color:var(--danger);
+  font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 21px;}
+.weak-row .mid{flex:1;min-width:0;}
+.weak-row .mid b{display:block;font-size:12px;font-weight:600;margin-bottom:5px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.weak-row .mid .bar{height:4px;}
+.weak-row .v{font-size:10.5px;color:var(--ink-3);font-weight:600;text-align:right;flex:0 0 auto;}
+.weak-row .v b{display:block;font-size:12px;color:var(--danger);}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+.stat{background:var(--surface-2);border-radius:12px;padding:12px 13px;}
+.stat b{display:block;font-size:22px;font-weight:700;line-height:1;letter-spacing:-.6px;}
+.stat span{display:block;font-size:10.5px;color:var(--ink-3);margin-top:5px;}
+.stat em{font-style:normal;font-size:11px;font-weight:700;color:var(--success);}
+
+.radar{display:flex;align-items:center;justify-content:center;padding:2px 0;}
+.forecast{display:flex;align-items:flex-end;gap:8px;height:96px;padding-top:6px;}
+.forecast .fd{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;
+  justify-content:flex-end;}
+.forecast .fd .bars{width:100%;display:flex;flex-direction:column;justify-content:flex-end;
+  align-items:center;gap:3px;flex:1;}
+.forecast .fd .b1{width:74%;border-radius:4px 4px 2px 2px;background:var(--primary);}
+.forecast .fd .b2{width:74%;border-radius:2px 2px 4px 4px;background:var(--primary-soft);}
+.forecast .fd .lb{font-size:10px;color:var(--ink-3);font-weight:600;}
+.forecast .fd .lb.today{color:var(--primary);font-weight:700;}
+
+/* ============================================================
+   屏 5 · 组卷 + A4 预览
+   ============================================================ */
+.pa{flex:1;display:flex;overflow:hidden;}
+.pa-left{flex:0 0 340px;background:#fff;border-right:1px solid var(--line);overflow-y:auto;padding:16px 16px 18px;}
+.pa-left h3{margin:0 0 14px;font-size:19px;font-weight:700;letter-spacing:-.4px;}
+.pa-card{margin-bottom:13px;}
+.pa-card .lbl{font-size:10.5px;font-weight:700;color:var(--ink-3);letter-spacing:.5px;margin-bottom:9px;}
+.opts{display:flex;gap:8px;}
+.opt{flex:1;border:1.6px solid var(--line);border-radius:11px;padding:10px 6px;text-align:center;}
+.opt b{display:block;font-size:12.5px;font-weight:700;}
+.opt span{display:block;font-size:9.5px;color:var(--ink-3);margin-top:3px;}
+.opt.on{border-color:var(--primary);background:var(--primary-weak);}
+.opt.on b{color:var(--primary-strong);}
+.opt.on span{color:var(--primary);}
+.mix-row{display:flex;align-items:center;gap:9px;margin-bottom:9px;}
+.mix-row .nm{width:34px;font-size:11.5px;font-weight:600;color:var(--ink-2);flex:0 0 34px;}
+.mix-row .bar{flex:1;height:7px;}
+.mix-row .bar i.b2{background:var(--purple);}
+.mix-row .bar i.b3{background:var(--warning);}
+.mix-row .v{width:64px;text-align:right;font-size:10.5px;color:var(--ink-3);font-weight:600;flex:0 0 64px;}
+
+.pa-right{flex:1;background:#EDEFF3;display:flex;flex-direction:column;overflow:hidden;}
+.pa-tools{padding:13px 22px;background:#fff;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:9px;}
+.pa-tools .sp{flex:1;}
+.paper-scroll{flex:1;overflow:hidden;padding:18px 22px;display:flex;justify-content:center;}
+.paper-a4{width:640px;background:#fff;border-radius:6px;box-shadow:0 6px 22px rgba(16,24,40,.13);
+  padding:34px 42px 30px;overflow:hidden;}
+.paper-a4 .ph{text-align:center;border-bottom:1.6px solid var(--ink-1);padding-bottom:13px;margin-bottom:16px;}
+.paper-a4 .ph b{font-size:16px;font-weight:700;letter-spacing:1.4px;display:block;}
+.paper-a4 .ph span{font-size:10.5px;color:var(--ink-3);display:block;margin-top:5px;}
+.paper-a4 .sec{font-size:11.5px;font-weight:700;color:var(--ink-2);margin:15px 0 10px;
+  padding-bottom:5px;border-bottom:1px dashed var(--line);}
+.pq{display:flex;gap:8px;font-size:12.5px;line-height:2;margin-bottom:11px;}
+.pq .n{font-weight:700;flex:0 0 26px;color:var(--ink-2);}
+.pq .katex{font-size:.97em;}
+.ptag{display:inline-block;font-size:9px;padding:1px 5px;border-radius:4px;font-weight:700;
+  margin-left:4px;vertical-align:1px;}
+.ptag.err{background:var(--danger-weak);color:var(--danger);}
+.ptag.weak{background:var(--warning-weak);color:#B96A05;}
+.blank{height:52px;border-bottom:1px dashed #D8DCE4;margin:0 0 9px 26px;}
+
+.scale-note{max-width:1520px;margin:36px auto 0;font-size:12.5px;color:var(--ink-3);line-height:1.75;}
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>考研数学错题 Agent · iPad UI 设计参考图</h1>
+  <p>5 屏，按 <b>iPad Pro 11" 逻辑分辨率</b>设计：横屏 <code>1194×834</code> / 竖屏 <code>834×1194</code>。与手机版共用同一套设计 token，但布局是<b>重新设计的多栏结构</b>，不是把手机版拉大。公式渲染走 KaTeX（与 Flutter 的 <code>katex</code> Dart 包同源解析器，效果一致）。</p>
+  <p style="margin-top:12px">
+    <a href="index.html" style="display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 16px;font-size:13px;font-weight:600;color:var(--primary-strong);text-decoration:none;box-shadow:var(--sh-1)">
+      ← 查看手机版（iPhone 390×844）参考图
+    </a>
+  </p>
+</div>
+
+<div class="cdn-warn">
+  ⚠️ <b>未能加载 KaTeX（公式渲染库）</b> —— 当前处于离线状态，公式将以等宽 LaTeX 源码显示，版式其余部分不受影响。联网后刷新即可。
+</div>
+
+<div class="rules">
+  <h3>iPad 适配规则 <span>与手机版的差异点</span></h3>
+  <div class="rules-grid">
+    <div class="rule">
+      <b>① 单栏 → 多栏</b>
+      <p>横屏用<b>三栏工作台</b>（导航 216 / 列表 328 / 详情 自适应）。iPad 的意义是<b>不用来回切页</b>——选题、看题、看解析同屏完成。</p>
+    </div>
+    <div class="rule">
+      <b>② Apple Pencil 是一等公民</b>
+      <p>两处标配手写：<b>题目批注画布</b>（错因手写留痕）和<b>草稿纸</b>（做题演算）。笔迹独立图层存储，可开关、可导出。</p>
+    </div>
+    <div class="rule">
+      <b>③ 悬浮工具栏居中底部</b>
+      <p>笔/荧光笔/橡皮/套索/颜色，放在<b>拇指与 Pencil 都够得到</b>的底部中央，而不是顶部——iPad 横屏时顶部太远。</p>
+    </div>
+    <div class="rule">
+      <b>④ 竖屏自动降级为两栏</b>
+      <p>竖屏时导航收成图标条，列表与详情<b>二选一</b>（参考 Apple Mail）。不做三栏硬挤。</p>
+    </div>
+    <div class="rule">
+      <b>⑤ 支持 Split View / Slide Over</b>
+      <p>用户会<b>左半屏看网课、右半屏用本 App</b>。因此任何单屏宽度 ≥ 400pt 都必须可用，不能有固定绝对宽度。</p>
+    </div>
+    <div class="rule">
+      <b>⑥ 键盘快捷键</b>
+      <p>外接键盘场景：<code>⌘N</code> 新错题、<code>⌘F</code> 搜索、<code>⌘⏎</code> 下一题、<code>⌘1..4</code> 切栏。长按 <code>⌘</code> 弹出快捷键面板。</p>
+    </div>
+  </div>
+</div>
+
+<div class="stage">
+
+<!-- ══════════════════ 屏 1 · 三栏工作台 ══════════════════ -->
+<div class="screen-wrap">
+  <div class="screen-label">
+    <b>屏 1 · 三栏工作台（横屏）</b>
+    <span class="tag">1194 × 834</span>
+    <span>选题、看题、看解析同屏。右侧窄栏常驻「掌握度」和「引用教材页码」——这是手机版放不下、但在 iPad 上极有价值的信息。</span>
+  </div>
+  <div class="scaler">
+  <div class="ipad">
+    <div class="ipad-status"><span>9:41　周五 3月15日</span><span>Wi-Fi　􀛨 82%</span></div>
+    <div class="ipad-body">
+
+      <!-- 栏 1：导航 -->
+      <div class="sidebar">
+        <div class="sb-logo">
+          <div class="m">M</div>
+          <div><b>数学错题 Agent</b><span>数学一 · 距考研 282 天</span></div>
+        </div>
+        <div class="sb-group">学习</div>
+        <div class="sb-item on">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/></svg>
+          今日复习<span class="badge">25</span>
+        </div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M8 8h8"/></svg>
+          错题本
+        </div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+          智能组卷
+        </div>
+        <div class="sb-group">分析</div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="7"/><rect x="12" y="7" width="3" height="11"/><rect x="17" y="13" width="3" height="5"/></svg>
+          掌握度画像
+        </div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          复习历史
+        </div>
+        <div class="sb-group">知识库</div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="20" r="2"/><path d="M6.6 7.4 10.4 10.6M17.4 7.4 13.6 10.6M12 14.5V18"/></svg>
+          知识点图谱
+        </div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          导入 / 导出
+        </div>
+        <div class="sb-foot">
+          <div class="u">
+            <div class="av">李</div>
+            <div><b>李同学</b><span>已录 247 题 · 连续 32 天</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 栏 2：列表 -->
+      <div class="col2">
+        <div class="c2-head">
+          <h3>今日复习</h3>
+          <p>3 月 15 日 · 已完成 3 / 28</p>
+        </div>
+        <div class="c2-review">
+          <div class="n">25<em>题待复习</em></div>
+          <div class="t">其中 6 道是顽固错题（错误 ≥ 3 次）</div>
+          <div class="bar"><i></i></div>
+          <div class="go">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            开始复习
+          </div>
+        </div>
+        <div class="c2-filter">
+          <span class="chip chip-gray">全部 247</span>
+          <span class="chip chip-err">顽固 6</span>
+          <span class="chip chip-kp">薄弱优先</span>
+        </div>
+        <div class="c2-list">
+          <div class="li on">
+            <div class="t">
+              <span class="chip chip-kp">积分中值定理</span>
+              <span class="chip chip-err">思路缺失</span>
+              <span class="src">2023 T18</span>
+            </div>
+            <div class="s">设 $f(x)$ 在 $[0,1]$ 上连续，且 $\int_0^1 f(x)\mathrm{d}x=0$，$f(1)=0$。证明存在 $\xi\in(0,1)$ 使 $f(\xi)=0$。</div>
+            <div class="b">
+              <span class="m"><i style="background:var(--danger)"></i>错 3 次</span>
+              <span class="g"></span>
+              <div class="bar"><i style="width:26%;background:var(--danger)"></i></div>
+              <span class="p" style="color:var(--danger)">26%</span>
+            </div>
+          </div>
+          <div class="li">
+            <div class="t">
+              <span class="chip chip-kp">等价无穷小</span>
+              <span class="chip chip-err">计算失误</span>
+              <span class="src">2022 T02</span>
+            </div>
+            <div class="s">当 $x\to 0$ 时，$\dfrac{\sin x - x\cos x}{x^3}$ 的极限为（　）</div>
+            <div class="b">
+              <span class="m"><i style="background:var(--warning)"></i>错 2 次</span>
+              <span class="g"></span>
+              <div class="bar"><i style="width:48%;background:var(--warning)"></i></div>
+              <span class="p" style="color:#B96A05">48%</span>
+            </div>
+          </div>
+          <div class="li">
+            <div class="t">
+              <span class="chip chip-kp">特征值与二次型</span>
+              <span class="chip chip-err">概念不清</span>
+              <span class="src">880 线代 6 章</span>
+            </div>
+            <div class="s">设 $A$ 为 3 阶实对称矩阵，$\lambda_1,\lambda_2,\lambda_3$ 为其特征值，且 $\lambda_1+\lambda_2+\lambda_3=0$，求 $|A+E|$。</div>
+            <div class="b">
+              <span class="m"><i style="background:var(--success)"></i>错 1 次</span>
+              <span class="g"></span>
+              <div class="bar"><i style="width:72%;background:var(--success)"></i></div>
+              <span class="p" style="color:var(--success)">72%</span>
+            </div>
+          </div>
+          <div class="li" style="opacity:.62">
+            <div class="t">
+              <span class="chip chip-kp">洛必达法则</span>
+              <span class="chip chip-err">审题错误</span>
+              <span class="src">2021 T01</span>
+            </div>
+            <div class="s">设 $f(x)$ 在 $x=0$ 处可导，$f(0)=0$，则 $\lim\limits_{x\to 0}\dfrac{f(x)}{x}=$（　）</div>
+            <div class="b">
+              <span class="m"><i style="background:var(--success)"></i>错 1 次</span>
+              <span class="g"></span>
+              <div class="bar"><i style="width:88%;background:var(--success)"></i></div>
+              <span class="p" style="color:var(--success)">88%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 栏 3：详情 -->
+      <div class="col3">
+        <div class="c3-head">
+          <span class="chip chip-kp">积分中值定理</span>
+          <span class="chip chip-line">构造辅助函数</span>
+          <span class="chip chip-warn">综合</span>
+          <span class="chip chip-gray">解答题</span>
+          <span class="sp"></span>
+          <button class="btn btn-line btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            批注
+          </button>
+          <button class="btn btn-ghost btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
+          </button>
+        </div>
+
+        <div class="c3-scroll">
+          <div class="c3-main">
+            <div class="q-block">
+              <div class="lab">题干</div>
+              <div class="q-stem">
+                设 $f(x)$ 在 $[0,1]$ 上连续，且
+                $$\int_0^1 f(x)\,\mathrm{d}x = 0,\qquad f(1)=0$$
+                证明：存在 $\xi \in (0,1)$，使得 $f(\xi)=0$。
+              </div>
+            </div>
+
+            <div class="q-block">
+              <div class="lab">解析</div>
+              <div class="q-sol">
+                由积分中值定理，存在 $c\in[0,1]$ 使得
+                $$\int_0^1 f(x)\,\mathrm{d}x=f(c)\cdot 1=0 \ \Longrightarrow\ f(c)=0$$
+                又 $f(1)=0$，故 $c$ 与 $1$ 均为 $f$ 的零点。对 $f$ 在区间 $[c,1]$ 上应用罗尔定理，即存在 $\xi\in(c,1)\subset(0,1)$ 使 $f(\xi)=0$。
+              </div>
+            </div>
+
+            <div class="note">
+              <b>你上次卡在哪：</b>没意识到"证明存在零点"应先去找<b>第二个零点</b>，而是直接想用介值定理。这类"先造条件再用定理"属于<b>思路缺失型</b>错误 —— 处方不是继续刷题，而是看同类型 3 道例题的构造思路。
+            </div>
+
+            <div class="q-block">
+              <div class="lab">我的笔记</div>
+              <div class="q-sol" style="color:var(--ink-1)">
+                辅助函数构造套路：见到 $\int_a^b f=0$ 就先想积分中值定理拿一个零点，
+                再找题面里第二个零点条件（这里就是 $f(1)=0$），最后罗尔。
+              </div>
+            </div>
+          </div>
+
+          <div class="c3-aside">
+            <div class="kp-mini">
+              <div class="h"><b>本题考点</b><span>主考点 82%</span></div>
+              <div class="r"><span>积分中值定理</span><div class="bar"><i style="width:82%"></i></div><em>82%</em></div>
+              <div class="r"><span>罗尔定理</span><div class="bar"><i style="width:70%"></i></div><em>70%</em></div>
+              <div class="r" style="margin-bottom:0"><span>辅助函数构造</span><div class="bar"><i style="width:64%;background:var(--purple)"></i></div><em>64%</em></div>
+            </div>
+
+            <div class="kp-mini">
+              <div class="h"><b>我的掌握度</b><span>26%</span></div>
+              <div class="bar" style="height:7px"><i style="width:26%;background:var(--danger)"></i></div>
+              <div style="display:flex;gap:9px;margin-top:11px">
+                <div style="flex:1;background:var(--surface-2);border-radius:9px;padding:9px 10px">
+                  <div style="font-size:16px;font-weight:700;color:var(--danger);line-height:1">3</div>
+                  <div style="font-size:10px;color:var(--ink-3);margin-top:4px">错误次数</div>
+                </div>
+                <div style="flex:1;background:var(--surface-2);border-radius:9px;padding:9px 10px">
+                  <div style="font-size:16px;font-weight:700;line-height:1">7 天</div>
+                  <div style="font-size:10px;color:var(--ink-3);margin-top:4px">下次复习</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="kp-mini">
+              <div class="h"><b>考频</b><span>近 15 年</span></div>
+              <div style="font-size:11.5px;color:var(--ink-2);line-height:1.75">
+                考查 <b style="color:var(--primary-strong)">6 次</b> · 平均 <b style="color:var(--primary-strong)">11.5 分</b><br>
+                最近：2024 / 2023 / 2021 / 2019 / 2016 / 2013
+              </div>
+            </div>
+
+            <div class="note blue">
+              <b>来源：</b>2023 年数学（一）真题 第 18 题
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 屏 2 · 录入 + 批注 ══════════════════ -->
+<div class="screen-wrap">
+  <div class="screen-label">
+    <b>屏 2 · 录入 + Apple Pencil 批注（横屏）</b>
+    <span class="tag">1194 × 834</span>
+    <span>iPad 的核心优势：<b>拍照、核对识别结果、手写标注原图</b>三件事同屏。手机版做不了这个——屏幕装不下。批注笔迹独立图层，可隐藏、可导出。</span>
+  </div>
+  <div class="scaler">
+  <div class="ipad">
+    <div class="ipad-status"><span>9:41　周五 3月15日</span><span>Apple Pencil　􀛨 82%</span></div>
+    <div class="ipad-body">
+      <div class="ing-3">
+
+        <!-- 左：原图 -->
+        <div class="ing-col c-a">
+          <div class="ing-head"><b>原始照片</b><span>已自动裁边 · 去阴影</span></div>
+          <div class="shot">
+            <div class="grid"></div>
+            <div class="paper">
+              设 <span class="h">f(x)</span> 在 [0,1] 上连续，且<br>
+              ∫₀¹ <span class="h">f(x)</span>dx = 0，<span class="h">f(1)</span> = 0.<br><br>
+              证明：存在 ξ ∈ (0,1)，<br>使 <span class="h">f(ξ)</span> = 0.
+            </div>
+            <div class="detect"><div class="detect-tag">已识别</div></div>
+            <div class="shot-tools">
+              <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg></div>
+              <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+              <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div>
+            </div>
+          </div>
+          <div class="cam-row">
+            <div class="b pri">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              重拍
+            </div>
+            <div class="b">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+              裁剪
+            </div>
+          </div>
+          <div class="field plain" style="margin-bottom:16px">
+            <div class="field-h"><b>识别质量</b><span class="e">2 处待核对</span></div>
+            <div style="display:flex;gap:8px">
+              <div style="flex:1;background:var(--success-weak);border-radius:9px;padding:9px 10px">
+                <div style="font-size:15px;font-weight:700;color:var(--success);line-height:1">9</div>
+                <div style="font-size:10px;color:var(--ink-3);margin-top:4px">高置信</div>
+              </div>
+              <div style="flex:1;background:var(--warning-weak);border-radius:9px;padding:9px 10px">
+                <div style="font-size:15px;font-weight:700;color:#B96A05;line-height:1">2</div>
+                <div style="font-size:10px;color:var(--ink-3);margin-top:4px">需核对</div>
+              </div>
+              <div style="flex:1;background:var(--surface-2);border-radius:9px;padding:9px 10px">
+                <div style="font-size:15px;font-weight:700;line-height:1">84%</div>
+                <div style="font-size:10px;color:var(--ink-3);margin-top:4px">整体</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 中：识别结果 -->
+        <div class="ing-col c-b">
+          <div class="ing-head"><b>识别结果</b><span>可直接编辑</span></div>
+          <div class="tabs">
+            <div class="tab on">题干</div>
+            <div class="tab">答案</div>
+            <div class="tab">解析</div>
+          </div>
+          <div class="field">
+            <div class="field-h"><b>识别文本</b><span class="e">编辑</span></div>
+            <div class="stem">
+              设 $f(x)$ 在 $[0,1]$ 上连续，且 <span class="hl">$\int_0^1 f(x)\mathrm{d}x=0$</span>，$f(1)=0$。证明：存在 $\xi\in(0,1)$，使得 $f(\xi)=0$。
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-h"><b>识别到的公式</b><span class="e">2 个</span></div>
+            <div class="fml-row low">
+              <div class="ix">1</div>
+              <div class="cd">\int_0^1 f(x)\mathrm{d}x = 0</div>
+              <div class="cf lo">71%</div>
+            </div>
+            <div class="fml-row">
+              <div class="ix">2</div>
+              <div class="cd">\xi \in (0,1)</div>
+              <div class="cf hi">98%</div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-h"><b>AI 建议标签</b><span class="e">修改</span></div>
+            <div style="display:flex;flex-wrap:wrap;gap:7px">
+              <span class="chip chip-kp">积分中值定理 · 主 82%</span>
+              <span class="chip chip-purple">构造辅助函数 · 次 70%</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">
+              <span class="chip chip-gray">题型 解答</span>
+              <span class="chip chip-warn">难度 综合</span>
+              <span class="chip chip-line">2023 数一 T18</span>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:16px">
+            <div class="field-h"><b>我为什么错 · 必选</b><span class="e">可多选</span></div>
+            <div class="cause">
+              <div>概念不清</div>
+              <div class="on">思路缺失</div>
+              <div>计算失误</div>
+              <div>审题错误</div>
+              <div>方法选择</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右：批注画布 -->
+        <div class="ing-col c-c">
+          <div class="annot-canvas">
+            <div class="paperbg">
+              <div class="dotgrid"></div>
+              <div class="annot-q">
+                设 $f(x)$ 在 $[0,1]$ 上连续，且 $\int_0^1 f(x)\mathrm{d}x=0$，$f(1)=0$。<br>证明：存在 $\xi\in(0,1)$，使得 $f(\xi)=0$。
+              </div>
+              <div class="stroke" style="left:44px;top:118px">① 积分中值定理 → 存在 c 使 f(c)=0</div>
+              <div class="stroke" style="left:44px;top:152px">② 又 f(1)=0 → 两个零点！</div>
+              <div class="stroke b" style="left:44px;top:186px">③ 对 [c,1] 用罗尔定理 ⇒ 得证</div>
+              <div class="annot-tag" style="left:44px;top:222px">上次就卡在第 ② 步</div>
+              <div class="psel" style="left:36px;top:110px;width:352px;height:82px"></div>
+              <div class="stroke" style="left:44px;top:276px;font-size:15px;color:#7048E8">※ 见到 ∫f=0 先想"造第二个零点"</div>
+            </div>
+
+            <div class="pen-bar">
+              <div class="p on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.6 7.6"/></svg></div>
+              <div class="p dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h3l6-6"/><path d="M20.5 5.5a2.1 2.1 0 0 0-3-3L9 11l3 3 8.5-8.5z"/></svg><i style="background:#FFD43B"></i></div>
+              <div class="p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H8.5L3 14.5 12 5.5l8.5 8.5z"/></svg></div>
+              <div class="sep"></div>
+              <div class="sw on" style="background:#1E3A8A"></div>
+              <div class="sw" style="background:#B02A2A"></div>
+              <div class="sw" style="background:#0CA678"></div>
+              <div class="sw" style="background:#16181D"></div>
+              <div class="sep"></div>
+              <div class="p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.7" y2="16.7"/></svg></div>
+              <div class="p"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg></div>
+              <div class="sep"></div>
+              <button class="btn btn-primary btn-sm" style="height:38px">保存并加入复习</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 屏 3 · 竖屏复习 + 草稿纸 ══════════════════ -->
+<div class="screen-wrap">
+  <div class="screen-label">
+    <b>屏 3 · 竖屏复习会话 + 草稿纸</b>
+    <span class="tag port">834 × 1194 · 竖屏</span>
+    <span>竖屏是「真的在做题」的姿势：上半屏看题，下半屏用 Pencil 演算。<b>草稿纸是 iPad 独有的价值</b>——你在纸上怎么算，App 里就怎么算，笔迹跟着这道题一起存档。</span>
+  </div>
+  <div class="scaler">
+  <div class="ipad portrait">
+    <div class="ipad-status"><span>9:41　周五 3月15日</span><span>Wi-Fi　􀛨 82%</span></div>
+    <div class="ipad-body">
+      <div class="portrait-split" style="width:100%">
+
+        <div class="ps-top">
+          <div class="h">
+            <span class="chip chip-kp">积分中值定理</span>
+            <span class="chip chip-warn">第 3 次复习</span>
+            <span class="sp"></span>
+            <span style="font-size:13px;font-weight:700;color:var(--ink-2)">4 / 25</span>
+          </div>
+          <div class="ps-prog">
+            <i class="d"></i><i class="d"></i><i class="d"></i><i class="n"></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i>
+          </div>
+        </div>
+
+        <div class="ps-q">
+          <div class="qb">
+            <div class="qt">
+              设 $f(x)$ 在 $[0,1]$ 上连续，且
+              $$\int_0^1 f(x)\,\mathrm{d}x = 0,\qquad f(1)=0$$
+              证明：存在 $\xi \in (0,1)$，使得 $f(\xi)=0$。
+            </div>
+          </div>
+        </div>
+
+        <div class="ps-draft">
+          <div class="dotgrid"></div>
+          <div class="hint">草稿纸 · 用 Apple Pencil 演算，笔迹会自动跟这道题一起存下来</div>
+          <div class="draft-tools">
+            <div class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg></div>
+            <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l-6 6v3h3l6-6"/><path d="M20.5 5.5a2.1 2.1 0 0 0-3-3L9 11l3 3 8.5-8.5z"/></svg></div>
+            <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg></div>
+          </div>
+          <div class="stroke" style="left:36px;top:82px;font-size:19px">∫₀¹ f(x)dx = 0</div>
+          <div class="stroke" style="left:36px;top:126px;font-size:19px">⇒ ∃ c ∈ [0,1],  f(c) = 0</div>
+          <div class="stroke b" style="left:36px;top:170px;font-size:19px">又 f(1) = 0  ⇒  c, 1 都是零点</div>
+          <div class="stroke" style="left:36px;top:214px;font-size:19px">在 [c,1] 上用 Rolle:</div>
+          <div class="stroke" style="left:36px;top:258px;font-size:19px">f(c)=f(1)=0 ⇒ ∃ξ, f′(ξ)=0 ✓</div>
+          <div class="stroke" style="left:36px;top:322px;font-size:17px;color:#7048E8">关键：先造第二个零点！</div>
+        </div>
+
+        <div class="ps-foot">
+          <div class="rate">
+            <div class="r1"><span class="e">😰</span><b>忘了</b><span>完全没思路</span></div>
+            <div class="r2"><span class="e">😐</span><b>吃力</b><span>做出来但很费劲</span></div>
+            <div class="r3"><span class="e">😎</span><b>轻松</b><span>一眼就有思路</span></div>
+          </div>
+          <div class="ps-actions">
+            <button class="btn btn-line">查看解析</button>
+            <button class="btn btn-ghost">稍后再看</button>
+            <button class="btn btn-primary">下一题</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 屏 4 · 掌握度仪表盘 ══════════════════ -->
+<div class="screen-wrap">
+  <div class="screen-label">
+    <b>屏 4 · 掌握度仪表盘（横屏）</b>
+    <span class="tag">1194 × 834</span>
+    <span>iPad 大屏最适合「看全局」。三栏并列：<b>章节热力图</b>（哪块最烂）、<b>薄弱考点 Top5</b>（先修哪个）、<b>复习负荷预测</b>（未来几天要花多久）——回答"我现在该干什么"。</span>
+  </div>
+  <div class="scaler">
+  <div class="ipad">
+    <div class="ipad-status"><span>9:41　周五 3月15日</span><span>Wi-Fi　􀛨 82%</span></div>
+    <div class="ipad-body">
+
+      <div class="sidebar">
+        <div class="sb-logo">
+          <div class="m">M</div>
+          <div><b>数学错题 Agent</b><span>数学一 · 距考研 282 天</span></div>
+        </div>
+        <div class="sb-group">学习</div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/></svg>
+          今日复习<span class="badge">25</span>
+        </div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13.5"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M8 8h8"/></svg>
+          错题本
+        </div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+          智能组卷
+        </div>
+        <div class="sb-group">分析</div>
+        <div class="sb-item on">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="7"/><rect x="12" y="7" width="3" height="11"/><rect x="17" y="13" width="3" height="5"/></svg>
+          掌握度画像
+        </div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          复习历史
+        </div>
+        <div class="sb-group">知识库</div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2.5"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="20" r="2"/><path d="M6.6 7.4 10.4 10.6M17.4 7.4 13.6 10.6M12 14.5V18"/></svg>
+          知识点图谱
+        </div>
+        <div class="sb-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          导入 / 导出
+        </div>
+        <div class="sb-foot">
+          <div class="u">
+            <div class="av">李</div>
+            <div><b>李同学</b><span>已录 247 题 · 连续 32 天</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash">
+        <!-- 列 A：热力图 + 章节 -->
+        <div class="dash-col a">
+          <div class="dcard">
+            <div class="h"><b>章节掌握度热力图</b><span>数值 = 已掌握题目占比</span></div>
+            <div class="heat">
+              <div class="heat-row">
+                <span class="nm">高数·极限</span>
+                <div class="heat-cells">
+                  <i data-v="38%" style="background:#F59F00"></i>
+                  <i data-v="52%" style="background:#F0A63A"></i>
+                  <i data-v="71%" style="background:#8BC7A8"></i>
+                  <i data-v="84%" style="background:#3EB489"></i>
+                  <i data-v="91%" style="background:#0CA678"></i>
+                </div>
+              </div>
+              <div class="heat-row">
+                <span class="nm">高数·微分</span>
+                <div class="heat-cells">
+                  <i data-v="22%" style="background:#E03131"></i>
+                  <i data-v="34%" style="background:#E85C3A"></i>
+                  <i data-v="48%" style="background:#F59F00"></i>
+                  <i data-v="66%" style="background:#A8C98A"></i>
+                  <i data-v="79%" style="background:#2FAE7E"></i>
+                </div>
+              </div>
+              <div class="heat-row">
+                <span class="nm">高数·积分</span>
+                <div class="heat-cells">
+                  <i data-v="26%" style="background:#E03131"></i>
+                  <i data-v="31%" style="background:#E44A38"></i>
+                  <i data-v="44%" style="background:#EF9A2E"></i>
+                  <i data-v="58%" style="background:#D3B860"></i>
+                  <i data-v="73%" style="background:#7BC49C"></i>
+                </div>
+              </div>
+              <div class="heat-row">
+                <span class="nm">高数·级数</span>
+                <div class="heat-cells">
+                  <i data-v="45%" style="background:#EF9A2E"></i>
+                  <i data-v="55%" style="background:#C9C46E"></i>
+                  <i data-v="68%" style="background:#93C795"></i>
+                  <i data-v="77%" style="background:#4CBB8E"></i>
+                  <i data-v="86%" style="background:#16A97E"></i>
+                </div>
+              </div>
+              <div class="heat-row">
+                <span class="nm">线代·矩阵</span>
+                <div class="heat-cells">
+                  <i data-v="61%" style="background:#B7C87A"></i>
+                  <i data-v="74%" style="background:#6FC29A"></i>
+                  <i data-v="88%" style="background:#12A77C"></i>
+                  <i data-v="92%" style="background:#0CA678"></i>
+                  <i data-v="95%" style="background:#0A9A6F"></i>
+                </div>
+              </div>
+              <div class="heat-row">
+                <span class="nm">线代·特征值</span>
+                <div class="heat-cells">
+                  <i data-v="29%" style="background:#E03131"></i>
+                  <i data-v="41%" style="background:#EC8B2C"></i>
+                  <i data-v="57%" style="background:#C6C36C"></i>
+                  <i data-v="70%" style="background:#87C69A"></i>
+                  <i data-v="81%" style="background:#2CAD80"></i>
+                </div>
+              </div>
+              <div class="heat-row">
+                <span class="nm">概率·随机变量</span>
+                <div class="heat-cells">
+                  <i data-v="66%" style="background:#A6C97F"></i>
+                  <i data-v="79%" style="background:#45B98D"></i>
+                  <i data-v="87%" style="background:#14A87D"></i>
+                  <i data-v="90%" style="background:#0CA678"></i>
+                  <i data-v="94%" style="background:#0A9A6F"></i>
+                </div>
+              </div>
+            </div>
+            <div class="heat-legend">
+              <span>弱</span>
+              <div class="sc">
+                <i style="background:#E03131"></i><i style="background:#EC8B2C"></i>
+                <i style="background:#EFC24E"></i><i style="background:#7BC49C"></i>
+                <i style="background:#0CA678"></i>
+              </div>
+              <span>强</span>
+              <span style="margin-left:auto">横向代表该章的 5 个知识块</span>
+            </div>
+          </div>
+
+          <div class="dcard" style="flex:1">
+            <div class="h"><b>薄弱考点 Top 5</b><span>按「错题密度 × 考频权重」排序</span></div>
+            <div class="weak-row">
+              <div class="rk">1</div>
+              <div class="mid">
+                <b>中值定理与辅助函数构造</b>
+                <div class="bar"><i style="width:26%;background:var(--danger)"></i></div>
+              </div>
+              <div class="v"><b>错 8</b>掌握 26%</div>
+            </div>
+            <div class="weak-row">
+              <div class="rk" style="background:var(--warning-weak);color:#B96A05">2</div>
+              <div class="mid">
+                <b>等价无穷小与泰勒展开</b>
+                <div class="bar"><i style="width:38%;background:var(--warning)"></i></div>
+              </div>
+              <div class="v"><b style="color:#B96A05">错 5</b>掌握 38%</div>
+            </div>
+            <div class="weak-row">
+              <div class="rk" style="background:var(--warning-weak);color:#B96A05">3</div>
+              <div class="mid">
+                <b>特征值与二次型</b>
+                <div class="bar"><i style="width:47%;background:var(--warning)"></i></div>
+              </div>
+              <div class="v"><b style="color:#B96A05">错 4</b>掌握 47%</div>
+            </div>
+            <div class="weak-row">
+              <div class="rk" style="background:var(--surface-2);color:var(--ink-2)">4</div>
+              <div class="mid">
+                <b>二重积分换序与极坐标</b>
+                <div class="bar"><i style="width:53%;background:#EFC24E"></i></div>
+              </div>
+              <div class="v"><b style="color:var(--ink-2)">错 3</b>掌握 53%</div>
+            </div>
+            <div class="weak-row">
+              <div class="rk" style="background:var(--surface-2);color:var(--ink-2)">5</div>
+              <div class="mid">
+                <b>级数收敛判别法</b>
+                <div class="bar"><i style="width:58%;background:#EFC24E"></i></div>
+              </div>
+              <div class="v"><b style="color:var(--ink-2)">错 3</b>掌握 58%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 列 B：错因分布 + 趋势 -->
+        <div class="dash-col b">
+          <div class="dcard">
+            <div class="h"><b>错因分布</b><span>最近 247 题</span></div>
+            <div class="weak-row">
+              <div class="mid">
+                <b style="margin-bottom:6px">思路缺失</b>
+                <div class="bar" style="height:7px"><i style="width:41%;background:var(--danger)"></i></div>
+              </div>
+              <div class="v"><b style="color:var(--danger)">101</b>41%</div>
+            </div>
+            <div class="weak-row">
+              <div class="mid">
+                <b style="margin-bottom:6px">计算失误</b>
+                <div class="bar" style="height:7px"><i style="width:27%;background:var(--warning)"></i></div>
+              </div>
+              <div class="v"><b style="color:#B96A05">67</b>27%</div>
+            </div>
+            <div class="weak-row">
+              <div class="mid">
+                <b style="margin-bottom:6px">概念不清</b>
+                <div class="bar" style="height:7px"><i style="width:19%;background:var(--purple)"></i></div>
+              </div>
+              <div class="v"><b style="color:var(--purple)">47</b>19%</div>
+            </div>
+            <div class="weak-row" style="margin-bottom:0">
+              <div class="mid">
+                <b style="margin-bottom:6px">审题 / 方法 / 时间</b>
+                <div class="bar" style="height:7px"><i style="width:13%;background:var(--ink-4)"></i></div>
+              </div>
+              <div class="v"><b style="color:var(--ink-2)">32</b>13%</div>
+            </div>
+            <div class="note blue" style="margin-top:14px">
+              <b>你在「思路缺失」上占比 41%</b>，明显高于平均水平。说明瓶颈不在计算熟练度，而在<b>题型方法库</b>——建议优先看例题的构造思路，而不是继续刷题。
+            </div>
+          </div>
+
+          <div class="dcard" style="flex:1">
+            <div class="h"><b>能力雷达</b><span>对比 30 天前</span></div>
+            <div class="radar">
+              <svg width="272" height="212" viewBox="0 0 272 212">
+                <!-- 网格 -->
+                <g fill="none" stroke="#E7E9EE" stroke-width="1">
+                  <polygon points="136,22 218,68 218,160 136,206 54,160 54,68"/>
+                  <polygon points="136,50 202,86 202,142 136,178 70,142 70,86"/>
+                  <polygon points="136,78 186,104 186,124 136,150 86,124 86,104"/>
+                </g>
+                <g stroke="#E7E9EE" stroke-width="1">
+                  <line x1="136" y1="22" x2="136" y2="206"/>
+                  <line x1="54" y1="68" x2="218" y2="160"/>
+                  <line x1="218" y1="68" x2="54" y2="160"/>
+                </g>
+                <!-- 30天前 -->
+                <polygon points="136,64 190,98 186,138 136,168 88,132 92,98"
+                  fill="rgba(180,186,198,.28)" stroke="#B4BAC6" stroke-width="1.6"/>
+                <!-- 现在 -->
+                <polygon points="136,44 204,84 200,140 136,182 78,140 78,86"
+                  fill="rgba(59,91,219,.16)" stroke="#3B5BDB" stroke-width="2.2"/>
+                <g fill="#3B5BDB">
+                  <circle cx="136" cy="44" r="3.4"/><circle cx="204" cy="84" r="3.4"/>
+                  <circle cx="200" cy="140" r="3.4"/><circle cx="136" cy="182" r="3.4"/>
+                  <circle cx="78" cy="140" r="3.4"/><circle cx="78" cy="86" r="3.4"/>
+                </g>
+                <g font-size="10.5" fill="#8A909E" font-weight="600" text-anchor="middle">
+                  <text x="136" y="13">极限</text>
+                  <text x="238" y="66">微分</text>
+                  <text x="240" y="172">积分</text>
+                  <text x="136" y="205">级数</text>
+                  <text x="32" y="172">线代</text>
+                  <text x="34" y="66">概率</text>
+                </g>
+              </svg>
+            </div>
+            <div style="display:flex;gap:16px;justify-content:center;font-size:11px;color:var(--ink-3);font-weight:600">
+              <span style="display:flex;align-items:center;gap:6px"><i style="width:14px;height:3px;background:#3B5BDB;border-radius:2px;display:block"></i>现在</span>
+              <span style="display:flex;align-items:center;gap:6px"><i style="width:14px;height:3px;background:#B4BAC6;border-radius:2px;display:block"></i>30 天前</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 列 C：统计 + 负荷预测 -->
+        <div class="dash-col c">
+          <div class="dcard">
+            <div class="h"><b>总览</b><span>全部科目</span></div>
+            <div class="stat-grid">
+              <div class="stat"><b>247</b><span>累计错题</span></div>
+              <div class="stat"><b>184</b><span>已掌握 <em>↑ 23</em></span></div>
+              <div class="stat"><b>63</b><span>待攻克</span></div>
+              <div class="stat"><b>32</b><span>连续天数</span></div>
+            </div>
+          </div>
+
+          <div class="dcard">
+            <div class="h"><b>未来 7 天复习负荷</b><span>按 FSRS 排期</span></div>
+            <div class="forecast">
+              <div class="fd">
+                <div class="bars"><div class="b1" style="height:34px"></div><div class="b2" style="height:12px"></div></div>
+                <span class="lb today">今天</span>
+              </div>
+              <div class="fd">
+                <div class="bars"><div class="b1" style="height:52px"></div><div class="b2" style="height:18px"></div></div>
+                <span class="lb">+1</span>
+              </div>
+              <div class="fd">
+                <div class="bars"><div class="b1" style="height:44px"></div><div class="b2" style="height:14px"></div></div>
+                <span class="lb">+2</span>
+              </div>
+              <div class="fd">
+                <div class="bars"><div class="b1" style="height:66px"></div><div class="b2" style="height:22px"></div></div>
+                <span class="lb">+3</span>
+              </div>
+              <div class="fd">
+                <div class="bars"><div class="b1" style="height:38px"></div><div class="b2" style="height:11px"></div></div>
+                <span class="lb">+4</span>
+              </div>
+              <div class="fd">
+                <div class="bars"><div class="b1" style="height:26px"></div><div class="b2" style="height:9px"></div></div>
+                <span class="lb">+5</span>
+              </div>
+              <div class="fd">
+                <div class="bars"><div class="b1" style="height:31px"></div><div class="b2" style="height:10px"></div></div>
+                <span class="lb">+6</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:14px;margin-top:13px;font-size:10.5px;color:var(--ink-3);font-weight:600">
+              <span style="display:flex;align-items:center;gap:6px"><i style="width:10px;height:10px;background:var(--primary);border-radius:3px;display:block"></i>到期复习</span>
+              <span style="display:flex;align-items:center;gap:6px"><i style="width:10px;height:10px;background:var(--primary-soft);border-radius:3px;display:block"></i>新增错题预估</span>
+            </div>
+          </div>
+
+          <div class="dcard" style="flex:1">
+            <div class="h"><b>下一步建议</b><span>Agent 生成</span></div>
+            <div class="note blue" style="margin-bottom:9px">
+              <b>今天先攻「中值定理」</b><br>你在这里错了 8 题，其中 6 题错因是「思路缺失」。建议做 3 道例题 + 1 份专项小卷（约 45 分钟）。
+            </div>
+            <div class="note">
+              <b>明天适合做套卷</b><br>到期复习量最大（52 题），其中 60% 已掌握度 &gt; 70%，适合用一份 150 分套卷集中检验。
+            </div>
+            <button class="btn btn-primary btn-md" style="width:100%;margin-top:13px">生成今日专项小卷</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 屏 5 · 组卷 + A4 预览 ══════════════════ -->
+<div class="screen-wrap">
+  <div class="screen-label">
+    <b>屏 5 · 智能组卷 + A4 试卷预览（横屏）</b>
+    <span class="tag">1194 × 834</span>
+    <span>左参数、右真卷预览。<b>预览按真实 A4 版式渲染</b>（所见即所得，导出的 PDF 就是这样），错题和薄弱考点带角标——让用户看见"这份卷子是为我出的"。</span>
+  </div>
+  <div class="scaler">
+  <div class="ipad">
+    <div class="ipad-status"><span>9:41　周五 3月15日</span><span>Wi-Fi　􀛨 82%</span></div>
+    <div class="ipad-body">
+      <div class="pa">
+
+        <!-- 左：参数 -->
+        <div class="pa-left">
+          <h3>智能组卷</h3>
+
+          <div class="pa-card">
+            <div class="lbl">科目</div>
+            <div class="opts">
+              <div class="opt on"><b>数学一</b><span>247 题</span></div>
+              <div class="opt"><b>数学二</b><span>182 题</span></div>
+              <div class="opt"><b>数学三</b><span>163 题</span></div>
+            </div>
+          </div>
+
+          <div class="pa-card">
+            <div class="lbl">组卷规格</div>
+            <div class="opts">
+              <div class="opt on"><b>真题结构</b><span>10+6+6 · 150分</span></div>
+              <div class="opt"><b>突击模考</b><span>5+3+3</span></div>
+            </div>
+            <div class="opts" style="margin-top:8px">
+              <div class="opt"><b>错题专练</b><span>只出我做错的</span></div>
+              <div class="opt"><b>自定义</b><span>手动配比</span></div>
+            </div>
+          </div>
+
+          <div class="pa-card">
+            <div class="lbl">难度配比 · 已自动匹配真题</div>
+            <div class="mix-row">
+              <span class="nm">基础</span>
+              <div class="bar"><i style="width:40%"></i></div>
+              <span class="v">40% · 10</span>
+            </div>
+            <div class="mix-row">
+              <span class="nm">综合</span>
+              <div class="bar"><i class="b2" style="width:40%"></i></div>
+              <span class="v">40% · 10</span>
+            </div>
+            <div class="mix-row">
+              <span class="nm">拓展</span>
+              <div class="bar"><i class="b3" style="width:20%"></i></div>
+              <span class="v">20% · 5</span>
+            </div>
+          </div>
+
+          <div class="pa-card">
+            <div class="lbl">偏好</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0">
+              <span style="font-size:12.5px;font-weight:600">薄弱考点加权</span>
+              <span class="chip chip-kp">2.5×</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line)">
+              <span style="font-size:12.5px;font-weight:600">隐含我的错题</span>
+              <span class="chip chip-ok">已开启</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line)">
+              <span style="font-size:12.5px;font-weight:600">排除最近做过</span>
+              <span class="chip chip-gray">近 30 天</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--line)">
+              <span style="font-size:12.5px;font-weight:600">每章至少覆盖</span>
+              <span class="chip chip-gray">1 题</span>
+            </div>
+          </div>
+
+          <div class="note blue" style="margin-bottom:14px">
+            <b>已自动加权：</b>你的薄弱考点将获得约 <b>2.5 倍</b>抽题权重，同时保证每章至少覆盖 1 题、不排除任何章节（保留真题的随机性）。
+          </div>
+          <button class="btn btn-primary btn-md" style="width:100%">重新生成</button>
+        </div>
+
+        <!-- 右：A4 预览 -->
+        <div class="pa-right">
+          <div class="pa-tools">
+            <span class="chip chip-warn">含我的错题 3 道</span>
+            <span class="chip chip-line">薄弱考点 8 道</span>
+            <span class="sp"></span>
+            <button class="btn btn-line btn-sm">换一题</button>
+            <button class="btn btn-line btn-sm">学生版</button>
+            <button class="btn btn-primary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              导出 PDF
+            </button>
+          </div>
+
+          <div class="paper-scroll">
+            <div class="paper-a4">
+              <div class="ph">
+                <b>2026 考研数学（一）模拟检测卷</b>
+                <span>满分 150 分　考试时间 180 分钟　共 22 题</span>
+              </div>
+
+              <div class="sec">一、选择题（1–10 小题，每小题 5 分，共 50 分）</div>
+              <div class="pq">
+                <span class="n">1.</span>
+                <span>当 $x\to 0$ 时，$\dfrac{\sin x - x\cos x}{x^3}$ 的极限为（　）<span class="ptag weak">薄弱考点</span></span>
+              </div>
+
+              <div class="sec">二、填空题（11–16 小题，每小题 5 分，共 30 分）</div>
+              <div class="pq">
+                <span class="n">11.</span>
+                <span>设 $A$ 为 3 阶实对称矩阵，其特征值满足 $\lambda_1+\lambda_2+\lambda_3=0$，则 $|A+E|=$ ______．</span>
+              </div>
+
+              <div class="sec">三、解答题（17–22 小题，共 70 分）</div>
+              <div class="pq">
+                <span class="n">18.</span>
+                <span>设 $f(x)$ 在 $[0,1]$ 上连续，$\displaystyle\int_0^1 f(x)\,\mathrm{d}x=0$，$f(1)=0$。证明：存在 $\xi\in(0,1)$，使得 $f(\xi)=0$。<span class="ptag err">你的错题</span></span>
+              </div>
+              <div class="blank"></div>
+              <div class="blank"></div>
+
+              <div class="pq">
+                <span class="n">19.</span>
+                <span>计算二重积分 $\displaystyle\iint_D \frac{x}{x^2+y^2}\,\mathrm{d}x\,\mathrm{d}y$，其中 $D$ 由 $y=x,\ y=2x,\ x=1$ 所围成。<span class="ptag weak">薄弱考点</span></span>
+              </div>
+              <div class="blank"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+
+</div><!-- /stage -->
+
+<div class="scale-note">
+  <b>说明：</b>本页所有 iPad 画布按 1:1 逻辑分辨率绘制（横屏 1194×834 / 竖屏 834×1194），浏览器中整体缩放至 64% 展示，因此<b>屏幕上量到的尺寸 × 1.5625 = 真实 pt</b>。印刷或投屏时把 <code>.scaler</code> 的 <code>transform:scale()</code> 改为 1 即可看全尺寸。
+</div>
+
+<script>
+(function () {
+  function check() {
+    var ok = typeof window.katex !== 'undefined' && document.querySelector('.katex') !== null;
+    if (!ok) {
+      document.body.classList.add('no-katex');
+      console.warn('[mockup] KaTeX 未加载：公式显示为原始 LaTeX 源码，联网后刷新恢复正常。');
+    }
+  }
+  window.addEventListener('load', function () { setTimeout(check, 700); });
+})();
+</script>
+</body>
+</html>

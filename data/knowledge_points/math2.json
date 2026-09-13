@@ -1,0 +1,3019 @@
+{
+  "version": "1.0.0",
+  "subject": "math2",
+  "subject_name": "考研数学（二）",
+  "updated_at": "2026-03-15",
+  "coverage": {
+    "status": "complete",
+    "chapters_done": [
+      "math2.calc.limit",
+      "math2.calc.diff",
+      "math2.calc.integral",
+      "math2.calc.multidiff",
+      "math2.calc.multiintegral",
+      "math2.calc.ode",
+      "math2.linalg.det",
+      "math2.linalg.matrix",
+      "math2.linalg.vector",
+      "math2.linalg.equation",
+      "math2.linalg.eigen"
+    ],
+    "chapters_todo": []
+  },
+  "id_convention": "math2.{科}.{章}.{知识点}；科: calc=高数 linalg=线代 prob=概率",
+  "exam_weight_formula": "章节级权威来源=data/exam_frequency.json：raw = total_appearances × avg_score，exam_weight = round(raw / max(raw), 2)。叶子级由 tools/data/merge_knowledge.py 派生：leaf = clamp(chapter × hotspot_boost × year_factor, 0.10, 1.00)，其中 hotspot_boost = 命中该章 hotspots ? 1.15 : 1.0，year_factor = 0.85 + 0.30 × min(len(exam_years), 15) / 15。",
+  "nodes": [
+    {
+      "id": "math2",
+      "name": "考研数学（二）",
+      "level": 1,
+      "parent_id": null,
+      "is_leaf": false,
+      "exam_weight": 1
+    },
+    {
+      "id": "math2.calc",
+      "name": "高等数学",
+      "level": 2,
+      "parent_id": "math2",
+      "is_leaf": false,
+      "exam_weight": 0.9
+    },
+    {
+      "id": "math2.linalg",
+      "name": "线性代数",
+      "level": 2,
+      "parent_id": "math2",
+      "is_leaf": false,
+      "exam_weight": 0.9
+    },
+    {
+      "id": "math2.calc.limit",
+      "name": "函数、极限与连续",
+      "level": 3,
+      "parent_id": "math2.calc",
+      "is_leaf": false,
+      "exam_weight": 0.61
+    },
+    {
+      "id": "math2.calc.limit.closed_interval",
+      "name": "闭区间上连续函数的性质",
+      "level": 4,
+      "parent_id": "math2.calc.limit",
+      "is_leaf": true,
+      "definition": "f 在闭区间 [a,b] 上连续，则：① 有界性定理；② 最值定理（必取到最大值与最小值）；③ 介值定理（取遍 [m,M] 之间一切值）；④ 零点定理（f(a)f(b)<0 则存在 ξ∈(a,b) 使 f(ξ)=0）。零点定理是构造性存在证明的基础工具。",
+      "formulas": [
+        "f\\in C[a,b] \\Rightarrow \\exists\\ \\max_{[a,b]}f,\\ \\min_{[a,b]}f",
+        "f(a)f(b)<0,\\ f\\in C[a,b] \\Rightarrow \\exists\\xi\\in(a,b):\\ f(\\xi)=0",
+        "f\\in C[a,b],\\ m\\le\\mu\\le M \\Rightarrow \\exists\\xi\\in[a,b]:\\ f(\\xi)=\\mu"
+      ],
+      "common_traps": [
+        "★ 使用零点定理前未验证端点异号，或未说明函数在闭区间上连续",
+        "把开区间 (a,b) 上的连续函数当作闭区间结论使用（有界性与最值定理失效）",
+        "证明存在性时只写『由介值定理可知』，未验证介值定理的适用条件",
+        "构造辅助函数 F(x) 后未说明其在闭区间上连续"
+      ],
+      "exam_years": [
+        2012,
+        2015,
+        2017,
+        2020,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.59,
+      "weight_source": "derived",
+      "aliases": [
+        "闭区间上连续函数"
+      ]
+    },
+    {
+      "id": "math2.calc.limit.continuity",
+      "name": "函数的连续性与间断点",
+      "level": 4,
+      "parent_id": "math2.calc.limit",
+      "is_leaf": true,
+      "definition": "f 在 x₀ 连续 ⟺ lim_{x→x₀} f(x)=f(x₀)，需同时满足：f 在 x₀ 有定义、极限存在、二者相等。间断点分两类：第一类（左右极限均存在，含可去与跳跃）；第二类（至少一侧极限不存在，含无穷与振荡）。",
+      "formulas": [
+        "f\\ \\text{在}\\ x_0\\ \\text{连续} \\iff \\lim_{x\\to x_0}f(x)=f(x_0)",
+        "f\\ \\text{在}\\ x_0\\ \\text{连续} \\iff \\lim_{x\\to x_0^-}f(x)=\\lim_{x\\to x_0^+}f(x)=f(x_0)",
+        "\\text{第一类间断点} \\iff \\text{左右极限均存在}",
+        "\\text{连续函数的复合、四则运算（分母非零）仍连续}"
+      ],
+      "common_traps": [
+        "★ 判断间断点类型时只算了一侧极限，未比较左右极限是否相等",
+        "分段函数在分界点忽略讨论左右极限与函数值三者的关系",
+        "把『无定义』直接等同于『无穷间断点』（可能是可去间断点）",
+        "含 e^{1/x}、arctan(1/x) 的函数在 x=0 处未分左右讨论"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2016,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.67,
+      "weight_source": "derived",
+      "aliases": [
+        "函数的连续性",
+        "连续性",
+        "间断点"
+      ]
+    },
+    {
+      "id": "math2.calc.limit.eq_infinitesimal",
+      "name": "等价无穷小替换",
+      "level": 4,
+      "parent_id": "math2.calc.limit",
+      "is_leaf": true,
+      "definition": "当 x→0 时，若 α~α'、β~β'，则在乘除运算中可把 α 换成 α'、β 换成 β'，极限值不变。核心限制：只能替换乘除因子，不能替换加减项；加减场景必须改用泰勒展开或提取公因子。这是数二极限题的第一大工具。",
+      "formulas": [
+        "\\sin x\\sim x,\\quad \\tan x\\sim x,\\quad \\arcsin x\\sim x,\\quad \\arctan x\\sim x",
+        "1-\\cos x\\sim \\frac{x^2}{2},\\quad x-\\sin x\\sim \\frac{x^3}{6},\\quad \\tan x-x\\sim \\frac{x^3}{3}",
+        "\\ln(1+x)\\sim x,\\quad e^x-1\\sim x,\\quad (1+x)^\\alpha-1\\sim \\alpha x",
+        "\\sqrt[n]{1+x}-1\\sim \\frac{x}{n},\\quad \\log_a(1+x)\\sim \\frac{x}{\\ln a},\\quad x-\\ln(1+x)\\sim \\frac{x^2}{2}"
+      ],
+      "common_traps": [
+        "★ 在加减法中滥用替换（最高频错误）。如 lim(x→0)(tan x - sin x)/x³，各自替换成 x 会得 0，正确答案是 1/2",
+        "只替换了一部分因子而留下另一部分，破坏了同阶比较的前提",
+        "x→非 0 值时仍套用 x→0 的等价表，未先做变量代换",
+        "复合结构未化到标准形式：sin(x²) 可替换为 x²，但 sin(x+1) 在 x→0 时不能替换为 x+1"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2015,
+        2016,
+        2018,
+        2019,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.74,
+      "weight_source": "derived",
+      "aliases": [
+        "\\sin x\\sim x",
+        "\\ln(1+x)\\sim x",
+        "1-\\cos x\\sim\\frac{x^2}{2}",
+        "等价无穷小"
+      ]
+    },
+    {
+      "id": "math2.calc.limit.existence",
+      "name": "极限存在准则",
+      "level": 4,
+      "parent_id": "math2.calc.limit",
+      "is_leaf": true,
+      "definition": "两个准则：① 夹逼准则——g(x)≤f(x)≤h(x) 且 lim g = lim h = A，则 lim f = A；② 单调有界准则——单调有界数列必有极限。后者常用于递推数列 x_{n+1}=f(x_n)，标准流程是先证有界与单调，再对递推式两边取极限解方程。",
+      "formulas": [
+        "g(x)\\le f(x)\\le h(x),\\ \\lim g=\\lim h=A \\Rightarrow \\lim f=A",
+        "\\{x_n\\}\\ \\text{单调有界} \\Rightarrow \\{x_n\\}\\ \\text{收敛}",
+        "x_{n+1}=f(x_n),\\ \\lim_{n\\to\\infty}x_n=a,\\ f\\ \\text{连续} \\Rightarrow a=f(a)"
+      ],
+      "common_traps": [
+        "★ 用递推式求极限时先假设极限存在再解方程，跳过有界性与单调性的证明（这是证明题最常被扣分处）",
+        "夹逼时放缩方向搞反，或两侧极限不相等就下结论",
+        "只证了单调没证有界，或只证有界没证单调，条件不完整",
+        "解出 a=f(a) 有多个根时未用单调性或初值排除多余根"
+      ],
+      "exam_years": [
+        2010,
+        2015,
+        2018,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.67,
+      "weight_source": "derived"
+    },
+    {
+      "id": "math2.calc.limit.func",
+      "name": "函数极限",
+      "level": 4,
+      "parent_id": "math2.calc.limit",
+      "is_leaf": true,
+      "definition": "函数 f(x) 当 x→x₀（或 x→∞）时趋于 A，指对任意 ε>0，存在 δ>0（或 X>0），使当 0<|x-x₀|<δ（或 |x|>X）时恒有 |f(x)-A|<ε。注意 x→x₀ 时不要求 f 在 x₀ 有定义，也只讨论去心邻域内的值。",
+      "formulas": [
+        "\\lim_{x\\to x_0}f(x)=A \\iff \\forall\\varepsilon>0,\\ \\exists\\delta>0:\\ 0<|x-x_0|<\\delta \\Rightarrow |f(x)-A|<\\varepsilon",
+        "\\lim_{x\\to x_0}f(x)=A \\iff \\lim_{x\\to x_0^-}f(x)=\\lim_{x\\to x_0^+}f(x)=A",
+        "\\lim_{x\\to\\infty}f(x)=A \\iff \\lim_{x\\to+\\infty}f(x)=\\lim_{x\\to-\\infty}f(x)=A"
+      ],
+      "common_traps": [
+        "★ 含 e^{1/x}、arctan(1/x)、|x|/x 的函数在 x→0 处左右极限不同，直接代入得错误结论",
+        "分段函数在分界点求极限时不分左右讨论，直接代入分段表达式",
+        "左右极限存在但不等时仍断言极限存在",
+        "误以为 f 在 x₀ 无定义则极限必不存在（可去间断点处极限存在）"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        3
+      ],
+      "exam_weight": 0.68,
+      "weight_source": "derived"
+    },
+    {
+      "id": "math2.calc.limit.infinitesimal_order",
+      "name": "无穷小的比较与阶",
+      "level": 4,
+      "parent_id": "math2.calc.limit",
+      "is_leaf": true,
+      "definition": "设 α、β 均为同一过程中的无穷小。若 lim(α/β)=0，称 α 是比 β 高阶的无穷小，记 α=o(β)；若 lim(α/β)=∞，称 α 是比 β 低阶的无穷小；若 lim(α/β)=c≠0，称二者同阶；特别地 c=1 时称等价无穷小。若 lim(α/β^k)=c≠0，称 α 是关于 β 的 k 阶无穷小。",
+      "formulas": [
+        "\\lim\\frac{\\alpha}{\\beta}=0 \\Rightarrow \\alpha=o(\\beta)",
+        "\\alpha\\sim\\beta \\iff \\lim\\frac{\\alpha}{\\beta}=1",
+        "\\lim\\frac{\\alpha}{\\beta^k}=c\\neq 0 \\Rightarrow \\alpha\\ \\text{是}\\ \\beta\\ \\text{的}\\ k\\ \\text{阶无穷小}",
+        "\\alpha\\sim\\beta \\iff \\alpha=\\beta+o(\\beta)"
+      ],
+      "common_traps": [
+        "★ 求无穷小的阶时忘记把常数系数归一化，导致阶数判断错误",
+        "两个同阶无穷小相减后阶数会升高（如 x-sin x 是 3 阶而非 1 阶），仍按一阶处理",
+        "把『同阶』与『等价』混为一谈，同阶未必等价",
+        "比较阶数时未说明是相对于哪一个无穷小（相对基准未写清）"
+      ],
+      "exam_years": [
+        2013,
+        2016,
+        2019,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.67,
+      "weight_source": "derived",
+      "aliases": [
+        "无穷小的比较",
+        "无穷小"
+      ]
+    },
+    {
+      "id": "math2.calc.limit.lhopital",
+      "name": "洛必达法则",
+      "level": 4,
+      "parent_id": "math2.calc.limit",
+      "is_leaf": true,
+      "definition": "处理 0/0 或 ∞/∞ 型未定式：若 f、g 在 x₀ 的某去心邻域内可导且 g'(x)≠0，lim f'/g' 存在（或为 ∞），则 lim f/g = lim f'/g'。三个前提缺一不可，其中最容易被忽略的是『导数之比的极限必须存在』。",
+      "formulas": [
+        "\\lim\\frac{f(x)}{g(x)}=\\lim\\frac{f'(x)}{g'(x)}\\quad\\left(\\frac{0}{0}\\ \\text{或}\\ \\frac{\\infty}{\\infty}\\right)",
+        "0\\cdot\\infty \\Rightarrow \\text{化为}\\ \\frac{0}{1/\\infty}\\ \\text{或}\\ \\frac{\\infty}{1/0}",
+        "\\infty-\\infty \\Rightarrow \\text{通分或提取公因子}",
+        "1^{\\infty},\\ 0^{0},\\ \\infty^{0} \\Rightarrow \\text{取对数化为}\\ 0\\cdot\\infty"
+      ],
+      "common_traps": [
+        "★ 未验证是否为 0/0 或 ∞/∞ 型就直接使用（前提不满足时结论无效）",
+        "导数之比的极限不存在时误用洛必达得出错误结论（如 x→∞ 时 (x+sin x)/x）",
+        "反复洛必达后表达式越来越复杂或陷入循环，应及时改用等价无穷小或泰勒",
+        "对存在不可导点的函数使用洛必达，忽略可导性前提"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2017,
+        2020,
+        2021
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.68,
+      "weight_source": "derived",
+      "aliases": [
+        "\\lim\\frac{f(x)}{g(x)}=\\lim\\frac{f'(x)}{g'(x)}",
+        "\\frac{0}{0}",
+        "\\frac{\\infty}{\\infty}"
+      ]
+    },
+    {
+      "id": "math2.calc.limit.taylor",
+      "name": "泰勒公式求极限",
+      "level": 4,
+      "parent_id": "math2.calc.limit",
+      "is_leaf": true,
+      "definition": "把函数在 x=0（或 x₀）处展成带皮亚诺余项的幂函数多项式，用多项式逼近。求极限时分子分母都展开到『恰好能判定首项非零』的阶数，是处理加减型未定式最可靠的方法，关键在于展开阶数的选择。",
+      "formulas": [
+        "e^x = 1+x+\\frac{x^2}{2!}+\\cdots+\\frac{x^n}{n!}+o(x^n)",
+        "\\sin x = x-\\frac{x^3}{3!}+\\frac{x^5}{5!}+\\cdots+(-1)^n\\frac{x^{2n+1}}{(2n+1)!}+o(x^{2n+1})",
+        "\\cos x = 1-\\frac{x^2}{2!}+\\frac{x^4}{4!}+\\cdots+(-1)^n\\frac{x^{2n}}{(2n)!}+o(x^{2n})",
+        "\\ln(1+x) = x-\\frac{x^2}{2}+\\frac{x^3}{3}+\\cdots+(-1)^{n-1}\\frac{x^n}{n}+o(x^n)",
+        "(1+x)^\\alpha = 1+\\alpha x+\\frac{\\alpha(\\alpha-1)}{2!}x^2+\\cdots+o(x^n)"
+      ],
+      "common_traps": [
+        "★ 展开阶数不够，分子首项相消后无法判断阶数（最典型错误）",
+        "分子分母展开到不同阶，破坏同阶比较的前提",
+        "漏写余项 o(x^n)，无法说明高阶项可以忽略",
+        "在 x→非 0 点时直接套用 x→0 的展开式，未作平移代换 x = x₀ + t"
+      ],
+      "exam_years": [
+        2013,
+        2016,
+        2018,
+        2020,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.69,
+      "weight_source": "derived",
+      "aliases": [
+        "o(x^n)",
+        "e^x=1+x+\\frac{x^2}{2!}",
+        "\\sin x=x-\\frac{x^3}{3!}",
+        "麦克劳林展开",
+        "泰勒公式"
+      ]
+    },
+    {
+      "id": "math2.calc.limit.zero_point",
+      "name": "方程根的讨论与零点定理",
+      "level": 4,
+      "parent_id": "math2.calc.limit",
+      "is_leaf": true,
+      "definition": "证明方程 f(x)=0 在 (a,b) 内有根，标准流程为：构造辅助函数 F(x)，验证 F 在闭区间连续，再验证 F(a)F(b)<0，最后用零点定理。若要求『有且仅有一个根』，还须用单调性（F' 定号）排除多根。数二常与中值定理、单调性讨论结合成综合题。",
+      "formulas": [
+        "F\\in C[a,b]\\ \\text{且}\\ F(a)F(b)<0 \\Rightarrow \\exists\\xi\\in(a,b):\\ F(\\xi)=0",
+        "F'(x)>0\\ \\text{于}\\ (a,b) \\Rightarrow F(x)=0\\ \\text{在该区间至多一个根}",
+        "\\text{根的个数} = \\text{单调区间的个数（结合端点极限符号）}"
+      ],
+      "common_traps": [
+        "★ 题目要求『有且仅有一个』时只证了存在性，漏证唯一性",
+        "辅助函数构造错误，如把 f(x)=g(x) 变形为 f(x)-g(x)=0 时符号弄反",
+        "验证端点符号时取错定义域端点，或未说明闭区间上的连续性",
+        "多次使用零点定理时未说明各根落在互不相交的子区间内"
+      ],
+      "exam_years": [
+        2013,
+        2016,
+        2018,
+        2021,
+        2022
+      ],
+      "typical_qtypes": [
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.67,
+      "weight_source": "derived",
+      "aliases": [
+        "方程根的讨论",
+        "方程根",
+        "零点定理"
+      ]
+    },
+    {
+      "id": "math2.calc.diff",
+      "name": "一元函数微分学",
+      "level": 3,
+      "parent_id": "math2.calc",
+      "is_leaf": false,
+      "exam_weight": 0.86
+    },
+    {
+      "id": "math2.calc.diff.asymptote",
+      "name": "曲线的渐近线",
+      "level": 4,
+      "parent_id": "math2.calc.diff",
+      "is_leaf": true,
+      "definition": "渐近线分三类：水平渐近线 y=A，当 x→∞ 或 x→-∞ 时 f(x)→A；铅直渐近线 x=x₀，当 x→x₀ 时 f(x)→∞（通常在无定义点或分段点处找）；斜渐近线 y=kx+b，其中 k=lim_{x→∞} f(x)/x，b=lim_{x→∞}[f(x)-kx]，两个极限都必须存在且有限。函数最多有两条斜渐近线（x→±∞ 各一条）。",
+      "formulas": [
+        "\\lim_{x\\to\\infty}f(x)=A \\Rightarrow y=A\\ \\text{为水平渐近线}",
+        "\\lim_{x\\to x_0}f(x)=\\infty \\Rightarrow x=x_0\\ \\text{为铅直渐近线}",
+        "k=\\lim_{x\\to\\infty}\\frac{f(x)}{x},\\qquad b=\\lim_{x\\to\\infty}[f(x)-kx] \\Rightarrow y=kx+b",
+        "\\text{同一侧}\\ x\\to+\\infty\\ \\text{或}\\ x\\to-\\infty\\ \\text{上水平与斜渐近线不能同时存在}"
+      ],
+      "common_traps": [
+        "★ 求斜渐近线时只算了 k 而漏算 b，或未验证 b 的极限存在",
+        "在有定义区间内部胡乱寻找铅直渐近线（应先看无定义点与分段点）",
+        "只考察 x→+∞ 而忽略 x→-∞（两侧可能对应不同的渐近线）",
+        "把 y=kx+b 中的 b 用 f(x)-kx 在有限点的值代替"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2015,
+        2017,
+        2019,
+        2021,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.87,
+      "weight_source": "derived",
+      "aliases": [
+        "y=kx+b",
+        "渐近线",
+        "\\lim_{x\\to\\infty}\\frac{f(x)}{x}=k"
+      ]
+    },
+    {
+      "id": "math2.calc.diff.concavity_inflection",
+      "name": "曲线的凹凸性与拐点",
+      "level": 4,
+      "parent_id": "math2.calc.diff",
+      "is_leaf": true,
+      "definition": "若在区间 I 上 f''(x)>0，曲线为凹（下凸、开口向上）；f''(x)<0 为凸（上凸、开口向下）。拐点是曲线凹凸性发生改变的点，只能在 f''=0 或 f'' 不存在的点处取得，且必须在该点两侧 f'' 变号。注意不同教材凹凸命名相反，答题时按所用教材表述并写出 f'' 的符号依据。",
+      "formulas": [
+        "f''(x)>0\\ \\text{于}\\ I \\Rightarrow \\text{曲线在}\\ I\\ \\text{上是凹的}",
+        "f''(x)<0\\ \\text{于}\\ I \\Rightarrow \\text{曲线在}\\ I\\ \\text{上是凸的}",
+        "\\text{拐点} \\Rightarrow f''(x_0)=0\\ \\text{或}\\ f''(x_0)\\ \\text{不存在，且两侧变号}",
+        "\\text{拐点的必要条件}:\\ f''(x_0)=0\\ \\text{或}\\ f''(x_0)\\ \\text{不存在}"
+      ],
+      "common_traps": [
+        "★ 由 f''(x₀)=0 直接断定 x₀ 是拐点，未验证两侧 f'' 是否变号（如 y=x⁴ 在 0 处）",
+        "凹凸性与 f'' 符号的对应关系记反",
+        "求拐点时只考虑 f''=0 的点，遗漏 f'' 不存在但曲线连续的点",
+        "把拐点写成横坐标 x₀，而未写成点 (x₀, f(x₀)) 的坐标形式"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2016,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.96,
+      "weight_source": "derived",
+      "aliases": [
+        "f''(x)=0",
+        "拐点",
+        "曲线的凹凸性",
+        "凹凸性"
+      ]
+    },
+    {
+      "id": "math2.calc.diff.concept",
+      "name": "导数与微分的概念",
+      "level": 4,
+      "parent_id": "math2.calc.diff",
+      "is_leaf": true,
+      "definition": "f 在 x₀ 处的导数定义为差商极限 f'(x₀)=lim_{Δx→0}[f(x₀+Δx)-f(x₀)]/Δx，几何意义是曲线在 (x₀,f(x₀)) 处切线的斜率。可导 ⟺ 可微，且 df = f'(x)dx。可导必连续，连续不一定可导；左右导数存在且相等才可导。",
+      "formulas": [
+        "f'(x_0)=\\lim_{\\Delta x\\to 0}\\frac{f(x_0+\\Delta x)-f(x_0)}{\\Delta x}",
+        "f'(x_0)=\\lim_{x\\to x_0}\\frac{f(x)-f(x_0)}{x-x_0}",
+        "f'(x_0)=A \\iff f(x)=f(x_0)+A(x-x_0)+o(x-x_0)",
+        "f'(x_0)=\\tan\\alpha\\quad(\\alpha\\ \\text{为切线倾角}),\\qquad df=f'(x)\\,dx",
+        "f\\ \\text{可导} \\Rightarrow f\\ \\text{连续};\\qquad f'_-(x_0)=f'_+(x_0) \\iff f'(x_0)\\ \\text{存在}"
+      ],
+      "common_traps": [
+        "★ 用定义求分段点或抽象函数在某点的导数时，直接对分段表达式求导再代入，而非用差商极限",
+        "把『连续』当作『可导』的充分条件（如 |x| 在 x=0 连续但不可导）",
+        "在 x₀ 处用导数定义时，要求 x₀ 的某邻域内都有定义，端点处不适用",
+        "写出切线方程时漏掉点斜式中的 (x-x₀) 而直接写成 y=f'(x₀)x"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        1,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "导数",
+        "微分的概念",
+        "微分"
+      ]
+    },
+    {
+      "id": "math2.calc.diff.curvature",
+      "name": "曲率与弧微分",
+      "level": 4,
+      "parent_id": "math2.calc.diff",
+      "is_leaf": true,
+      "definition": "弧微分 ds=√(1+y'²)dx 是曲线弧长的微元，也是曲率计算的中间量。曲率 K=|y''|/(1+y'²)^{3/2} 描述曲线弯曲程度，曲率半径 R=1/K。数二对此考点要求较低，主要在填空题中与弧长、切线问题一并出现，考生了解公式并会代入即可。",
+      "formulas": [
+        "ds=\\sqrt{1+y'^2}\\,dx",
+        "K=\\frac{|y''|}{\\left(1+y'^2\\right)^{3/2}},\\qquad R=\\frac{1}{K}",
+        "K=\\frac{|\\varphi'(t)\\psi''(t)-\\varphi''(t)\\psi'(t)|}{\\left[\\varphi'^2(t)+\\psi'^2(t)\\right]^{3/2}}\\quad\\text{（参数方程）}"
+      ],
+      "common_traps": [
+        "★ 曲率公式中的绝对值漏写，或分母指数写成 1/2、2/3",
+        "与弧长公式混用，把 ds 写成 √(1+y'²) 而漏掉 dx",
+        "参数方程形式直接代入直角坐标公式",
+        "求曲率半径时忘记取倒数"
+      ],
+      "exam_years": [
+        2012,
+        2016,
+        2019,
+        2023
+      ],
+      "typical_qtypes": [
+        "fill",
+        "choice"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.92,
+      "weight_source": "derived",
+      "aliases": [
+        "K=\\frac{|y''|}{(1+y'^2)^{3/2}}",
+        "曲率半径",
+        "\\mathrm{d}s=\\sqrt{1+y'^2}\\,\\mathrm{d}x",
+        "曲率",
+        "弧微分"
+      ]
+    },
+    {
+      "id": "math2.calc.diff.higher_order",
+      "name": "高阶导数",
+      "level": 4,
+      "parent_id": "math2.calc.diff",
+      "is_leaf": true,
+      "definition": "f 的 n 阶导数是逐次求导所得。求高阶导数常用三条路径：归纳法（先求前几阶找规律）、莱布尼茨公式（乘积形式）、以及有理函数先做部分分式分解再逐项求导。三角与指数函数的高阶导数公式可直接套用。",
+      "formulas": [
+        "(uv)^{(n)}=\\sum_{k=0}^{n}\\binom{n}{k}u^{(n-k)}v^{(k)}",
+        "(\\sin x)^{(n)}=\\sin\\left(x+\\frac{n\\pi}{2}\\right),\\qquad (\\cos x)^{(n)}=\\cos\\left(x+\\frac{n\\pi}{2}\\right)",
+        "(e^{ax})^{(n)}=a^{n}e^{ax},\\qquad \\left(\\frac{1}{x+a}\\right)^{(n)}=\\frac{(-1)^{n}n!}{(x+a)^{n+1}}",
+        "\\left(\\ln(1+x)\\right)^{(n)}=\\frac{(-1)^{n-1}(n-1)!}{(1+x)^{n}}\\quad(n\\ge 1)"
+      ],
+      "common_traps": [
+        "★ 用莱布尼茨公式时漏掉组合数 C(n,k)，或求和项数写成 n 而非 n+1",
+        "有理函数求 n 阶导数前未做部分分式分解，直接硬求导致规律找错",
+        "归纳法只验证了前两阶就下结论，未给出一般项的严格形式",
+        "在 x=0 处求 f^{(n)}(0) 时误用 f^{(n)}(x) 的表达式直接代入（应确认表达式在 0 处可用）"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2017,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.94,
+      "weight_source": "derived"
+    },
+    {
+      "id": "math2.calc.diff.mean_value",
+      "name": "微分中值定理（罗尔、拉格朗日、柯西）",
+      "level": 4,
+      "parent_id": "math2.calc.diff",
+      "is_leaf": true,
+      "definition": "罗尔定理：f 在 [a,b] 连续、(a,b) 可导且 f(a)=f(b)，则存在 ξ 使 f'(ξ)=0。拉格朗日定理：f 在 [a,b] 连续、(a,b) 可导，则存在 ξ 使 f(b)-f(a)=f'(ξ)(b-a)。柯西定理：在拉氏条件下加 g'(x)≠0，则 [f(b)-f(a)]/[g(b)-g(a)]=f'(ξ)/g'(ξ)。三者均要求闭区间连续、开区间可导。",
+      "formulas": [
+        "\\text{罗尔}:\\ f(a)=f(b),\\ f\\in C[a,b]\\cap D(a,b) \\Rightarrow \\exists\\xi\\in(a,b):\\ f'(\\xi)=0",
+        "\\text{拉格朗日}:\\ f(b)-f(a)=f'(\\xi)(b-a),\\ \\xi\\in(a,b)",
+        "\\text{柯西}:\\ \\frac{f(b)-f(a)}{g(b)-g(a)}=\\frac{f'(\\xi)}{g'(\\xi)},\\quad g'(x)\\neq 0,\\ \\xi\\in(a,b)",
+        "\\text{推论}:\\ f'(x)\\equiv 0\\ \\text{于}\\ (a,b) \\Rightarrow f\\ \\text{为常数}",
+        "\\text{拉格朗日的等价写法}:\\ f(x+\\Delta x)-f(x)=f'(x+\\theta\\Delta x)\\Delta x,\\ 0<\\theta<1"
+      ],
+      "common_traps": [
+        "★ 使用中值定理前未验证『闭区间连续、开区间可导』，尤其是含绝对值或分段函数的情形",
+        "证明 f'(ξ)=0 类结论时辅助函数构造错误（如欲证 f'(ξ)+f(ξ)=0 应构造 F(x)=e^x f(x)）",
+        "柯西定理中忽略 g'(x)≠0 条件，或把 ξ 误认为与拉格朗日定理中的 ξ 相同",
+        "用中值定理证明不等式时未说明 ξ 的取值范围导致放缩错误",
+        "同题中两次使用中值定理时，未区分两个不同的中值点"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "f'(\\xi)=0",
+        "\\frac{f(b)-f(a)}{b-a}=f'(\\xi)",
+        "罗尔定理",
+        "拉格朗日中值定理",
+        "柯西中值定理",
+        "微分中值定理",
+        "罗尔",
+        "拉格朗日",
+        "柯西"
+      ]
+    },
+    {
+      "id": "math2.calc.diff.monotonic_extrema",
+      "name": "单调性与极值",
+      "level": 4,
+      "parent_id": "math2.calc.diff",
+      "is_leaf": true,
+      "definition": "f'(x)>0 于区间 I 则 f 在 I 上单调增加；f'(x)<0 则单调减少。极值点只能在驻点（f'=0）或不可导点处取得。第一充分条件看 f' 在 x₀ 两侧的符号变化；第二充分条件看 f''(x₀) 的符号（f'(x₀)=0）。极值是局部概念，最值是整体概念。",
+      "formulas": [
+        "f'(x)>0\\ (x\\in I) \\Rightarrow f\\ \\text{在}\\ I\\ \\text{单调增加}",
+        "f'(x_0)=0,\\ f''(x_0)<0 \\Rightarrow f(x_0)\\ \\text{为极大值}",
+        "f'(x_0)=0,\\ f''(x_0)>0 \\Rightarrow f(x_0)\\ \\text{为极小值}",
+        "f'(x)\\ \\text{在}\\ x_0\\ \\text{两侧变号} \\Rightarrow x_0\\ \\text{为极值点}",
+        "\\text{最值}:\\ \\text{比较所有驻点、不可导点与端点的函数值}"
+      ],
+      "common_traps": [
+        "★ 只由 f'(x₀)=0 就断定 x₀ 是极值点（如 y=x³ 在 0 处非极值）",
+        "求最值时遗漏端点或不可导点，只比较驻点函数值",
+        "把极值点与最值点混为一谈，或把极值点当成 f' 不存在的点",
+        "用 f''(x₀)=0 时误判为极值点（第二充分条件失效，需回到第一条件）",
+        "单调区间写成并集而非分别列出（如在 x=0 两侧分别单调却写成 (-∞,0)∪(0,+∞) 上单调）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2016,
+        2018,
+        2020,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        1,
+        3
+      ],
+      "exam_weight": 0.98,
+      "weight_source": "derived",
+      "aliases": [
+        "f'(x)=0",
+        "f''(x_0)<0",
+        "取得极值",
+        "驻点",
+        "单调性",
+        "极值"
+      ]
+    },
+    {
+      "id": "math2.calc.diff.rules",
+      "name": "求导法则（复合、隐函数、参数方程）",
+      "level": 4,
+      "parent_id": "math2.calc.diff",
+      "is_leaf": true,
+      "definition": "复合函数求导用链式法则；隐函数 F(x,y)=0 求导时把 y 视为 x 的函数并逐项对 x 求导；参数方程 x=φ(t), y=ψ(t) 的导数为 dy/dx=(dy/dt)/(dx/dt)；幂指函数 u(x)^{v(x)} 须改写为 e^{v ln u} 后求导。反函数与对数求导法也属此列。",
+      "formulas": [
+        "\\{f[g(x)]\\}'=f'[g(x)]\\,g'(x)",
+        "\\frac{dy}{dx}=-\\frac{F_x}{F_y}\\quad\\left(F(x,y)=0,\\ F_y\\neq 0\\right)",
+        "\\frac{dy}{dx}=\\frac{\\psi'(t)}{\\varphi'(t)},\\qquad \\frac{d^2y}{dx^2}=\\frac{\\psi''(t)\\varphi'(t)-\\psi'(t)\\varphi''(t)}{[\\varphi'(t)]^3}",
+        "u(x)^{v(x)}=e^{v(x)\\ln u(x)}",
+        "\\{f^{-1}(y)\\}'=\\frac{1}{f'(x)}\\quad\\left(y=f(x)\\right)"
+      ],
+      "common_traps": [
+        "★ 参数方程求二阶导数时，直接把 ψ''(t)/φ''(t) 当作 d²y/dx²（正确做法是对 ψ'/φ' 再对 t 求导后除以 φ'(t)）",
+        "隐函数求导后忘记把 y 看作 x 的函数，漏乘 y'",
+        "幂指函数 u^v 直接用幂函数或指数函数求导公式",
+        "复合函数求导漏掉内层导数（尤其是多层复合）",
+        "反函数求导时变量对应关系搞反"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2013,
+        2015,
+        2016,
+        2018,
+        2020,
+        2021,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "求导法则",
+        "复合",
+        "隐函数",
+        "参数方程"
+      ]
+    },
+    {
+      "id": "math2.calc.diff.taylor_formula",
+      "name": "泰勒公式与泰勒中值定理",
+      "level": 4,
+      "parent_id": "math2.calc.diff",
+      "is_leaf": true,
+      "definition": "若 f 在含 x₀ 的开区间内有 n+1 阶导数，则 f(x)=Σ_{k=0}^{n} f^{(k)}(x₀)(x-x₀)^k/k! + R_n(x)，其中拉格朗日余项 R_n(x)=f^{(n+1)}(ξ)(x-x₀)^{n+1}/(n+1)!（ξ 在 x 与 x₀ 之间），皮亚诺余项为 o((x-x₀)^n)。泰勒公式是证明不等式与估计误差的主力工具。",
+      "formulas": [
+        "f(x)=\\sum_{k=0}^{n}\\frac{f^{(k)}(x_0)}{k!}(x-x_0)^k+R_n(x)",
+        "R_n(x)=\\frac{f^{(n+1)}(\\xi)}{(n+1)!}(x-x_0)^{n+1}\\quad(\\xi\\ \\text{介于}\\ x_0\\ \\text{与}\\ x\\ \\text{之间})",
+        "R_n(x)=o\\left((x-x_0)^n\\right)\\quad(x\\to x_0)",
+        "\\text{麦克劳林}:\\ f(x)=\\sum_{k=0}^{n}\\frac{f^{(k)}(0)}{k!}x^k+R_n(x)"
+      ],
+      "common_traps": [
+        "★ 混淆拉格朗日余项与皮亚诺余项的适用场合：证明不等式与估计误差必须用拉格朗日余项",
+        "展开中心选错（应在题目给定的点或使计算最简的点处展开）",
+        "只展开到某一阶却未说明余项符号，导致不等式方向无法确定",
+        "在 x₀ 处展开时把 (x-x₀)^k 写成 x^k"
+      ],
+      "exam_years": [
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "solve",
+        "proof",
+        "fill"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.98,
+      "weight_source": "derived",
+      "aliases": [
+        "f(x)=\\sum_{k=0}^{n}\\frac{f^{(k)}(x_0)}{k!}(x-x_0)^k+R_n(x)",
+        "拉格朗日余项",
+        "泰勒中值定理",
+        "泰勒公式"
+      ]
+    },
+    {
+      "id": "math2.calc.integral",
+      "name": "一元函数积分学",
+      "level": 3,
+      "parent_id": "math2.calc",
+      "is_leaf": false,
+      "exam_weight": 1.0
+    },
+    {
+      "id": "math2.calc.integral.byparts",
+      "name": "分部积分法",
+      "level": 4,
+      "parent_id": "math2.calc.integral",
+      "is_leaf": true,
+      "definition": "∫u dv = uv - ∫v du，本质是乘积求导公式的逆用。选 u 的原则是『求导后变简单』，口诀为反、对、幂、指、三（反三角、对数、幂函数、指数、三角依次优先取作 u）。定积分形式为 ∫_a^b u dv = [uv]_a^b - ∫_a^b v du。含 e^x sin x 型需两次分部后移项解出。",
+      "formulas": [
+        "\\int u\\,dv=uv-\\int v\\,du",
+        "\\int_a^b u\\,dv=\\left[uv\\right]_a^b-\\int_a^b v\\,du",
+        "\\int x e^{x}dx=xe^{x}-e^{x}+C",
+        "\\int \\ln x\\,dx=x\\ln x-x+C",
+        "\\int e^{ax}\\sin bx\\,dx=\\frac{e^{ax}(a\\sin bx-b\\cos bx)}{a^2+b^2}+C",
+        "\\int e^{ax}\\cos bx\\,dx=\\frac{e^{ax}(a\\cos bx+b\\sin bx)}{a^2+b^2}+C"
+      ],
+      "common_traps": [
+        "★ 选 u 与 dv 时顺序颠倒（应按反、对、幂、指、三的顺序取 u），导致积分越算越复杂",
+        "定积分分部后忘记对 [uv] 代入上下限，只处理了第二项",
+        "∫e^{ax}sin bx dx 型两次分部后未移项解方程，而是继续循环分部",
+        "把 dv 选择成不易积分的因子，使 ∫v du 无初等原函数"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2013,
+        2015,
+        2017,
+        2018,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int u\\mathrm{d}v=uv-\\int v\\mathrm{d}u"
+      ]
+    },
+    {
+      "id": "math2.calc.integral.definite",
+      "name": "定积分的概念与计算",
+      "level": 4,
+      "parent_id": "math2.calc.integral",
+      "is_leaf": true,
+      "definition": "定积分 ∫_a^b f(x)dx 是黎曼和的极限，几何意义为曲边梯形的有向面积（x 轴下方为负）。可积的充分条件是 f 在 [a,b] 上连续或只有有限个第一类间断点。计算靠牛顿-莱布尼茨公式；变限积分求导是数二的核心工具。",
+      "formulas": [
+        "\\int_a^b f(x)\\,dx=\\lim_{\\lambda\\to 0}\\sum_{i=1}^{n}f(\\xi_i)\\Delta x_i",
+        "\\int_a^b f(x)\\,dx=F(b)-F(a)\\quad(F'=f)",
+        "\\frac{d}{dx}\\int_a^{x}f(t)\\,dt=f(x)",
+        "\\frac{d}{dx}\\int_{\\alpha(x)}^{\\beta(x)}f(t)\\,dt=f[\\beta(x)]\\beta'(x)-f[\\alpha(x)]\\alpha'(x)",
+        "\\int_a^b f(x)\\,dx=\\int_a^b f(a+b-x)\\,dx",
+        "\\int_{-a}^{a}f(x)\\,dx=\\begin{cases}2\\int_0^a f(x)dx,& f\\ \\text{为偶函数}\\\\ 0,& f\\ \\text{为奇函数}\\end{cases}"
+      ],
+      "common_traps": [
+        "★ 变限积分求导时漏掉上限（或下限）的导数因子，或上下限颠倒时漏掉负号",
+        "被积函数含参变量 x 时未先把它提到积分号外或用换元分离（形如 ∫_a^x f(x,t)dt）",
+        "用牛顿-莱布尼茨公式时忽略 f 在积分区间内的瑕点（如 ∫_{-1}^{1} dx/x²）",
+        "误用奇偶性：积分区间不关于原点对称时不能套用",
+        "上下限交换时忘记变号"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2014,
+        2015,
+        2016,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int_a^b f(x)\\mathrm{d}x=F(b)-F(a)",
+        "牛顿-莱布尼茨公式",
+        "定积分的概念",
+        "定积分"
+      ]
+    },
+    {
+      "id": "math2.calc.integral.geometric",
+      "name": "定积分的几何应用（面积、体积、弧长）",
+      "level": 4,
+      "parent_id": "math2.calc.integral",
+      "is_leaf": true,
+      "definition": "平面图形面积用上下曲线之差积分，绕 x 轴旋转体体积用圆盘法 ∫πy²dx，绕 y 轴可用柱壳法 ∫2πx·y dx 或圆盘法 ∫πx²dy。弧长按直角坐标、参数方程、极坐标三种形式计算。数二不考旋转曲面的侧面积，但体积、面积、弧长三件套是必考大题来源。",
+      "formulas": [
+        "A=\\int_a^b\\left[f(x)-g(x)\\right]dx",
+        "V_x=\\pi\\int_a^b y^2\\,dx,\\qquad V_y=2\\pi\\int_a^b x\\,y\\,dx\\ \\text{（柱壳法）}",
+        "V_y=\\pi\\int_c^d x^2\\,dy\\ \\text{（圆盘法，需反解}\\ x=\\varphi(y)\\text{）}",
+        "s=\\int_a^b\\sqrt{1+y'^2}\\,dx=\\int_{\\alpha}^{\\beta}\\sqrt{\\varphi'^2(t)+\\psi'^2(t)}\\,dt=\\int_{\\alpha}^{\\beta}\\sqrt{r^2(\\theta)+r'^2(\\theta)}\\,d\\theta",
+        "V=\\int_a^b\\pi\\left[f^2(x)-g^2(x)\\right]dx\\ \\text{（两曲线间旋转体）}"
+      ],
+      "common_traps": [
+        "★ 求面积时未判断上下曲线的相对位置（或未分段），导致积分值出现负号",
+        "绕 y 轴旋转时既用柱壳法又用圆盘法却把半径取错（柱壳法半径是 x，圆盘法半径是 x 的反解式）",
+        "两曲线所围图形绕轴旋转时用 [f(x)-g(x)]² 代替 f²(x)-g²(x)",
+        "极坐标弧长公式漏掉 r'²(θ) 项，或角度上下限取错",
+        "图形未画图就直接定积分上下限，导致漏掉交点分段"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int_a^b f(x)\\mathrm{d}x",
+        "\\pi\\int_a^b f^2(x)\\mathrm{d}x",
+        "旋转体体积",
+        "弧长",
+        "定积分的几何应用",
+        "定积分的几何",
+        "几何应用",
+        "定积分",
+        "面积",
+        "体积"
+      ]
+    },
+    {
+      "id": "math2.calc.integral.improper",
+      "name": "反常积分",
+      "level": 4,
+      "parent_id": "math2.calc.integral",
+      "is_leaf": true,
+      "definition": "反常积分分两类：无穷区间上的积分 ∫_a^{+∞}f(x)dx=lim_{b→+∞}∫_a^b f(x)dx；无界函数的积分（瑕积分）在瑕点处取极限。两类积分的敛散性均以极限是否存在且有限来判定；若被积函数在区间内既有瑕点又含无穷限，必须拆成多个反常积分分别判别。",
+      "formulas": [
+        "\\int_a^{+\\infty}f(x)\\,dx=\\lim_{b\\to+\\infty}\\int_a^b f(x)\\,dx",
+        "\\int_a^b f(x)\\,dx=\\lim_{\\varepsilon\\to 0^+}\\int_{a+\\varepsilon}^{b}f(x)\\,dx\\quad(a\\ \\text{为瑕点})",
+        "\\int_1^{+\\infty}\\frac{dx}{x^p}\\ \\text{收敛} \\iff p>1",
+        "\\int_0^{1}\\frac{dx}{x^p}\\ \\text{收敛} \\iff p<1\\quad\\left(\\text{即}\\ \\int_a^b\\frac{dx}{(x-a)^p}\\ \\text{收敛}\\iff p<1\\right)",
+        "\\int_0^{+\\infty}e^{-x}dx=1,\\qquad \\int_0^{+\\infty}\\frac{dx}{1+x^2}=\\frac{\\pi}{2}"
+      ],
+      "common_traps": [
+        "★ 用牛顿-莱布尼茨公式直接代入瑕点或无穷远，未先判定敛散性（如 ∫_{-1}^{1}dx/x² 会被错算成 -2）",
+        "两个 p 积分的收敛条件混淆：无穷限要 p>1，瑕点要 p<1",
+        "被积函数在区间内部有瑕点时未拆分区间就直接积分",
+        "忘记验证瑕点的位置（先判断区间内是否存在无界点）",
+        "计算出有限值就断定收敛，而该值实际来自两个发散积分的『抵消』"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2016,
+        2018,
+        2020,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int_a^{+\\infty}f(x)\\mathrm{d}x",
+        "\\int_0^1\\frac{\\mathrm{d}x}{x^p}",
+        "p 积分"
+      ]
+    },
+    {
+      "id": "math2.calc.integral.indefinite",
+      "name": "不定积分的概念与基本积分表",
+      "level": 4,
+      "parent_id": "math2.calc.integral",
+      "is_leaf": true,
+      "definition": "若 F'(x)=f(x)，则称 F 为 f 的一个原函数，∫f(x)dx=F(x)+C（C 为任意常数，不可省略）。连续函数必有原函数；含第一类间断点的函数在含该点的区间上无原函数。不定积分是数二计算量最大的题型的基础。",
+      "formulas": [
+        "\\int f(x)\\,dx=F(x)+C \\iff F'(x)=f(x)",
+        "\\int x^{\\mu}dx=\\frac{x^{\\mu+1}}{\\mu+1}+C\\ (\\mu\\neq -1),\\qquad \\int \\frac{dx}{x}=\\ln|x|+C",
+        "\\int \\frac{dx}{1+x^2}=\\arctan x+C,\\qquad \\int \\frac{dx}{\\sqrt{1-x^2}}=\\arcsin x+C",
+        "\\int \\frac{dx}{x^2+a^2}=\\frac{1}{a}\\arctan\\frac{x}{a}+C\\ (a>0)",
+        "\\int \\frac{dx}{\\sqrt{x^2+a^2}}=\\ln\\left(x+\\sqrt{x^2+a^2}\\right)+C",
+        "\\int \\sec^2x\\,dx=\\tan x+C,\\qquad \\int \\frac{dx}{\\cos x}=\\ln\\left|\\sec x+\\tan x\\right|+C"
+      ],
+      "common_traps": [
+        "★ 忘记写积分常数 C，或在同一题中不同步骤添加了不同的常数",
+        "把 ∫dx/x 写成 ln x 而漏掉绝对值 (ln|x|)",
+        "∫dx/(x²-a²) 误套 arctan 公式（正确做法是拆成 1/(2a)[1/(x-a)-1/(x+a)] 再逐项积分）",
+        "∫dx/√(a²-x²) 与 ∫dx/√(x²±a²) 三类公式混用",
+        "误以为所有函数都有原函数（含第一类间断点者无原函数）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "不定积分的概念",
+        "不定积分",
+        "基本积分表"
+      ]
+    },
+    {
+      "id": "math2.calc.integral.physical",
+      "name": "定积分的物理应用（数二专属）",
+      "level": 4,
+      "parent_id": "math2.calc.integral",
+      "is_leaf": true,
+      "definition": "数二考纲明确要求定积分的物理应用，主要是变力做功、液体静压力与质心（形心）。通用方法是微元法：取小区间 [x, x+dx]，写出该微元对应的物理量表达式，再积分。数二不考转动惯量与引力，做题时应避免超纲使用。",
+      "formulas": [
+        "W=\\int_a^b F(x)\\,dx\\quad\\text{（变力沿直线做功）}",
+        "W=\\int_a^b\\rho g\\,A(x)\\,x\\,dx\\quad\\text{（抽水做功，}\\rho\\ \\text{为水的密度)}",
+        "P=\\int_a^b\\rho g\\,x\\,l(x)\\,dx\\quad\\text{（液体静压力，}l(x)\\ \\text{为深度}\\ x\\ \\text{处的宽度)}",
+        "\\bar{x}=\\frac{\\int_a^b x\\rho(x)\\,dx}{\\int_a^b \\rho(x)\\,dx}\\quad\\text{（质心横坐标）}"
+      ],
+      "common_traps": [
+        "★ 微元法中坐标原点选取不当，导致力臂或深度表达式写错（应统一取一个基准点）",
+        "抽水做功题忘记水的密度 ρg 或把体积元写成面积元",
+        "静压力题中把深度与宽度函数搞混",
+        "使用超纲的转动惯量、引力公式（数二考纲不含）",
+        "定积分上下限与物理量的方向不一致导致符号错误"
+      ],
+      "exam_years": [
+        2010,
+        2013,
+        2016,
+        2019,
+        2021,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "定积分的物理应用",
+        "定积分的物理",
+        "物理应用",
+        "定积分",
+        "数二专属"
+      ]
+    },
+    {
+      "id": "math2.calc.integral.rational",
+      "name": "有理函数的积分",
+      "level": 4,
+      "parent_id": "math2.calc.integral",
+      "is_leaf": true,
+      "definition": "有理函数 P(x)/Q(x) 的积分步骤：① 若为假分式（分子次数≥分母次数）先做多项式除法；② 把真分式的分母因式分解；③ 按因式类型写出部分分式（单实根、重实根、不可约二次因式各对应不同拆法）；④ 逐项积分。这是数二积分计算的基本功，常与换元、配方结合。",
+      "formulas": [
+        "\\frac{P(x)}{Q(x)}=\\text{多项式}+\\frac{R(x)}{Q(x)}\\quad(\\deg R<\\deg Q)",
+        "\\frac{1}{(x-a)(x-b)}=\\frac{1}{a-b}\\left(\\frac{1}{x-a}-\\frac{1}{x-b}\\right)\\ (a\\neq b)",
+        "\\frac{1}{x^2-a^2}=\\frac{1}{2a}\\left(\\frac{1}{x-a}-\\frac{1}{x+a}\\right)",
+        "\\frac{1}{x(x-1)}=\\frac{1}{x-1}-\\frac{1}{x}",
+        "\\int\\frac{dx}{x^2+px+q}=\\frac{2}{\\sqrt{4q-p^2}}\\arctan\\frac{2x+p}{\\sqrt{4q-p^2}}+C\\quad(p^2<4q)"
+      ],
+      "common_traps": [
+        "★ 假分式未先做多项式除法就拆部分分式，导致拆解形式错误",
+        "分母有重根时部分分式的写法错误（(x-a)² 对应 A/(x-a)+B/(x-a)²，不能只写一项）",
+        "不可约二次因式的分子应为一次式 Ax+B 而非常数 A",
+        "拆完部分分式后待定系数求解时符号出错",
+        "把 1/(x²-a²) 误当作 arctan 型公式处理"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "积分",
+        "有理函数"
+      ]
+    },
+    {
+      "id": "math2.calc.integral.substitution",
+      "name": "换元积分法（第一类与第二类）",
+      "level": 4,
+      "parent_id": "math2.calc.integral",
+      "is_leaf": true,
+      "definition": "第一类换元（凑微分）：∫f[φ(x)]φ'(x)dx=∫f(u)du，u=φ(x)，关键是识别出已被『凑』进微分号的因子。第二类换元（变量代换）：令 x=ψ(t) 以消去根式，常用三角代换与根式代换，最后必须回代原变量。三角代换的三种标准形式对应 √(a²-x²)、√(a²+x²)、√(x²-a²)。",
+      "formulas": [
+        "\\int f[\\varphi(x)]\\varphi'(x)\\,dx=\\int f(u)\\,du,\\quad u=\\varphi(x)",
+        "\\int f(x)\\,dx=\\int f[\\psi(t)]\\psi'(t)\\,dt,\\quad x=\\psi(t)",
+        "\\sqrt{a^2-x^2}:\\ x=a\\sin t;\\qquad \\sqrt{a^2+x^2}:\\ x=a\\tan t;\\qquad \\sqrt{x^2-a^2}:\\ x=a\\sec t",
+        "\\sqrt{x^2+a^2}:\\ \\text{亦可用}\\ t=x+\\sqrt{x^2+a^2}\\ \\text{（根式代换）}"
+      ],
+      "common_traps": [
+        "★ 第二类换元后忘记把结果回代为原变量 x，直接以 t 作答",
+        "三角代换时未同步换掉积分上下限（定积分情形的最高频错误）",
+        "凑微分时配错系数，如 ∫f(2x)dx 凑成 ∫f(2x)d(2x) 后未除以 2",
+        "代换后 dx 未按 x=ψ(t) 求导替换（漏乘 ψ'(t)）",
+        "对被积函数中的不同根式用了不一致的代换"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2016,
+        2018,
+        2019,
+        2020,
+        2021,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 1.0,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int f(g(x))g'(x)\\mathrm{d}x",
+        "第一类换元",
+        "第二类换元",
+        "凑微分",
+        "换元积分法",
+        "第一类",
+        "第二类"
+      ]
+    },
+    {
+      "id": "math2.calc.multidiff",
+      "name": "多元函数微分学",
+      "level": 3,
+      "parent_id": "math2.calc",
+      "is_leaf": false,
+      "exam_weight": 0.55
+    },
+    {
+      "id": "math2.calc.multidiff.chain_implicit",
+      "name": "多元复合函数与隐函数求导",
+      "level": 4,
+      "parent_id": "math2.calc.multidiff",
+      "is_leaf": true,
+      "definition": "复合函数求导用链式法则，画变量关系树逐条路径相乘再相加。z=f(u,v)，u=u(x,y)、v=v(x,y) 时 ∂z/∂x=f_u·u_x+f_v·v_x。隐函数 F(x,y,z)=0 时 ∂z/∂x=-F_x/F_z，∂z/∂y=-F_y/F_z（F_z≠0）。这是数二解答题的稳定考点。",
+      "formulas": [
+        "\\frac{\\partial z}{\\partial x}=\\frac{\\partial z}{\\partial u}\\frac{\\partial u}{\\partial x}+\\frac{\\partial z}{\\partial v}\\frac{\\partial v}{\\partial x}",
+        "\\frac{\\partial z}{\\partial x}=-\\frac{F_x}{F_z},\\qquad \\frac{\\partial z}{\\partial y}=-\\frac{F_y}{F_z}\\quad\\left(F(x,y,z)=0,\\ F_z\\neq 0\\right)",
+        "\\frac{dy}{dx}=-\\frac{F_x}{F_y}\\quad\\left(F(x,y)=0,\\ F_y\\neq 0\\right)",
+        "\\text{全微分形式不变性}:\\ dz=f_u\\,du+f_v\\,dv\\ \\text{对自变量或中间变量均成立}"
+      ],
+      "common_traps": [
+        "★ 隐函数求导公式中漏掉负号，或把 -F_x/F_z 写成 -F_z/F_x",
+        "链式法则中漏掉某条路径（变量关系树画不完整）",
+        "求二阶偏导 ∂²z/∂x∂y 时忽略 f_u、f_v 仍是 u、v 的函数，需继续用链式法则",
+        "抽象函数 f 的偏导记号 f_1'、f_2' 与自变量顺序对应错误",
+        "把 ∂z/∂x 与 dz/dx 混用（后者是沿某方向的导数）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2014,
+        2015,
+        2016,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.7,
+      "weight_source": "derived",
+      "aliases": [
+        "\\frac{\\partial z}{\\partial x}=\\frac{\\partial z}{\\partial u}\\frac{\\partial u}{\\partial x}",
+        "F(x,y)=0",
+        "\\frac{\\mathrm{d}y}{\\mathrm{d}x}=-\\frac{F_x}{F_y}",
+        "多元复合函数",
+        "隐函数求导"
+      ]
+    },
+    {
+      "id": "math2.calc.multidiff.concept",
+      "name": "多元函数的概念、极限与连续",
+      "level": 4,
+      "parent_id": "math2.calc.multidiff",
+      "is_leaf": true,
+      "definition": "二元函数 z=f(x,y) 的定义域是平面点集，二重极限 lim_{(x,y)→(x₀,y₀)}f(x,y)=A 要求点以任意路径趋近时极限都等于 A。若沿不同路径得到不同极限，则二重极限不存在。连续要求极限值等于函数值；多元函数在一点连续与偏导数存在之间没有必然联系。",
+      "formulas": [
+        "\\lim_{(x,y)\\to(x_0,y_0)}f(x,y)=A \\iff \\forall\\varepsilon>0,\\exists\\delta>0:\\ 0<\\sqrt{(x-x_0)^2+(y-y_0)^2}<\\delta \\Rightarrow |f-A|<\\varepsilon",
+        "\\text{沿两条不同路径极限不等} \\Rightarrow \\text{二重极限不存在}",
+        "f\\ \\text{在}\\ (x_0,y_0)\\ \\text{连续} \\iff \\lim_{(x,y)\\to(x_0,y_0)}f(x,y)=f(x_0,y_0)"
+      ],
+      "common_traps": [
+        "★ 只验证了一条路径（如 y=kx）的极限就断定二重极限存在（必须证明所有路径）",
+        "把二重极限与二次极限（先对 x 后对 y 的累次极限）混为一谈",
+        "用点沿 y=kx 与 y=x² 两条路径极限不同来否定存在性时，误取了相同极限的路径",
+        "认为偏导数存在就能推出连续（与一元函数不同）"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2016,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.6,
+      "weight_source": "derived",
+      "aliases": [
+        "多元函数的概念",
+        "多元函数",
+        "极限",
+        "连续"
+      ]
+    },
+    {
+      "id": "math2.calc.multidiff.extrema",
+      "name": "多元函数的极值与条件极值",
+      "level": 4,
+      "parent_id": "math2.calc.multidiff",
+      "is_leaf": true,
+      "definition": "无条件极值：先令 f_x=f_y=0 求驻点，再用 AC-B² 判别（A=f_xx、B=f_xy、C=f_yy）。条件极值用拉格朗日乘数法，构造 L=f+λφ 并对各变量及 λ 求偏导令其为零。数二的重点是条件极值，尤其是应用题中的最大最小值。",
+      "formulas": [
+        "\\text{驻点}:\\ f_x(x_0,y_0)=0,\\ f_y(x_0,y_0)=0",
+        "A=f_{xx},\\ B=f_{xy},\\ C=f_{yy};\\quad AC-B^2>0 \\Rightarrow \\text{极值}\\ (A>0\\ \\text{极小},\\ A<0\\ \\text{极大})",
+        "AC-B^2<0 \\Rightarrow \\text{非极值};\\qquad AC-B^2=0 \\Rightarrow \\text{需另行判定}",
+        "L(x,y,\\lambda)=f(x,y)+\\lambda\\varphi(x,y),\\quad \\nabla L=0\\ \\text{（在约束}\\ \\varphi(x,y)=0\\ \\text{下）}",
+        "\\text{两约束}:\\ L=f+\\lambda\\varphi+\\mu\\psi"
+      ],
+      "common_traps": [
+        "★ 只求了驻点就断言是极值点，未用 AC-B² 判别或未讨论 AC-B²=0 的情形",
+        "判别式记成 AC-B²>0 为极大然后仅凭符号下结论，忽略还需看 A 的符号",
+        "条件极值忘记引入 λ，或把约束条件写进目标函数后漏掉",
+        "应用最值题未说明所得驻点就是最大（小）值点（应结合实际问题或边界值说明）",
+        "求最值时遗漏边界上的取值（有界闭区域上必须比较内部驻点与边界）"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2013,
+        2015,
+        2017,
+        2018,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.68,
+      "weight_source": "derived",
+      "aliases": [
+        "f_x=f_y=0",
+        "AC-B^2",
+        "L=f+\\lambda\\varphi",
+        "拉格朗日函数",
+        "多元函数的极值",
+        "极值",
+        "多元函数",
+        "条件极值"
+      ]
+    },
+    {
+      "id": "math2.calc.multidiff.geometry",
+      "name": "多元微分学的几何应用",
+      "level": 4,
+      "parent_id": "math2.calc.multidiff",
+      "is_leaf": true,
+      "definition": "空间曲线以参数方程给出时，切线方向向量为 (x'(t₀), y'(t₀), z'(t₀))，法平面与之垂直。曲面 F(x,y,z)=0 在点的法向量为 (F_x, F_y, F_z)，切平面由该法向量确定；曲面 z=f(x,y) 的法向量为 (f_x, f_y, -1)。数二只考这些不含曲线曲面积分的几何应用。",
+      "formulas": [
+        "\\text{曲线}\\ \\frac{x-x_0}{x'(t_0)}=\\frac{y-y_0}{y'(t_0)}=\\frac{z-z_0}{z'(t_0)}",
+        "\\text{法平面}:\\ x'(t_0)(x-x_0)+y'(t_0)(y-y_0)+z'(t_0)(z-z_0)=0",
+        "\\text{曲面}\\ F(x,y,z)=0\\ \\text{的切平面}:\\ F_x(x-x_0)+F_y(y-y_0)+F_z(z-z_0)=0",
+        "\\text{曲面}\\ z=f(x,y)\\ \\text{的切平面}:\\ z-z_0=f_x(x-x_0)+f_y(y-y_0)",
+        "\\text{法线}:\\ \\frac{x-x_0}{F_x}=\\frac{y-y_0}{F_y}=\\frac{z-z_0}{F_z}"
+      ],
+      "common_traps": [
+        "★ 切平面与法线的方向关系搞反（把法向量当作切线方向向量）",
+        "曲面 z=f(x,y) 的法向量写成 (f_x, f_y, 1)，漏掉 z 分量的负号",
+        "参数方程曲线求切线时把参数 t₀ 代入位置而不是导数",
+        "切平面方程写成点法式的对称式（混淆平面与直线方程形式）"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve",
+        "choice"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.61,
+      "weight_source": "derived",
+      "aliases": [
+        "\\frac{x-x_0}{f_x}=\\frac{y-y_0}{f_y}",
+        "切平面",
+        "法线",
+        "多元微分学的几何",
+        "几何应用",
+        "多元微分学"
+      ]
+    },
+    {
+      "id": "math2.calc.multidiff.partial",
+      "name": "偏导数与全微分",
+      "level": 4,
+      "parent_id": "math2.calc.multidiff",
+      "is_leaf": true,
+      "definition": "偏导数 ∂z/∂x 是把 y 视为常数对 x 求导。全增量 Δz=f(x+Δx,y+Δy)-f(x,y) 若可表示为 AΔx+BΔy+o(ρ)（ρ=√(Δx²+Δy²)），则称 f 在该点可微，dz=AΔx+BΔy。可微的充分条件是偏导数连续；可微必连续且偏导存在，反之不成立。",
+      "formulas": [
+        "\\frac{\\partial z}{\\partial x}=\\lim_{\\Delta x\\to 0}\\frac{f(x+\\Delta x,y)-f(x,y)}{\\Delta x}",
+        "dz=\\frac{\\partial z}{\\partial x}dx+\\frac{\\partial z}{\\partial y}dy",
+        "f\\ \\text{可微} \\Rightarrow \\Delta z=f_x\\Delta x+f_y\\Delta y+o(\\rho),\\quad \\rho=\\sqrt{\\Delta x^2+\\Delta y^2}",
+        "f_x,\\ f_y\\ \\text{在}\\ (x_0,y_0)\\ \\text{的某邻域内存在且连续} \\Rightarrow f\\ \\text{在该点可微}",
+        "\\text{可微} \\Rightarrow \\text{连续} \\Rightarrow \\text{极限存在};\\quad \\text{可微} \\Rightarrow \\text{偏导存在}"
+      ],
+      "common_traps": [
+        "★ 用『偏导数存在』作为『可微』的判据（二者不等价，必须用定义 lim Δz-(f_xΔx+f_yΔy) 除以 ρ 验证）",
+        "在分段函数的分界点（如 (0,0)）用求导公式算偏导，而非用定义",
+        "把『偏导数连续』当成可微的必要条件（它只是充分条件）",
+        "混淆『可微』与『偏导存在』，在证明题中错用定理方向"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.63,
+      "weight_source": "derived",
+      "aliases": [
+        "\\frac{\\partial z}{\\partial x}",
+        "\\mathrm{d}z=\\frac{\\partial z}{\\partial x}\\mathrm{d}x+\\frac{\\partial z}{\\partial y}\\mathrm{d}y",
+        "偏导数",
+        "全微分"
+      ]
+    },
+    {
+      "id": "math2.calc.multiintegral",
+      "name": "二重积分",
+      "level": 3,
+      "parent_id": "math2.calc",
+      "is_leaf": false,
+      "exam_weight": 0.59
+    },
+    {
+      "id": "math2.calc.multiintegral.concept",
+      "name": "二重积分的概念与性质",
+      "level": 4,
+      "parent_id": "math2.calc.multiintegral",
+      "is_leaf": true,
+      "definition": "二重积分 ∬_D f(x,y)dσ 是分割、近似、求和、取极限所得的和式极限，几何意义是曲顶柱体的有向体积。性质包括线性性、区域可加性、保号性、估值定理与中值定理。∬_D 1 dσ 等于区域 D 的面积。",
+      "formulas": [
+        "\\iint_D f(x,y)\\,d\\sigma=\\lim_{\\lambda\\to 0}\\sum_{i=1}^{n}f(\\xi_i,\\eta_i)\\Delta\\sigma_i",
+        "\\iint_D 1\\,d\\sigma=A\\quad(A\\ \\text{为}\\ D\\ \\text{的面积})",
+        "\\iint_D f\\,d\\sigma=\\iint_{D_1}f\\,d\\sigma+\\iint_{D_2}f\\,d\\sigma\\quad(D=D_1\\cup D_2\\ \\text{无公共内点})",
+        "\\iint_D f\\,d\\sigma=f(\\xi,\\eta)\\cdot A\\quad(\\text{中值定理},\\ f\\ \\text{连续})",
+        "\\text{若}\\ f\\ \\text{在关于\\ x\\ 轴对称的}\\ D\\ \\text{上关于}\\ y\\ \\text{为奇函数，则}\\ \\iint_D f\\,d\\sigma=0"
+      ],
+      "common_traps": [
+        "★ 利用对称性时只看了积分区域的对称性，未同时检查被积函数的奇偶性",
+        "把二重积分的中值定理与定积分中值定理的形式混用",
+        "对区域可加性使用时未保证子区域无公共内点",
+        "误以为 ∬_D f dσ 一定表示体积（f 变号时为有向体积）"
+      ],
+      "exam_years": [
+        2010,
+        2013,
+        2015,
+        2018,
+        2020,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "proof"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.66,
+      "weight_source": "derived",
+      "aliases": [
+        "二重积分的概念",
+        "二重积分"
+      ]
+    },
+    {
+      "id": "math2.calc.multiintegral.polar",
+      "name": "极坐标下二重积分的计算",
+      "level": 4,
+      "parent_id": "math2.calc.multiintegral",
+      "is_leaf": true,
+      "definition": "作代换 x=r cosθ，y=r sinθ，面积元素 dσ=r dr dθ（注意多出的因子 r 不可丢），积分化为 ∫_α^β dθ ∫_{r₁(θ)}^{r₂(θ)} f(r cosθ, r sinθ) r dr。适用于积分区域为圆、扇形、圆环或被积函数含 x²+y² 的情形。",
+      "formulas": [
+        "x=r\\cos\\theta,\\quad y=r\\sin\\theta,\\quad d\\sigma=r\\,dr\\,d\\theta",
+        "\\iint_D f(x,y)\\,d\\sigma=\\int_{\\alpha}^{\\beta}d\\theta\\int_{r_1(\\theta)}^{r_2(\\theta)}f(r\\cos\\theta,r\\sin\\theta)\\,r\\,dr",
+        "x^2+y^2=r^2,\\qquad \\iint_{x^2+y^2\\le a^2}1\\,d\\sigma=\\pi a^2",
+        "\\text{圆外圆内区域}:\\ r\\ \\text{的上下限分别由外、内边界曲线给出}"
+      ],
+      "common_traps": [
+        "★ 忘记面积元素中的雅可比因子 r（最高频错误，直接导致结果差一个量纲）",
+        "θ 的上下限取错（尤其是圆心不在原点的圆，需先配方再定 θ 的范围）",
+        "区域为圆环时 r 的下限写 0",
+        "把 r 的上下限写成常数而实际是 θ 的函数（如心形线边界）",
+        "在极坐标下仍照搬直角坐标的积分次序"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.78,
+      "weight_source": "derived",
+      "aliases": [
+        "\\iint_D f(r\\cos\\theta,r\\sin\\theta)r\\,\\mathrm{d}r\\,\\mathrm{d}\\theta",
+        "x=r\\cos\\theta",
+        "\\mathrm{d}\\sigma=r\\,\\mathrm{d}r\\,\\mathrm{d}\\theta",
+        "x^2+y^2",
+        "极坐标下二重积分"
+      ]
+    },
+    {
+      "id": "math2.calc.multiintegral.rect",
+      "name": "直角坐标下二重积分的计算与交换积分次序",
+      "level": 4,
+      "parent_id": "math2.calc.multiintegral",
+      "is_leaf": true,
+      "definition": "X 型区域：D={a≤x≤b, φ₁(x)≤y≤φ₂(x)}，积分化为 ∫_a^b dx ∫_{φ₁(x)}^{φ₂(x)} f dy；Y 型区域类似。交换积分次序的关键是重新画出区域并用另一方向的穿线法重新定限，这是数二解答题的高频形式，也是化简被积函数的重要手段。",
+      "formulas": [
+        "\\iint_D f\\,d\\sigma=\\int_a^b dx\\int_{\\varphi_1(x)}^{\\varphi_2(x)}f(x,y)\\,dy\\quad(\\text{X 型})",
+        "\\iint_D f\\,d\\sigma=\\int_c^d dy\\int_{\\psi_1(y)}^{\\psi_2(y)}f(x,y)\\,dx\\quad(\\text{Y 型})",
+        "\\text{交换次序}:\\ \\int_a^b dx\\int_{\\varphi_1(x)}^{\\varphi_2(x)}f\\,dy=\\int_c^d dy\\int_{\\psi_1(y)}^{\\psi_2(y)}f\\,dx",
+        "\\text{若}\\ D\\ \\text{非标准型，用平行于坐标轴的直线分割成若干标准型小区域}"
+      ],
+      "common_traps": [
+        "★ 交换积分次序后上下限写错（未重新画区域、未用另一方向穿线定限）",
+        "内层积分限中混入外层变量以外的参数，或把内层限写成常数",
+        "区域需要分段时未分段，直接用一条曲线作上下限",
+        "直接按原次序硬算导致积不出（未意识到应先交换次序）",
+        "把 ∫∫ f dxdy 的 dx 与 dy 顺序当成与积分限顺序无关"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2016,
+        2017,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.75,
+      "weight_source": "derived",
+      "aliases": [
+        "\\iint_D f(x,y)\\,\\mathrm{d}x\\,\\mathrm{d}y",
+        "\\int_a^b\\mathrm{d}x\\int_{y_1(x)}^{y_2(x)}f(x,y)\\mathrm{d}y",
+        "交换积分次序",
+        "直角坐标下二重积分的计算",
+        "直角坐标下二重积分"
+      ]
+    },
+    {
+      "id": "math2.calc.multiintegral.swap",
+      "name": "二次积分与累次积分",
+      "level": 4,
+      "parent_id": "math2.calc.multiintegral",
+      "is_leaf": true,
+      "definition": "把二重积分化为先对一个变量后对另一个变量的两次定积分，称为累次积分（二次积分）。富比尼定理指出：当 f 在闭区域 D 上连续时，二重积分等于任一合理次序的累次积分，既可按 X 型也可按 Y 型计算。含参变量的二次积分求导时须先交换次序或换元，把参变量从内层积分中分离出来。",
+      "formulas": [
+        "\\iint_D f\\,d\\sigma=\\int_a^b dx\\int_{\\varphi_1(x)}^{\\varphi_2(x)}f\\,dy=\\int_c^d dy\\int_{\\psi_1(y)}^{\\psi_2(y)}f\\,dx",
+        "\\int_a^b dx\\int_c^d f(x)g(y)\\,dy=\\left(\\int_a^b f(x)\\,dx\\right)\\left(\\int_c^d g(y)\\,dy\\right)\\quad(\\text{矩形区域上变量分离})",
+        "\\int_a^b dx\\int_a^x f(x,y)\\,dy \\xrightarrow{\\text{交换}} \\int_a^b dy\\int_y^b f(x,y)\\,dx",
+        "F(t)=\\int_a^b f(x,t)\\,dx \\Rightarrow F'(t)=\\int_a^b \\frac{\\partial f}{\\partial t}(x,t)\\,dx\\quad(\\text{需满足可微条件})"
+      ],
+      "common_traps": [
+        "★ 含参变量 t 的内层积分直接对外层求导，未先交换积分次序把 t 分离出来",
+        "矩形区域上变量可分离时未利用乘积形式，硬算两次积分",
+        "把 ∫_a^b dx ∫_a^x f dy 交换次序时上下限写成 ∫_a^b dy ∫_a^y f dx",
+        "二次积分的内层积分结果仍含外层变量时，当成常数处理",
+        "对二次积分使用中值定理时把两次积分各用一个中值点，与二重积分中值定理混用"
+      ],
+      "exam_years": [
+        2012,
+        2015,
+        2018,
+        2020,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.64,
+      "weight_source": "derived",
+      "aliases": [
+        "\\int_a^b\\mathrm{d}x\\int_{y_1}^{y_2}f\\,\\mathrm{d}y=\\int_c^d\\mathrm{d}y\\int_{x_1}^{x_2}f\\,\\mathrm{d}x",
+        "交换积分次序",
+        "累次积分",
+        "二次积分"
+      ]
+    },
+    {
+      "id": "math2.calc.ode",
+      "name": "常微分方程",
+      "level": 3,
+      "parent_id": "math2.calc",
+      "is_leaf": false,
+      "exam_weight": 0.49
+    },
+    {
+      "id": "math2.calc.ode.bernoulli",
+      "name": "伯努利方程",
+      "level": 4,
+      "parent_id": "math2.calc.ode",
+      "is_leaf": true,
+      "definition": "形如 y'+P(x)y=Q(x)y^n（n≠0,1）的方程称为伯努利方程。作代换 z=y^{1-n}，则 z'=(1-n)y^{-n}y'，方程化为关于 z 的一阶线性方程 z'+(1-n)P(x)z=(1-n)Q(x)，套一阶线性通解公式后再回代。数二考纲含伯努利方程。",
+      "formulas": [
+        "y'+P(x)y=Q(x)y^{n}\\quad(n\\neq 0,1)",
+        "z=y^{1-n} \\Rightarrow z'+(1-n)P(x)z=(1-n)Q(x)",
+        "z=e^{-\\int (1-n)P\\,dx}\\left(\\int (1-n)Q\\,e^{\\int(1-n)P\\,dx}\\,dx+C\\right)"
+      ],
+      "common_traps": [
+        "★ 代换 z=y^{1-n} 后漏乘 (1-n) 这个系数（整个方程须同乘 (1-n)）",
+        "未验证 n≠0,1（n=0 时退化为线性方程，n=1 时可分离变量）",
+        "解出 z 后忘记回代 y=z^{1/(1-n)}",
+        "把伯努利方程当作已标准形式的一阶线性方程直接套公式"
+      ],
+      "exam_years": [
+        2013,
+        2016,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "solve",
+        "fill"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.52,
+      "weight_source": "derived",
+      "aliases": [
+        "y'+P(x)y=Q(x)y^n",
+        "z=y^{1-n}"
+      ]
+    },
+    {
+      "id": "math2.calc.ode.concept",
+      "name": "微分方程的基本概念",
+      "level": 4,
+      "parent_id": "math2.calc.ode",
+      "is_leaf": true,
+      "definition": "含未知函数及其导数的方程称为微分方程，方程中出现的最高阶导数的阶数称为方程的阶。使方程成为恒等式的函数称为解；含 n 个独立任意常数的解称为 n 阶方程的通解；由初始条件确定常数后的解称为特解。数二只要求一阶与可降阶的二阶方程，以及二阶常系数线性方程。",
+      "formulas": [
+        "\\text{通解中独立任意常数的个数} = \\text{方程的阶数}",
+        "y'=f(x) \\Rightarrow y=\\int f(x)\\,dx+C",
+        "\\text{积分曲线}:\\ \\text{通解对应的曲线族，初始条件用于确定其中一条}"
+      ],
+      "common_traps": [
+        "★ 通解中写出的任意常数不独立（如写成 C₁+C₂ 却只算一个独立常数），导致常数个数与阶数不符",
+        "把特解当作通解，或代入初始条件时只确定部分常数",
+        "求通解后未按要求给出满足初始条件的特解",
+        "把 y' 记号与 dy/dx 在分离变量时处理不一致"
+      ],
+      "exam_years": [
+        2012,
+        2015,
+        2018,
+        2021
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.52,
+      "weight_source": "derived",
+      "aliases": [
+        "微分方程的基本",
+        "基本概念",
+        "基本",
+        "微分方程"
+      ]
+    },
+    {
+      "id": "math2.calc.ode.first_linear",
+      "name": "一阶线性微分方程",
+      "level": 4,
+      "parent_id": "math2.calc.ode",
+      "is_leaf": true,
+      "definition": "形如 y'+P(x)y=Q(x) 的方程称为一阶线性微分方程，Q≠0 时非齐次、Q≡0 时齐次。用常数变易法或通解公式求解。通解结构为非齐次特解加对应齐次方程通解，这一结论在二阶情形同样成立。",
+      "formulas": [
+        "y=e^{-\\int P(x)dx}\\left(\\int Q(x)e^{\\int P(x)dx}\\,dx+C\\right)",
+        "\\text{齐次}:\\ y=Ce^{-\\int P(x)\\,dx}",
+        "\\text{若以}\\ x\\ \\text{为未知函数}:\\ \\frac{dx}{dy}+P(y)x=Q(y)\\ \\text{同样套用公式}",
+        "\\text{通解结构}:\\ y=y_{\\text{齐通}}+y_{\\text{非齐特}}"
+      ],
+      "common_traps": [
+        "★ 使用通解公式时把 e^{∫P dx} 与 e^{-∫P dx} 的位置弄反（两个因子必互为倒数关系）",
+        "未先把方程化为 y'+P(x)y=Q(x) 的标准形式（y' 的系数须为 1）就直接套公式",
+        "当 P(x)、Q(x) 交换为 x 的函数时（如 dx/dy 形式）未灵活变通",
+        "遗漏常数 C，或把 C 写在错误的积分层"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2017,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.57,
+      "weight_source": "derived",
+      "aliases": [
+        "y'+P(x)y=Q(x)",
+        "y=e^{-\\int P\\,\\mathrm{d}x}\\left[\\int Q(x)e^{\\int P\\,\\mathrm{d}x}\\mathrm{d}x+C\\right]",
+        "通解公式"
+      ]
+    },
+    {
+      "id": "math2.calc.ode.reducible",
+      "name": "可降阶的高阶微分方程",
+      "level": 4,
+      "parent_id": "math2.calc.ode",
+      "is_leaf": true,
+      "definition": "三类可降阶方程：① y^{(n)}=f(x) 逐次积分 n 次；② y''=f(x,y') 型（不显含 y），令 p=y' 化为关于 p 的一阶方程；③ y''=f(y,y') 型（不显含 x），令 p=y' 并以 y 为自变量，此时 y''=p dp/dy。数二考纲含这三类降阶。",
+      "formulas": [
+        "y^{(n)}=f(x) \\Rightarrow \\text{逐次积分}\\ n\\ \\text{次，得}\\ n\\ \\text{个任意常数}",
+        "y''=f(x,y'):\\ \\text{令}\\ p=y',\\ \\text{则}\\ y''=p',\\ \\text{得}\\ p'=f(x,p)",
+        "y''=f(y,y'):\\ \\text{令}\\ p=y',\\ \\text{则}\\ y''=p\\frac{dp}{dy},\\ \\text{得}\\ p\\frac{dp}{dy}=f(y,p)",
+        "\\text{不显含}\\ x\\ \\text{型解出}\\ p\\ \\text{后，由}\\ \\frac{dy}{dx}=p(y)\\ \\text{再分离变量}"
+      ],
+      "common_traps": [
+        "★ 在 y''=f(y,y') 型中仍把 y'' 写成 dp/dx 而未换成 p·dp/dy",
+        "逐次积分 y^{(n)}=f(x) 时漏写积分常数，导致通解常数个数不足",
+        "两类降阶的代换方式混用（不显含 x 与不显含 y 的处理不同）",
+        "解出 p 后未再积分一次求 y，直接以 p 作为答案"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2017,
+        2020,
+        2023
+      ],
+      "typical_qtypes": [
+        "solve",
+        "fill"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.54,
+      "weight_source": "derived",
+      "aliases": [
+        "y''=f(x)",
+        "y''=f(x,y')",
+        "y''=f(y,y')",
+        "高阶微分方程",
+        "可降阶"
+      ]
+    },
+    {
+      "id": "math2.calc.ode.second_linear",
+      "name": "二阶常系数线性微分方程",
+      "level": 4,
+      "parent_id": "math2.calc.ode",
+      "is_leaf": true,
+      "definition": "对于 y''+py'+qy=f(x)：先解齐次方程，由特征方程 r²+pr+q=0 的根型写出齐次通解；再依 f(x) 的形式用待定系数法求一个特解，最后叠加。特征根分三种情况（相异实根、重根、共轭复根），非齐次项分多项式、指数、三角函数及组合型。数二不考欧拉方程。",
+      "formulas": [
+        "r^2+pr+q=0:\\quad r_1\\neq r_2 \\Rightarrow y=C_1e^{r_1x}+C_2e^{r_2x}",
+        "r_1=r_2=r \\Rightarrow y=(C_1+C_2x)e^{rx}",
+        "r=\\alpha\\pm\\beta i \\Rightarrow y=e^{\\alpha x}(C_1\\cos\\beta x+C_2\\sin\\beta x)",
+        "f(x)=P_m(x)e^{\\lambda x}:\\ y^*=x^{k}Q_m(x)e^{\\lambda x},\\quad k=\\lambda\\ \\text{作为特征根的重数}",
+        "f(x)=e^{\\alpha x}\\left[P_l(x)\\cos\\beta x+Q_m(x)\\sin\\beta x\\right]:\\ y^*=x^{k}e^{\\alpha x}\\left[R_n\\cos\\beta x+S_n\\sin\\beta x\\right],\\ n=\\max(l,m)",
+        "\\text{通解}=y_{\\text{齐通}}+y^*"
+      ],
+      "common_traps": [
+        "★ 求特解时忘记乘 x^k（当 f(x) 中的 λ 或 α±βi 恰是特征根时须升幂，这是最高频失分点）",
+        "特征根为共轭复根时通解中漏写 e^{αx} 因子或把 cos、sin 的系数位置搞混",
+        "待定系数法设 y* 时多项式次数设得比 P_m(x) 低",
+        "把非齐次项拆成几部分分别求特解后，忘记最后相加并加上齐次通解",
+        "特征方程写错（p、q 与方程中系数的对应关系错位）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.65,
+      "weight_source": "derived",
+      "aliases": [
+        "y''+py'+qy=0",
+        "y''+py'+qy=f(x)",
+        "r^2+pr+q=0",
+        "特征方程"
+      ]
+    },
+    {
+      "id": "math2.calc.ode.separable",
+      "name": "可分离变量方程与齐次方程",
+      "level": 4,
+      "parent_id": "math2.calc.ode",
+      "is_leaf": true,
+      "definition": "可分离变量方程形如 dy/dx=f(x)g(y)，把变量分离后两边积分即得通解（g(y)≠0）。齐次方程形如 dy/dx=φ(y/x)，作代换 u=y/x（即 y=ux，y'=u+xu'）化为可分离变量方程。这两类是数二一阶方程的基本型。",
+      "formulas": [
+        "\\frac{dy}{dx}=f(x)g(y) \\Rightarrow \\int\\frac{dy}{g(y)}=\\int f(x)\\,dx+C",
+        "\\frac{dy}{dx}=\\varphi\\left(\\frac{y}{x}\\right),\\quad u=\\frac{y}{x}:\\ x\\frac{du}{dx}=\\varphi(u)-u",
+        "\\frac{dy}{dx}=f(ax+by+c),\\quad u=ax+by+c: \\frac{du}{dx}=a+bf(u)",
+        "\\text{形如}\\ \\frac{dx}{dy}=f(x,y)\\ \\text{时也可把}\\ x\\ \\text{视作}\\ y\\ \\text{的函数处理}"
+      ],
+      "common_traps": [
+        "★ 分离变量时两边除去的因子可能使 g(y)=0 对应的解丢失（须单独讨论常数解）",
+        "齐次方程代换后忘记把 y' = u + x u' 中的两项都写出（常漏掉 u）",
+        "代换后未把方程化为仅含 u 与 x 的形式就匆忙积分",
+        "积分后未回代 u=y/x，答案中残留中间变量",
+        "把『齐次方程』与『齐次线性方程』两个不同概念混淆"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.56,
+      "weight_source": "derived",
+      "aliases": [
+        "y'=f(x)g(y)",
+        "\\frac{\\mathrm{d}y}{\\mathrm{d}x}=\\varphi(\\frac{y}{x})",
+        "可分离变量方程",
+        "齐次方程"
+      ]
+    },
+    {
+      "id": "math2.linalg.det",
+      "name": "行列式",
+      "level": 3,
+      "parent_id": "math2.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.14
+    },
+    {
+      "id": "math2.linalg.det.compute",
+      "name": "行列式的计算方法",
+      "level": 4,
+      "parent_id": "math2.linalg.det",
+      "is_leaf": true,
+      "definition": "核心工具是展开定理：行列式等于某行（列）各元素与其代数余子式乘积之和；而某行元素与另一行对应元素的代数余子式乘积之和为零。常用技巧有化三角形、按行列展开、加边法、递推法，以及对含参数行列式用提公因子与拆项。",
+      "formulas": [
+        "|A|=\\sum_{j=1}^{n}a_{ij}A_{ij}\\quad(A_{ij}=(-1)^{i+j}M_{ij})",
+        "\\sum_{j=1}^{n}a_{kj}A_{ij}=0\\quad(k\\neq i)",
+        "\\left|\\begin{matrix}a_1&&\\\\&\\ddots&\\\\&&a_n\\end{matrix}\\right|=\\prod_{i=1}^{n}a_i",
+        "\\left|\\begin{matrix}A&O\\\\C&B\\end{matrix}\\right|=|A|\\cdot|B|\\quad(\\text{分块三角})"
+      ],
+      "common_traps": [
+        "★ 符号 (-1)^{i+j} 写错，尤其是余子式与代数余子式混用（题目给 M_{ij} 却按 A_{ij} 用）",
+        "化三角形过程中某行乘 k 后未同步调整行列式的倍数",
+        "含参数行列式未按参数讨论，直接约去可能为零的因式",
+        "分块行列式误用 |A||B|-|C||D| 等错误公式"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2015,
+        2017,
+        2019,
+        2021,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve",
+        "choice"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.17,
+      "weight_source": "derived",
+      "aliases": [
+        "行列式"
+      ]
+    },
+    {
+      "id": "math2.linalg.det.definition",
+      "name": "行列式的定义",
+      "level": 4,
+      "parent_id": "math2.linalg.det",
+      "is_leaf": true,
+      "definition": "n 阶行列式是 n! 项的代数和，每项取自不同行不同列的元素之积，符号由该项列标排列的逆序数决定：偶排列取正、奇排列取负。二阶与三阶行列式可用对角线法则（沙路法则）直接展开，但该法则对四阶及以上不成立。行列式本质上是方阵的一个数值特征。",
+      "formulas": [
+        "|A|=\\sum_{j_1j_2\\cdots j_n}(-1)^{\\tau(j_1j_2\\cdots j_n)}a_{1j_1}a_{2j_2}\\cdots a_{nj_n}",
+        "\\left|\\begin{matrix}a&b\\\\c&d\\end{matrix}\\right|=ad-bc",
+        "\\left|\\begin{matrix}a_{11}&a_{12}&a_{13}\\\\a_{21}&a_{22}&a_{23}\\\\a_{31}&a_{32}&a_{33}\\end{matrix}\\right|=a_{11}a_{22}a_{33}+a_{12}a_{23}a_{31}+a_{13}a_{21}a_{32}-a_{13}a_{22}a_{31}-a_{11}a_{23}a_{32}-a_{12}a_{21}a_{33}",
+        "|A^{T}|=|A|,\\qquad |E|=1,\\qquad |O|=0"
+      ],
+      "common_traps": [
+        "★ 对四阶及以上行列式误用对角线法则（沙路法则只对二、三阶成立）",
+        "三阶展开式中副对角线方向的三个负项漏写或符号写反",
+        "把行列式的项数与矩阵元素个数混为一谈（行列式是 n! 项之和）",
+        "认为一阶行列式的值与元素的绝对值有关（一阶行列式就是该元素本身）"
+      ],
+      "exam_years": [
+        2012,
+        2015,
+        2018,
+        2021
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.15,
+      "weight_source": "derived",
+      "aliases": [
+        "\\sum(-1)^{\\tau(j_1j_2\\cdots j_n)}a_{1j_1}a_{2j_2}\\cdots a_{nj_n}",
+        "行列式"
+      ]
+    },
+    {
+      "id": "math2.linalg.det.properties",
+      "name": "行列式的性质",
+      "level": 4,
+      "parent_id": "math2.linalg.det",
+      "is_leaf": true,
+      "definition": "行列式的核心性质：转置不变；互换两行（列）变号；某行乘 k 等于行列式乘 k；两行相同或成比例则行列式为零；某行加上另一行的 k 倍值不变。这些性质是化三角形计算的基础，也是选择题中判断行列式是否为零的主要依据。",
+      "formulas": [
+        "|A^{T}|=|A|",
+        "|kA|=k^{n}|A|\\quad(A\\ \\text{为}\\ n\\ \\text{阶方阵})",
+        "|AB|=|A|\\cdot|B|",
+        "\\text{互换两行（列）} \\Rightarrow \\text{行列式变号};\\qquad \\text{两行（列）相同或成比例} \\Rightarrow |A|=0",
+        "|A^{-1}|=\\frac{1}{|A|},\\qquad |A^{*}|=|A|^{n-1}"
+      ],
+      "common_traps": [
+        "★ 把 |kA|=k^n|A| 误写成 k|A|（选择题高频陷阱）",
+        "误认为 |A+B|=|A|+|B|（行列式对加法不满足线性，只对单行可拆）",
+        "混淆『某行乘 k』与『整个矩阵乘 k』对行列式的不同影响",
+        "由 |A|=0 推出 A=O，或由 |AB|=0 推出 A=O 或 B=O"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2016,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        1,
+        2
+      ],
+      "exam_weight": 0.15,
+      "weight_source": "derived",
+      "aliases": [
+        "行列式"
+      ]
+    },
+    {
+      "id": "math2.linalg.matrix",
+      "name": "矩阵",
+      "level": 3,
+      "parent_id": "math2.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.31
+    },
+    {
+      "id": "math2.linalg.matrix.elementary",
+      "name": "初等变换与初等矩阵",
+      "level": 4,
+      "parent_id": "math2.linalg.matrix",
+      "is_leaf": true,
+      "definition": "对单位矩阵作一次初等变换所得矩阵称为初等矩阵。左乘初等矩阵相当于作相应的行变换，右乘相当于列变换，这是『左行右列』原则。初等矩阵均可逆，其逆仍是同类型初等矩阵。求逆矩阵的 (A|E) 行变换法正是基于这一原理。",
+      "formulas": [
+        "E_{ij}(k):\\ \\text{第}\\ j\\ \\text{行的}\\ k\\ \\text{倍加到第}\\ i\\ \\text{行}",
+        "\\text{左乘}\\ E \\Rightarrow \\text{行变换};\\qquad \\text{右乘}\\ E \\Rightarrow \\text{列变换}",
+        "E_{ij}^{-1}=E_{ij}(-k),\\qquad E_i^{-1}(k)=E_i\\left(\\frac{1}{k}\\right)",
+        "(A\\mid E)\\xrightarrow{\\text{初等行变换}}(E\\mid A^{-1})\\quad(|A|\\neq 0)",
+        "A\\ \\text{可逆} \\iff A\\ \\text{可表示为有限个初等矩阵之积}"
+      ],
+      "common_traps": [
+        "★ 混淆左乘与右乘对应的变换类型（左行右列记反）",
+        "在 (A|E) 法中混用列变换，导致求出的不是 A^{-1}",
+        "认为交换两行的初等矩阵等于 -E（实际是单位矩阵交换两行）",
+        "把初等矩阵的逆写成转置"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2015,
+        2018,
+        2020,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.35,
+      "weight_source": "derived",
+      "aliases": [
+        "初等变换",
+        "初等矩阵"
+      ]
+    },
+    {
+      "id": "math2.linalg.matrix.inverse",
+      "name": "逆矩阵与伴随矩阵",
+      "level": 4,
+      "parent_id": "math2.linalg.matrix",
+      "is_leaf": true,
+      "definition": "对方阵 A，若存在 B 使 AB=BA=E，则称 A 可逆，B 为 A 的逆。A 可逆 ⟺ |A|≠0。A^{-1}=A*/|A|，其中 A* 是伴随矩阵（元素为各代数余子式并按转置位置排列）。伴随矩阵满足 AA*=A*A=|A|E，是推导逆与秩结论的核心恒等式。",
+      "formulas": [
+        "AA^{*}=A^{*}A=|A|E",
+        "A^{-1}=\\frac{1}{|A|}A^{*}\\quad(|A|\\neq 0)",
+        "|A^{*}|=|A|^{n-1}",
+        "(A^{*})^{*}=|A|^{n-2}A\\quad(n\\ge 2),\\qquad (kA)^{*}=k^{n-1}A^{*}",
+        "A\\ \\text{可逆} \\iff |A|\\neq 0 \\iff r(A)=n"
+      ],
+      "common_traps": [
+        "★ 伴随矩阵的元素排列方向搞错（A* 的第 i 行第 j 列元素是 A_{ji}，即代数余子式矩阵的转置）",
+        "漏掉 |A*|=|A|^{n-1} 中的指数 n-1",
+        "用 A^{-1}=A*/|A| 时未先验证 |A|≠0",
+        "求逆时把 (kA)^{-1} 写成 kA^{-1}（正确为 A^{-1}/k）"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2013,
+        2014,
+        2016,
+        2018,
+        2020,
+        2021,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.37,
+      "weight_source": "derived",
+      "aliases": [
+        "A^{-1}=\\frac{1}{|A|}A^{*}",
+        "AA^{*}=A^{*}A=|A|E",
+        "逆矩阵",
+        "伴随矩阵"
+      ]
+    },
+    {
+      "id": "math2.linalg.matrix.operations",
+      "name": "矩阵的运算",
+      "level": 4,
+      "parent_id": "math2.linalg.matrix",
+      "is_leaf": true,
+      "definition": "矩阵运算含加法、数乘、乘法、转置与方幂。乘法不满足交换律（AB≠BA）且不满足消去律；(AB)^T=B^T A^T；转置与逆的运算次序均要颠倒。方阵的行列式满足 |AB|=|A||B|。",
+      "formulas": [
+        "(AB)^T=B^{T}A^{T},\\qquad (A+B)^T=A^{T}+B^{T}",
+        "(AB)^{-1}=B^{-1}A^{-1},\\qquad (A^{T})^{-1}=(A^{-1})^{T}",
+        "(kA)^{T}=kA^{T},\\qquad |AB|=|A||B|",
+        "AB\\neq BA\\ \\text{（一般不成立）};\\qquad AB=O \\nRightarrow A=O\\ \\text{或}\\ B=O",
+        "(A+B)^2=A^2+AB+BA+B^2 \\neq A^2+2AB+B^2"
+      ],
+      "common_traps": [
+        "★ 把 (AB)^T 写成 A^T B^T（转置与求逆都要反序，这是最高频错误）",
+        "用 (A+B)^2=A^2+2AB+B^2 展开（乘法不可交换）",
+        "由 AB=O 推出 A=O 或 B=O（消去律不成立）",
+        "分块矩阵转置时只转置了子块而未调整位置",
+        "把数量 k 与矩阵相乘的位置随意互换而忽略维度"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2016,
+        2018,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill"
+      ],
+      "difficulty_range": [
+        1,
+        3
+      ],
+      "exam_weight": 0.37,
+      "weight_source": "derived",
+      "aliases": [
+        "矩阵"
+      ]
+    },
+    {
+      "id": "math2.linalg.matrix.partitioned",
+      "name": "分块矩阵",
+      "level": 4,
+      "parent_id": "math2.linalg.matrix",
+      "is_leaf": true,
+      "definition": "用若干条横线与纵线把矩阵分成小块，以子块为元素的形式称为分块矩阵。分块后可按普通矩阵的运算规则处理，乘法仍要求左矩阵的列分法与右矩阵的行分法一致。分块对角矩阵的行列式、幂与逆都可按块分别计算，是简化高阶运算的常用手段，也可用来求解矩阵方程 AX=B。",
+      "formulas": [
+        "\\begin{pmatrix}A&B\\\\C&D\\end{pmatrix}^{T}=\\begin{pmatrix}A^{T}&C^{T}\\\\B^{T}&D^{T}\\end{pmatrix}",
+        "\\begin{pmatrix}A_1&&\\\\&\\ddots&\\\\&&A_s\\end{pmatrix}^{n}=\\begin{pmatrix}A_1^{n}&&\\\\&\\ddots&\\\\&&A_s^{n}\\end{pmatrix}",
+        "\\begin{pmatrix}A&O\\\\O&B\\end{pmatrix}^{-1}=\\begin{pmatrix}A^{-1}&O\\\\O&B^{-1}\\end{pmatrix}",
+        "\\left|\\begin{matrix}A&O\\\\C&B\\end{matrix}\\right|=|A|\\cdot|B|",
+        "AX=B,\\ |A|\\neq 0 \\Rightarrow X=A^{-1}B"
+      ],
+      "common_traps": [
+        "★ 对分块矩阵求转置时只把各子块分别转置，未同时交换子块的位置（副对角线上的块必须换位）",
+        "分块乘法时左矩阵的列分法与右矩阵的行分法不一致就相乘",
+        "分块对角矩阵求逆时把副对角线形式也套用成块对角公式（副对角块需反向排列）",
+        "用 (A|B) 行变换解矩阵方程时误用了列变换",
+        "把子块行列式的乘积当作整个分块矩阵的行列式（仅当其中有零块时才有简单结论）"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2016,
+        2019,
+        2021,
+        2023
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.35,
+      "weight_source": "derived",
+      "aliases": [
+        "\\begin{pmatrix}A&B\\\\C&D\\end{pmatrix}"
+      ]
+    },
+    {
+      "id": "math2.linalg.matrix.rank",
+      "name": "矩阵的秩与初等变换",
+      "level": 4,
+      "parent_id": "math2.linalg.matrix",
+      "is_leaf": true,
+      "definition": "矩阵的秩是非零子式的最高阶数，也等于行阶梯形中非零行的个数。初等行变换不改变秩，也不改变列向量组的线性关系（但会改变行向量组的关系）。求秩的标准方法是初等行变换化行阶梯形。秩是判定方程组解的情况、向量组相关性与可逆性的统一工具。",
+      "formulas": [
+        "r(A)=r \\iff A\\ \\text{中存在}\\ r\\ \\text{阶非零子式，且所有}\\ r+1\\ \\text{阶子式全为}\\ 0",
+        "0\\le r(A_{m\\times n})\\le \\min(m,n)",
+        "r(A)=n \\iff |A|\\neq 0\\quad(A\\ \\text{为}\\ n\\ \\text{阶方阵})",
+        "r(AB)\\le\\min\\{r(A),r(B)\\},\\qquad r(A+B)\\le r(A)+r(B)",
+        "AB=O \\Rightarrow r(A)+r(B)\\le n\\quad(A\\ \\text{为}\\ m\\times n,\\ B\\ \\text{为}\\ n\\times s)",
+        "r(A)=r(A^{T})=r(A^{T}A)=r(AA^{T})"
+      ],
+      "common_traps": [
+        "★ 用初等行变换求出秩的同时，把变换后的矩阵与原矩阵的列向量关系直接等同（行变换保持列向量的线性关系，但列变换不保持）",
+        "认为 r(A+B)=r(A)+r(B) 总成立",
+        "把 AB=O 直接推出 r(A)=0 或 r(B)=0",
+        "化行阶梯形时未化到最简，非零行数数错（尤其含参数时需要讨论）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2014,
+        2015,
+        2017,
+        2018,
+        2019,
+        2020,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.39,
+      "weight_source": "derived",
+      "aliases": [
+        "r(A)",
+        "初等变换不改变秩",
+        "矩阵的秩",
+        "初等变换"
+      ]
+    },
+    {
+      "id": "math2.linalg.vector",
+      "name": "向量",
+      "level": 3,
+      "parent_id": "math2.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.25
+    },
+    {
+      "id": "math2.linalg.vector.independence",
+      "name": "向量组的线性相关性",
+      "level": 4,
+      "parent_id": "math2.linalg.vector",
+      "is_leaf": true,
+      "definition": "若存在不全为零的数 k₁,…,k_s 使 k₁α₁+…+k_sα_s=0，称向量组线性相关；否则（只有全零解）线性无关。判定的核心是把向量按列排成矩阵 A，则相关 ⟺ Ax=0 有非零解 ⟺ r(A)<s。线性相关等价于组中至少有一个向量可由其余向量线性表示。",
+      "formulas": [
+        "\\alpha_1,\\dots,\\alpha_s\\ \\text{线性相关} \\iff \\exists\\ \\text{不全为零的}\\ k_i:\\ \\sum_{i=1}^{s}k_i\\alpha_i=0",
+        "\\text{线性相关} \\iff r(\\alpha_1,\\dots,\\alpha_s)<s",
+        "\\text{线性无关} \\iff r(\\alpha_1,\\dots,\\alpha_s)=s",
+        "s>n \\Rightarrow \\alpha_1,\\dots,\\alpha_s\\ \\text{线性相关}\\ (n\\ \\text{为向量维数})",
+        "\\text{无关组的部分组仍无关};\\qquad \\text{相关组的延伸组仍相关}",
+        "\\text{含零向量的向量组必线性相关（除零向量自身外）}"
+      ],
+      "common_traps": [
+        "★ 用行列式为零判定相关性时只适用于『向量个数=维数』的方阵情形，对非方阵情形硬套行列式",
+        "把向量按行还是按列排成矩阵搞混，导致秩与向量个数的比较对象错误",
+        "由『部分组线性相关』推出整个组线性相关（正确），却错误地反推『部分组无关则整体无关』",
+        "混淆『线性相关』与『向量组中任意一个向量都可由其余表示』（只需存在一个即可）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.33,
+      "weight_source": "derived",
+      "aliases": [
+        "k_1\\alpha_1+k_2\\alpha_2+\\cdots+k_s\\alpha_s=0",
+        "线性相关",
+        "线性无关",
+        "线性相关性",
+        "向量组"
+      ]
+    },
+    {
+      "id": "math2.linalg.vector.inner_product",
+      "name": "向量的内积与正交化（施密特方法）",
+      "level": 4,
+      "parent_id": "math2.linalg.vector",
+      "is_leaf": true,
+      "definition": "n 维向量的内积 (α,β)=α^Tβ=Σa_i b_i，由此定义长度 ‖α‖=√(α,α) 与夹角余弦。若 (α,β)=0 称二者正交；不含零向量且两两正交的向量组必线性无关。施密特正交化把线性无关组化为正交组，再单位化即得正交单位向量组。数二对此要求低于数一，主要出现在填空题中。",
+      "formulas": [
+        "(\\alpha,\\beta)=\\alpha^{T}\\beta=\\sum_{i=1}^{n}a_ib_i,\\qquad \\|\\alpha\\|=\\sqrt{(\\alpha,\\alpha)}",
+        "\\alpha\\perp\\beta \\iff (\\alpha,\\beta)=0",
+        "\\text{两两正交的非零向量组必线性无关}",
+        "\\beta_1=\\alpha_1,\\quad \\beta_2=\\alpha_2-\\frac{(\\alpha_2,\\beta_1)}{(\\beta_1,\\beta_1)}\\beta_1",
+        "\\beta_3=\\alpha_3-\\frac{(\\alpha_3,\\beta_1)}{(\\beta_1,\\beta_1)}\\beta_1-\\frac{(\\alpha_3,\\beta_2)}{(\\beta_2,\\beta_2)}\\beta_2,\\qquad e_i=\\frac{\\beta_i}{\\|\\beta_i\\|}"
+      ],
+      "common_traps": [
+        "★ 施密特正交化时减去的投影项漏乘系数或把分母写成 (β_1,α_2)，导致结果不正交",
+        "把『正交』与『线性无关』互相推出（正交必无关，但无关未必正交）",
+        "正交化后忘记单位化，或单位化时除以零向量的长度",
+        "取初始向量组中含有零向量时仍直接做正交化（分母 (β_1,β_1)=0）",
+        "把向量内积与矩阵乘法、行列式的运算混用"
+      ],
+      "exam_years": [
+        2011,
+        2014,
+        2017,
+        2019,
+        2022
+      ],
+      "typical_qtypes": [
+        "fill",
+        "choice",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.27,
+      "weight_source": "derived",
+      "aliases": [
+        "[\\alpha,\\beta]=0",
+        "A^{T}A=E",
+        "施密特正交化",
+        "向量的内积",
+        "内积",
+        "正交化",
+        "施密特方法",
+        "施密特"
+      ]
+    },
+    {
+      "id": "math2.linalg.vector.linear_combination",
+      "name": "向量的线性组合与线性表示",
+      "level": 4,
+      "parent_id": "math2.linalg.vector",
+      "is_leaf": true,
+      "definition": "若存在数 k₁,…,k_s 使 β=k₁α₁+…+k_sα_s，称 β 可由该向量组线性表示。β 可表示的充要条件是方程组 (α₁,…,α_s)x=β 有解，即 r(α₁,…,α_s)=r(α₁,…,α_s,β)。向量组等价指两组的向量可互相线性表示。",
+      "formulas": [
+        "\\beta=k_1\\alpha_1+\\cdots+k_s\\alpha_s \\iff (\\alpha_1,\\dots,\\alpha_s)x=\\beta\\ \\text{有解}",
+        "\\beta\\ \\text{可由}\\ \\alpha_1,\\dots,\\alpha_s\\ \\text{表示} \\iff r(\\alpha_1,\\dots,\\alpha_s)=r(\\alpha_1,\\dots,\\alpha_s,\\beta)",
+        "\\text{向量组}\\ (I)\\ \\text{与}\\ (II)\\ \\text{等价} \\iff r(I)=r(II)=r(I,II)",
+        "\\text{若}\\ s>n\\ (\\text{向量个数超过维数})，则\\ \\alpha_1,\\dots,\\alpha_s\\ \\text{必线性相关}"
+      ],
+      "common_traps": [
+        "★ 判断可表示性时只比较了两个秩的大小方向，未验证二者是否相等",
+        "把『不能表示』当成方程组无解之外的其他情形（如把有唯一解误判为不能表示）",
+        "忽略向量维数与个数的关系，对 s>n 的向量组仍试图找唯一表示",
+        "用行列式判可表示性时只适用于方阵情形"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2014,
+        2016,
+        2018,
+        2020,
+        2022
+      ],
+      "typical_qtypes": [
+        "choice",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.28,
+      "weight_source": "derived",
+      "aliases": [
+        "\\beta=k_1\\alpha_1+k_2\\alpha_2+\\cdots+k_s\\alpha_s",
+        "线性表示",
+        "向量的线性组合",
+        "线性组合",
+        "线性"
+      ]
+    },
+    {
+      "id": "math2.linalg.vector.rank_lemma",
+      "name": "向量组的秩与线性表示（核心定理）",
+      "level": 4,
+      "parent_id": "math2.linalg.vector",
+      "is_leaf": true,
+      "definition": "向量组的极大线性无关组是组内线性无关、再加入任一组内向量即相关的部分组，其向量个数称为向量组的秩，记为 r(α₁,…,α_s)。极大无关组不唯一，但秩唯一。核心结论：若向量组 (II) 可由 (I) 线性表示，则 r(II)≤r(I)；两向量组等价当且仅当它们的秩相等且可互相表示。",
+      "formulas": [
+        "r(\\alpha_1,\\dots,\\alpha_s)=\\text{极大线性无关组中向量的个数}",
+        "\\beta_1,\\dots,\\beta_t\\ \\text{可由}\\ \\alpha_1,\\dots,\\alpha_s\\ \\text{线性表示} \\Rightarrow r(\\beta_1,\\dots,\\beta_t)\\le r(\\alpha_1,\\dots,\\alpha_s)",
+        "\\text{向量组等价} \\iff r(I)=r(II)=r(I,II)",
+        "r(\\alpha_1,\\dots,\\alpha_s)=r(A)\\quad(A=(\\alpha_1,\\dots,\\alpha_s))"
+      ],
+      "common_traps": [
+        "★ 把极大无关组当成唯一（题目要求『全部』极大无关组时只写了一个）",
+        "求极大无关组时对矩阵作了列变换，导致列向量与原向量不再对应",
+        "由秩相等直接推出两向量组等价（还须能互相线性表示）",
+        "把其余向量用极大无关组表示时，直接读取行变换后的矩阵而不作回代"
+      ],
+      "exam_years": [
+        2011,
+        2013,
+        2014,
+        2016,
+        2017,
+        2019,
+        2021,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.3,
+      "weight_source": "derived",
+      "aliases": [
+        "向量组的秩",
+        "向量组",
+        "线性表示",
+        "线性",
+        "核心定理"
+      ]
+    },
+    {
+      "id": "math2.linalg.equation",
+      "name": "线性方程组",
+      "level": 3,
+      "parent_id": "math2.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.47
+    },
+    {
+      "id": "math2.linalg.equation.homogeneous",
+      "name": "齐次线性方程组",
+      "level": 4,
+      "parent_id": "math2.linalg.equation",
+      "is_leaf": true,
+      "definition": "n 元齐次线性方程组 Ax=0 恒有零解。有非零解 ⟺ r(A)<n；只有零解 ⟺ r(A)=n。当 r(A)=r<n 时，基础解系恰含 n-r 个线性无关解，通解为它们的任意线性组合。基础解系不唯一，但所含向量个数固定为 n-r(A)。",
+      "formulas": [
+        "Ax=0\\ \\text{有非零解} \\iff r(A)<n;\\qquad \\text{只有零解} \\iff r(A)=n",
+        "\\text{基础解系含}\\ n-r(A)\\ \\text{个向量}",
+        "x=k_1\\xi_1+k_2\\xi_2+\\cdots+k_{n-r}\\xi_{n-r}\\quad(k_i\\ \\text{任意})",
+        "A\\xi=0,\\ A\\eta=0 \\Rightarrow A(k_1\\xi+k_2\\eta)=0\\ \\text{（解的线性组合仍为解）}",
+        "r(A)=n \\iff |A|\\neq 0\\ \\text{（方阵情形）}"
+      ],
+      "common_traps": [
+        "★ 把基础解系中向量的个数写成 r(A) 而不是 n-r(A)",
+        "只求出 n-r 个解却未验证它们线性无关就当作基础解系",
+        "对含参数的方程组未讨论参数取值，直接约去可能为零的因子",
+        "把特解或非齐次方程的解混入齐次方程的基础解系"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.61,
+      "weight_source": "derived",
+      "aliases": [
+        "Ax=0",
+        "基础解系",
+        "n-r(A)"
+      ]
+    },
+    {
+      "id": "math2.linalg.equation.nonhomogeneous",
+      "name": "非齐次线性方程组",
+      "level": 4,
+      "parent_id": "math2.linalg.equation",
+      "is_leaf": true,
+      "definition": "对 Ax=b（b≠0）：有解 ⟺ r(A)=r(A,b)（增广矩阵的秩等于系数矩阵的秩）；此时若 r(A)=n 则解唯一，若 r(A)<n 则有无穷多解。通解结构为非齐次的一个特解加上对应齐次方程的通解：x=η*+k₁ξ₁+…+k_{n-r}ξ_{n-r}。",
+      "formulas": [
+        "Ax=b\\ \\text{有解} \\iff r(A)=r(A,b)",
+        "r(A)<r(A,b) \\iff Ax=b\\ \\text{无解}",
+        "r(A)=r(A,b)=n \\Rightarrow \\text{唯一解};\\qquad r(A)=r(A,b)<n \\Rightarrow \\text{无穷多解}",
+        "x=\\eta^{*}+k_1\\xi_1+\\cdots+k_{n-r}\\xi_{n-r}",
+        "\\eta_1,\\eta_2\\ \\text{为}\\ Ax=b\\ \\text{的解} \\Rightarrow \\eta_1-\\eta_2\\ \\text{为}\\ Ax=0\\ \\text{的解}"
+      ],
+      "common_traps": [
+        "★ 比较秩时只看了 r(A) 而漏看 r(A,b)（增广矩阵必须一起化行阶梯形）",
+        "把『有解』的条件写成 r(A)=n（忽略了 b 的相容性）",
+        "通解中把特解 η* 遗漏，只写出齐次通解",
+        "解含参数方程组时未对参数分类讨论，或讨论时遗漏边界值",
+        "把非齐次方程两个解的和当作非齐次方程的解（一般不是，2η 才是）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.62,
+      "weight_source": "derived",
+      "aliases": [
+        "Ax=b",
+        "x=\\eta+\\xi"
+      ]
+    },
+    {
+      "id": "math2.linalg.equation.structure",
+      "name": "线性方程组解的结构与判定",
+      "level": 4,
+      "parent_id": "math2.linalg.equation",
+      "is_leaf": true,
+      "definition": "解的结构是齐次与非齐次方程组的统一框架：齐次组的解集是向量空间，由基础解系张成；非齐次组的解集是仿射集，等于一个特解加齐次通解。判定有解性只看 r(A) 与 r(A,b) 是否相等；解的个数由 r(A) 与未知量个数 n 的比较决定。掌握结构可避免重复求解，直接从已知解构造出新解。",
+      "formulas": [
+        "Ax=b\\ \\text{有解} \\iff r(A)=r(A,b)",
+        "\\text{解集结构}:\\ S=\\eta^{*}+\\{x\\mid Ax=0\\}",
+        "\\xi,\\eta\\ \\text{为}\\ Ax=0\\ \\text{的解} \\Rightarrow k_1\\xi+k_2\\eta\\ \\text{仍为}\\ Ax=0\\ \\text{的解}",
+        "\\eta_1,\\eta_2\\ \\text{为}\\ Ax=b\\ \\text{的解} \\Rightarrow \\eta_1-\\eta_2\\ \\text{为}\\ Ax=0\\ \\text{的解}",
+        "\\eta\\ \\text{为}\\ Ax=b\\ \\text{的解},\\ \\xi\\ \\text{为}\\ Ax=0\\ \\text{的解} \\Rightarrow \\eta+\\xi\\ \\text{为}\\ Ax=b\\ \\text{的解}",
+        "\\sum_{i=1}^{s}k_i\\eta_i\\ \\text{为}\\ Ax=b\\ \\text{的解} \\iff \\sum_{i=1}^{s}k_i=1"
+      ],
+      "common_traps": [
+        "★ 由『两个解之差是齐次解』错误地反推『两个解之和也是非齐次解』（须系数和为 1 才是）",
+        "只比较 r(A) 与 n 就断定有解，漏掉 r(A,b) 的相容性检验",
+        "把非齐次方程组的解集误当作向量空间（它不含零向量，不是空间）",
+        "已知基础解系与一个特解后构造函数时系数和不为 1，得到的不再是非齐次解",
+        "对 r(A)=r(A,b)=n 与 r(A)=r(A,b)<n 两种情形的解唯一性判断颠倒"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2013,
+        2015,
+        2016,
+        2018,
+        2020,
+        2021,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.57,
+      "weight_source": "derived",
+      "aliases": [
+        "r(A)=r(A,b)",
+        "Ax=0",
+        "解的结构",
+        "线性方程组解的结构",
+        "线性方程组解"
+      ]
+    },
+    {
+      "id": "math2.linalg.eigen",
+      "name": "矩阵的特征值与特征向量、二次型",
+      "level": 3,
+      "parent_id": "math2.linalg",
+      "is_leaf": false,
+      "exam_weight": 0.58
+    },
+    {
+      "id": "math2.linalg.eigen.diagonalization",
+      "name": "对角化的应用（矩阵幂与相似不变量）",
+      "level": 4,
+      "parent_id": "math2.linalg.eigen",
+      "is_leaf": true,
+      "definition": "对角化的主要用途是简化方阵的幂、行列式与多项式的计算：若 A=PΛP^{-1}，则 A^k=PΛ^kP^{-1}，从而把矩阵幂化为对角元素的幂。实对称矩阵还可由正交矩阵 Q 对角化，即 A=QΛQ^T。此外，相似不变量（特征值、迹、行列式、秩）常用于反向确定未知参数。",
+      "formulas": [
+        "A=P\\Lambda P^{-1} \\Rightarrow A^{k}=P\\Lambda^{k}P^{-1}",
+        "A^{k}=P\\operatorname{diag}(\\lambda_1^{k},\\dots,\\lambda_n^{k})P^{-1}",
+        "A=Q\\Lambda Q^{T}\\quad(Q\\ \\text{为正交矩阵}) \\Rightarrow A^{k}=Q\\Lambda^{k}Q^{T}",
+        "f(A)=Pf(\\Lambda)P^{-1},\\qquad f(\\Lambda)=\\operatorname{diag}(f(\\lambda_1),\\dots,f(\\lambda_n))",
+        "\\operatorname{tr}(A)=\\sum\\lambda_i,\\qquad |A|=\\prod\\lambda_i"
+      ],
+      "common_traps": [
+        "★ 求 A^k 时只把特征值取 k 次幂，漏掉两端的 P 与 P^{-1}（写成 A^k=PΛ^k 或 Λ^kP^{-1}）",
+        "对不可对角化的矩阵仍用 PΛ^kP^{-1} 求幂（此时须改用 Jordan 形或递推）",
+        "由 tr(A) 或 |A| 反求参数后未回代检验是否与其余条件相容",
+        "把 (A^{-1})^k 的结果写成 P^{-1}Λ^{-k}P（应保持两端顺序为 PΛ^{-k}P^{-1}）",
+        "误以为秩等于非零特征值的个数对任意矩阵都成立（仅对可对角化矩阵成立）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2013,
+        2015,
+        2016,
+        2018,
+        2019,
+        2020,
+        2022,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.7,
+      "weight_source": "derived",
+      "aliases": [
+        "A^n=P\\Lambda^nP^{-1}",
+        "\\sum\\lambda_i=\\mathrm{tr}(A)",
+        "\\prod\\lambda_i=|A|",
+        "对角化的应用",
+        "对角化",
+        "矩阵幂",
+        "相似不变量"
+      ]
+    },
+    {
+      "id": "math2.linalg.eigen.eigenvalue",
+      "name": "特征值与特征向量",
+      "level": 4,
+      "parent_id": "math2.linalg.eigen",
+      "is_leaf": true,
+      "definition": "对方阵 A，若存在非零向量 α 与数 λ 使 Aα=λα，则 λ 为 A 的特征值、α 为对应特征向量。特征值是特征方程 |λE-A|=0 的根，属于同一 λ 的特征向量（加零向量）构成特征子空间，其维数为 n-r(λE-A)。属不同特征值的特征向量线性无关。",
+      "formulas": [
+        "A\\alpha=\\lambda\\alpha\\quad(\\alpha\\neq 0)",
+        "|\\lambda E-A|=0\\quad\\text{（特征方程）}",
+        "\\sum_{i=1}^{n}\\lambda_i=\\operatorname{tr}(A),\\qquad \\prod_{i=1}^{n}\\lambda_i=|A|",
+        "\\lambda\\ \\text{的重数}\\ \\ge\\ n-r(\\lambda E-A)\\ \\text{（几何重数} \\le \\text{代数重数）}",
+        "A\\alpha=\\lambda\\alpha \\Rightarrow A^{k}\\alpha=\\lambda^{k}\\alpha,\\quad f(A)\\alpha=f(\\lambda)\\alpha",
+        "A^{-1}\\ \\text{的特征值为}\\ \\frac1\\lambda;\\qquad A^{*}\\ \\text{的特征值为}\\ \\frac{|A|}{\\lambda}"
+      ],
+      "common_traps": [
+        "★ 由 |λE-A|=0 求特征值时因式分解出错，或把 λE-A 与 A-λE 的行列式符号差异当作错误（|A-λE| 与 |λE-A| 相差 (-1)^n）",
+        "求特征向量时只解 (λE-A)x=0 的部分方程，未取自由未知量的一组基",
+        "把特征向量写成零向量或非零解的任意组合而漏掉『非零』要求",
+        "误认为不同特征值对应的特征向量一定正交（只有实对称矩阵才成立）",
+        "记错 A* 与 A^{-1} 的特征值公式（A* 对应 |A|/λ，A^{-1} 对应 1/λ）"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.77,
+      "weight_source": "derived",
+      "aliases": [
+        "|A-\\lambda E|=0",
+        "(A-\\lambda E)x=0",
+        "特征多项式",
+        "特征值",
+        "特征向量"
+      ]
+    },
+    {
+      "id": "math2.linalg.eigen.quadratic",
+      "name": "二次型及其标准形",
+      "level": 4,
+      "parent_id": "math2.linalg.eigen",
+      "is_leaf": true,
+      "definition": "二次型 f(x₁,…,x_n)=x^T A x（A 为实对称矩阵）可通过正交变换或配方法化为标准形（只含平方项）。正交变换下标准形的系数即 A 的特征值。二次型的秩为 r(A)，正惯性指数 p 与负惯性指数 q 由标准形中正、负平方项的个数决定，p+q=r(A)。数二考纲把二次型与特征值放在同一部分。",
+      "formulas": [
+        "f(x)=x^{T}Ax,\\qquad A^{T}=A",
+        "x=Qy\\ (Q\\ \\text{为正交矩阵}) \\Rightarrow f=y^{T}Q^{T}AQy=\\lambda_1y_1^2+\\cdots+\\lambda_ny_n^2",
+        "\\text{标准形}:\\ f=d_1y_1^2+d_2y_2^2+\\cdots+d_ry_r^2\\quad(d_i\\neq 0)",
+        "p+q=r(A),\\qquad p-q=\\text{符号差}",
+        "A\\ \\text{正定} \\iff \\lambda_i>0\\ (i=1,\\dots,n) \\iff \\text{各阶顺序主子式均}>0"
+      ],
+      "common_traps": [
+        "★ 用正交变换化标准形时未把特征向量单位化，导致变换矩阵不是正交矩阵",
+        "二次型矩阵 A 的写法错误：交叉项系数 x_i x_j 对应 a_{ij}=a_{ji}=该系数的一半",
+        "配方法中未保证变换可逆（变换矩阵行列式为零）",
+        "把标准形与规范形混淆（标准形系数为特征值，规范形系数为 ±1）",
+        "用顺序主子式判定正定时只算了 |A|（n 阶）而漏算低阶顺序主子式"
+      ],
+      "exam_years": [
+        2010,
+        2012,
+        2013,
+        2015,
+        2016,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "fill",
+        "solve"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.73,
+      "weight_source": "derived",
+      "aliases": [
+        "f=x^{T}Ax",
+        "A^{T}=A",
+        "配方法",
+        "正交变换",
+        "二次型",
+        "标准形"
+      ]
+    },
+    {
+      "id": "math2.linalg.eigen.similarity",
+      "name": "矩阵的相似与对角化",
+      "level": 4,
+      "parent_id": "math2.linalg.eigen",
+      "is_leaf": true,
+      "definition": "若存在可逆矩阵 P 使 P^{-1}AP=B，称 A 与 B 相似，相似矩阵有相同的特征值、迹、行列式与秩。A 可对角化 ⟺ A 有 n 个线性无关的特征向量 ⟺ 每个特征值的几何重数等于代数重数。特别注意：实对称矩阵一定可对角化，且存在正交矩阵使其对角化。",
+      "formulas": [
+        "P^{-1}AP=B \\Rightarrow \\lambda_A=\\lambda_B,\\ \\operatorname{tr}A=\\operatorname{tr}B,\\ |A|=|B|,\\ r(A)=r(B)",
+        "A\\ \\text{可对角化} \\iff A\\ \\text{有}\\ n\\ \\text{个线性无关的特征向量}",
+        "A\\ \\text{可对角化} \\iff \\text{对每个}\\ \\lambda_i:\\ n-r(\\lambda_i E-A)=m_i\\ (\\text{代数重数})",
+        "P^{-1}AP=\\Lambda=\\operatorname{diag}(\\lambda_1,\\dots,\\lambda_n)",
+        "A\\ \\text{为实对称矩阵} \\Rightarrow \\exists\\ \\text{正交矩阵}\\ Q:\\ Q^{-1}AQ=Q^{T}AQ=\\Lambda",
+        "A\\sim\\Lambda \\Rightarrow A^{k}=P\\Lambda^{k}P^{-1}"
+      ],
+      "common_traps": [
+        "★ 把『有 n 个特征值』当作可对角化条件（必须是有 n 个线性无关的特征向量，重根处的几何重数也要够）",
+        "由 A 与 B 特征值相同就断定 A 与 B 相似（特征值相同只是必要条件）",
+        "求 P 时把特征向量按行排列（P 的列应为特征向量）",
+        "相似变换中把 P^{-1}AP 写成 PAP^{-1}",
+        "误认为所有可对角化矩阵都是实对称矩阵"
+      ],
+      "exam_years": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "typical_qtypes": [
+        "choice",
+        "fill",
+        "solve",
+        "proof"
+      ],
+      "difficulty_range": [
+        2,
+        3
+      ],
+      "exam_weight": 0.77,
+      "weight_source": "derived",
+      "aliases": [
+        "A\\sim\\Lambda",
+        "P^{-1}AP=\\Lambda",
+        "可对角化",
+        "矩阵的相似",
+        "相似",
+        "对角化"
+      ]
+    }
+  ]
+}

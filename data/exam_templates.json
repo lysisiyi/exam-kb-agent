@@ -1,0 +1,301 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-03-15",
+  "note": "组卷模板。真题结构用于'模拟检测卷'，突击模考用于短时训练，错题专练只抽用户做错的题。difficulty 数组按题号顺序给出每题的难度目标（1 基础 / 2 综合 / 3 拓展），组卷时按位置匹配而非全局比例匹配——这样能保证卷子的难度是从易到难递进的，符合真题手感。",
+  "structure_change_note": "2023 年起考研数学试卷结构调整：客观题由 8 选择 + 6 填空增至 10 选择 + 6 填空，解答题由 9 题减至 6 题。本模板采用 2023 年后的新结构。",
+  "templates": {
+    "math1": {
+      "real_exam": {
+        "id": "math1.real_exam",
+        "name": "真题结构全卷",
+        "description": "按 2023 年后的真题结构组卷，用于完整模拟检测",
+        "total_score": 150,
+        "duration_minutes": 180,
+        "sections": [
+          {
+            "qtype": "choice",
+            "name": "选择题",
+            "start_no": 1,
+            "count": 10,
+            "score_per_item": 5,
+            "subtotal": 50,
+            "difficulty": [1, 1, 1, 2, 2, 2, 2, 3, 3, 3]
+          },
+          {
+            "qtype": "fill",
+            "name": "填空题",
+            "start_no": 11,
+            "count": 6,
+            "score_per_item": 5,
+            "subtotal": 30,
+            "difficulty": [1, 2, 2, 2, 3, 3]
+          },
+          {
+            "qtype": "solve",
+            "name": "解答题",
+            "start_no": 17,
+            "count": 6,
+            "score_per_item": 12,
+            "subtotal": 72,
+            "difficulty": [2, 2, 2, 3, 3, 3],
+            "score_override_note": "实际真题解答题分值为 10-12 分不等（含一道 10 分、五道 12 分共 70 分）。此处统一按 12 分给足 72 分以凑满 150 分，导出时可按最后一题 -2 分调整。"
+          }
+        ]
+      },
+      "quick_mock": {
+        "id": "math1.quick_mock",
+        "name": "突击模考",
+        "description": "5+3+3 精简结构，约 90 分钟，适合碎片时间检验",
+        "total_score": 85,
+        "duration_minutes": 90,
+        "sections": [
+          {
+            "qtype": "choice",
+            "name": "选择题",
+            "start_no": 1,
+            "count": 5,
+            "score_per_item": 5,
+            "subtotal": 25,
+            "difficulty": [1, 2, 2, 3, 3]
+          },
+          {
+            "qtype": "fill",
+            "name": "填空题",
+            "start_no": 6,
+            "count": 3,
+            "score_per_item": 5,
+            "subtotal": 15,
+            "difficulty": [1, 2, 3]
+          },
+          {
+            "qtype": "solve",
+            "name": "解答题",
+            "start_no": 9,
+            "count": 3,
+            "score_per_item": 15,
+            "subtotal": 45,
+            "difficulty": [2, 2, 3]
+          }
+        ]
+      },
+      "wrong_only": {
+        "id": "math1.wrong_only",
+        "name": "错题专练",
+        "description": "只从用户做错的题目中抽取，按薄弱度排序",
+        "total_score": null,
+        "duration_minutes": null,
+        "sections": [
+          {
+            "qtype": "any",
+            "name": "错题",
+            "start_no": 1,
+            "count": 15,
+            "score_per_item": null,
+            "subtotal": null,
+            "difficulty": null,
+            "note": "难度与分值不固定，由抽到的题目决定；默认抽 15 题"
+          }
+        ]
+      }
+    },
+
+    "math2": {
+      "real_exam": {
+        "id": "math2.real_exam",
+        "name": "真题结构全卷",
+        "description": "数学二真题结构（2023 年后）",
+        "total_score": 150,
+        "duration_minutes": 180,
+        "sections": [
+          {
+            "qtype": "choice",
+            "name": "选择题",
+            "start_no": 1,
+            "count": 10,
+            "score_per_item": 5,
+            "subtotal": 50,
+            "difficulty": [1, 1, 1, 2, 2, 2, 2, 3, 3, 3]
+          },
+          {
+            "qtype": "fill",
+            "name": "填空题",
+            "start_no": 11,
+            "count": 6,
+            "score_per_item": 5,
+            "subtotal": 30,
+            "difficulty": [1, 2, 2, 2, 3, 3]
+          },
+          {
+            "qtype": "solve",
+            "name": "解答题",
+            "start_no": 17,
+            "count": 6,
+            "score_per_item": 12,
+            "subtotal": 72,
+            "difficulty": [2, 2, 2, 3, 3, 3]
+          }
+        ]
+      },
+      "quick_mock": {
+        "id": "math2.quick_mock",
+        "name": "突击模考",
+        "description": "5+3+3 精简结构",
+        "total_score": 85,
+        "duration_minutes": 90,
+        "sections": [
+          {
+            "qtype": "choice",
+            "name": "选择题",
+            "start_no": 1,
+            "count": 5,
+            "score_per_item": 5,
+            "subtotal": 25,
+            "difficulty": [1, 2, 2, 3, 3]
+          },
+          {
+            "qtype": "fill",
+            "name": "填空题",
+            "start_no": 6,
+            "count": 3,
+            "score_per_item": 5,
+            "subtotal": 15,
+            "difficulty": [1, 2, 3]
+          },
+          {
+            "qtype": "solve",
+            "name": "解答题",
+            "start_no": 9,
+            "count": 3,
+            "score_per_item": 15,
+            "subtotal": 45,
+            "difficulty": [2, 2, 3]
+          }
+        ]
+      },
+      "wrong_only": {
+        "id": "math2.wrong_only",
+        "name": "错题专练",
+        "description": "只从用户做错的题目中抽取",
+        "total_score": null,
+        "duration_minutes": null,
+        "sections": [
+          {
+            "qtype": "any",
+            "name": "错题",
+            "start_no": 1,
+            "count": 15,
+            "score_per_item": null,
+            "subtotal": null,
+            "difficulty": null
+          }
+        ]
+      }
+    },
+
+    "math3": {
+      "real_exam": {
+        "id": "math3.real_exam",
+        "name": "真题结构全卷",
+        "description": "数学三真题结构（2023 年后）",
+        "total_score": 150,
+        "duration_minutes": 180,
+        "sections": [
+          {
+            "qtype": "choice",
+            "name": "选择题",
+            "start_no": 1,
+            "count": 10,
+            "score_per_item": 5,
+            "subtotal": 50,
+            "difficulty": [1, 1, 1, 2, 2, 2, 2, 3, 3, 3]
+          },
+          {
+            "qtype": "fill",
+            "name": "填空题",
+            "start_no": 11,
+            "count": 6,
+            "score_per_item": 5,
+            "subtotal": 30,
+            "difficulty": [1, 2, 2, 2, 3, 3]
+          },
+          {
+            "qtype": "solve",
+            "name": "解答题",
+            "start_no": 17,
+            "count": 6,
+            "score_per_item": 12,
+            "subtotal": 72,
+            "difficulty": [2, 2, 2, 3, 3, 3]
+          }
+        ]
+      },
+      "quick_mock": {
+        "id": "math3.quick_mock",
+        "name": "突击模考",
+        "description": "5+3+3 精简结构",
+        "total_score": 85,
+        "duration_minutes": 90,
+        "sections": [
+          {
+            "qtype": "choice",
+            "name": "选择题",
+            "start_no": 1,
+            "count": 5,
+            "score_per_item": 5,
+            "subtotal": 25,
+            "difficulty": [1, 2, 2, 3, 3]
+          },
+          {
+            "qtype": "fill",
+            "name": "填空题",
+            "start_no": 6,
+            "count": 3,
+            "score_per_item": 5,
+            "subtotal": 15,
+            "difficulty": [1, 2, 3]
+          },
+          {
+            "qtype": "solve",
+            "name": "解答题",
+            "start_no": 9,
+            "count": 3,
+            "score_per_item": 15,
+            "subtotal": 45,
+            "difficulty": [2, 2, 3]
+          }
+        ]
+      },
+      "wrong_only": {
+        "id": "math3.wrong_only",
+        "name": "错题专练",
+        "description": "只从用户做错的题目中抽取",
+        "total_score": null,
+        "duration_minutes": null,
+        "sections": [
+          {
+            "qtype": "any",
+            "name": "错题",
+            "start_no": 1,
+            "count": 15,
+            "score_per_item": null,
+            "subtotal": null,
+            "difficulty": null
+          }
+        ]
+      }
+    }
+  },
+
+  "difficulty_labels": {
+    "1": "基础",
+    "2": "综合",
+    "3": "拓展"
+  },
+  "qtype_labels": {
+    "choice": "选择题",
+    "fill": "填空题",
+    "solve": "解答题",
+    "proof": "证明题",
+    "any": "不限"
+  }
+}

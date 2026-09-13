@@ -1,0 +1,1099 @@
+{
+  "version": "1.0.0",
+  "subject": "math1",
+  "subject_name": "考研数学（一）",
+  "updated_at": "2026-03-15",
+  "coverage": {
+    "status": "partial",
+    "chapters_done": [
+      "math1.prob.events",
+      "math1.prob.rv1",
+      "math1.prob.rv2",
+      "math1.prob.numchar",
+      "math1.prob.lln",
+      "math1.prob.stat"
+    ],
+    "chapters_todo": []
+  },
+  "id_convention": "math1.{科}.{章}.{节}.{知识点}；科: calc=高数 linalg=线代 prob=概率",
+  "exam_weight_formula": "章节级权威来源=data/exam_frequency.json：raw = total_appearances × avg_score，exam_weight = round(raw / max(raw), 2)。叶子级由 tools/data/merge_knowledge.py 派生：leaf = clamp(chapter × hotspot_boost × year_factor, 0.10, 1.00)，其中 hotspot_boost = 命中该章 hotspots ? 1.15 : 1.0，year_factor = 0.85 + 0.30 × min(len(exam_years), 15) / 15。",
+  "nodes": [
+    {
+      "id": "math1.prob.events",
+      "name": "随机事件与概率",
+      "level": 2,
+      "parent_id": "math1.prob",
+      "is_leaf": false,
+      "exam_weight": 0.25
+    },
+    {
+      "id": "math1.prob.events.event_ops",
+      "name": "事件的关系与运算",
+      "level": 4,
+      "parent_id": "math1.prob.events",
+      "is_leaf": true,
+      "definition": "样本空间 Ω 中满足特定条件的样本点集合称为随机事件，事件之间有包含、相等、和（并）、积（交）、差、对立（逆）等运算，并满足交换律、结合律、分配律与德摩根律。边界条件：德摩根律对任意有限或可列多个事件都成立；「互斥」只要求 AB=∅，而「对立」还额外要求 A∪B=Ω，两者不是同一概念。注意事件的运算不满足数的运算法则，如 (A∪B)−B≠A。",
+      "formulas": [
+        "A\\cup B=\\{\\omega:\\omega\\in A\\ \\text{或}\\ \\omega\\in B\\},\\quad AB=\\{\\omega:\\omega\\in A\\ \\text{且}\\ \\omega\\in B\\}",
+        "\\overline{A\\cup B}=\\bar A\\cap\\bar B,\\qquad \\overline{A\\cap B}=\\bar A\\cup\\bar B",
+        "A-B=A\\bar B=A-AB",
+        "A\\ \\text{与}\\ B\\ \\text{互斥}\\iff AB=\\varnothing;\\qquad A\\ \\text{与}\\ B\\ \\text{对立}\\iff AB=\\varnothing\\ \\text{且}\\ A\\cup B=\\Omega"
+      ],
+      "common_traps": [
+        "★ 把「互斥」与「对立」混为一谈：互斥只要求 AB=∅，对立还要求 A∪B=Ω，概率题里常因少一个条件而选错",
+        "用德摩根律时只对事件取逆而忘记同时把并改成交、交改成并",
+        "把「恰好有一个发生」写成 A∪B，漏掉「恰有一个」应为 A B̄ ∪ Ā B（A∪B 还包含两个都发生）",
+        "把数的运算法则直接搬到事件上，如认为 (A∪B)−B=A 恒成立"
+      ],
+      "exam_years": [2010, 2013, 2016, 2019, 2024],
+      "typical_qtypes": ["choice", "fill"],
+      "difficulty_range": [1, 2]
+    },
+    {
+      "id": "math1.prob.events.prob_props",
+      "name": "概率的定义与基本性质",
+      "level": 4,
+      "parent_id": "math1.prob.events",
+      "is_leaf": true,
+      "definition": "概率是定义在事件域上、满足非负性、规范性 P(Ω)=1 与可列可加性的集函数，由此可推出 P(∅)=0、有限可加性、减法公式与加法公式。边界条件：可列可加性只对两两互斥的事件列成立，一般事件相加必须扣除交集；P(A)=0 不意味着 A 是不可能事件，连续型随机变量取任一单点的概率都是 0 却可能发生。",
+      "formulas": [
+        "P(A\\cup B)=P(A)+P(B)-P(AB)",
+        "P(A-B)=P(A)-P(AB),\\qquad P(\\bar A)=1-P(A)",
+        "P(A\\cup B\\cup C)=P(A)+P(B)+P(C)-P(AB)-P(AC)-P(BC)+P(ABC)",
+        "P\\!\\left(\\bigcup_{i=1}^{n}A_i\\right)\\le\\sum_{i=1}^{n}P(A_i)"
+      ],
+      "common_traps": [
+        "★ 用加法公式时漏减 P(AB)；三个事件时漏加 P(ABC)，是最常见的低级失分点",
+        "把 P(A)=0 等同于 A=∅（几何概型与连续型场合都会出现零概率的非空事件）",
+        "由 P(A)≤P(B) 反推 A⊂B（概率的大小关系推不出事件的包含关系）",
+        "对非互斥事件直接用 P(A)+P(B) 求和"
+      ],
+      "exam_years": [2011, 2014, 2016, 2019, 2024],
+      "typical_qtypes": ["choice", "fill"],
+      "difficulty_range": [1, 2]
+    },
+    {
+      "id": "math1.prob.events.classical",
+      "name": "古典概型",
+      "level": 4,
+      "parent_id": "math1.prob.events",
+      "is_leaf": true,
+      "definition": "若样本空间只含有限个样本点且每个样本点等可能，则 P(A)=A 包含的样本点数 / 样本点总数。边界条件：必须同时满足「有限」与「等可能」两条，试验结果不等可能时（如掷两枚骰子关心点数之和）不能直接算比值，需先构造等可能的样本空间再计数。计数时必须明确是否计顺序、是否有放回。",
+      "formulas": [
+        "P(A)=\\frac{|A|}{|\\Omega|}=\\frac{A\\ \\text{包含的样本点数}}{\\text{样本点总数}}",
+        "\\text{无放回不计顺序}:\\ C_n^k=\\frac{n!}{k!(n-k)!};\\qquad \\text{无放回计顺序}:\\ A_n^k=\\frac{n!}{(n-k)!}",
+        "\\text{有放回抽 }k\\text{ 个}:\\ n^k\\ \\text{（计顺序）}",
+        "P(\\text{至少一个})=1-P(\\text{一个都没有})"
+      ],
+      "common_traps": [
+        "★ 构造的样本空间不等可能，却直接用「有利结果数/总结果数」（把两枚骰子点数之和 2~12 当成 11 个等可能结果是最典型的错误）",
+        "把有放回抽样当成无放回，或反之，导致样本点总数算错",
+        "分组问题忘记除以组数的阶乘，导致重复计数",
+        "「至少一个」类问题逐项相加而不使用对立事件，计算量爆炸且易漏项"
+      ],
+      "exam_years": [2012, 2017, 2019, 2022],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [1, 3]
+    },
+    {
+      "id": "math1.prob.events.geometric",
+      "name": "几何概型",
+      "level": 4,
+      "parent_id": "math1.prob.events",
+      "is_leaf": true,
+      "definition": "若样本空间是某个可度量的区域（长度、面积或体积），且随机点落入区域内任一部分的可能性只与该部分的度量成正比、与其位置和形状无关，则 P(A)=m(A)/m(Ω)。边界条件：区域必须有有限的非零度量，度量无穷大或为零时比值公式失效；零测度集合上的事件概率为 0，但它并非不可能事件。",
+      "formulas": [
+        "P(A)=\\frac{m(A)}{m(\\Omega)}\\quad(m\\ \\text{为长度、面积或体积})",
+        "\\text{会面问题}:\\ P\\{|X-Y|<t\\}=\\frac{S_{\\{|x-y|<t\\}\\cap D}}{S_D}",
+        "P\\{X>t\\}=\\frac{m(\\{x>t\\}\\cap\\Omega)}{m(\\Omega)}"
+      ],
+      "common_traps": [
+        "★ 可行域画错导致分子分母度量算错（会面问题中未把 |x−y|<t 化成正确的矩形带，常漏掉两端的小三角形）",
+        "把几何概型与古典概型混用，对连续区域内的样本点做计数",
+        "忽略零测度事件概率为 0 但仍可能发生，据此判定某事件「不可能」",
+        "区域无界（如整个第一象限）时直接套用度量比值公式"
+      ],
+      "exam_years": [2013, 2017, 2022, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.events.conditional",
+      "name": "条件概率与乘法公式",
+      "level": 4,
+      "parent_id": "math1.prob.events",
+      "is_leaf": true,
+      "definition": "在 P(B)>0 的前提下，P(A|B)=P(AB)/P(B) 称为在事件 B 已发生条件下事件 A 的条件概率，由此得乘法公式 P(AB)=P(B)P(A|B)=P(A)P(B|A)。边界条件：条件事件概率必须严格大于 0，否则条件概率无定义；P(A|B) 与 P(B|A) 一般并不相等，方向不能颠倒；条件概率本身仍满足概率的三条公理，因此对它可使用一切概率性质（加法公式、对立事件等）。",
+      "formulas": [
+        "P(A|B)=\\frac{P(AB)}{P(B)}\\quad(P(B)>0)",
+        "P(AB)=P(A)P(B|A)=P(B)P(A|B)",
+        "P(A_1A_2\\cdots A_n)=P(A_1)P(A_2|A_1)P(A_3|A_1A_2)\\cdots P(A_n|A_1A_2\\cdots A_{n-1})",
+        "P(\\bar A|B)=1-P(A|B)"
+      ],
+      "common_traps": [
+        "★ 把 P(A|B) 与 P(B|A) 混用（如把「检出率」当作「患病率」直接作答，方向颠倒）",
+        "对概率为 0 的条件事件讨论条件概率，写出 P(A|B)=P(AB)/P(B) 而无视分母为 0",
+        "链式相乘时中间事件概率可能为 0，未说明前提就写连乘式",
+        "在条件概率内部又把条件事件当作独立处理，随意把 P(A|B) 写成 P(A)"
+      ],
+      "exam_years": [2011, 2013, 2019, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [1, 2]
+    },
+    {
+      "id": "math1.prob.events.independence",
+      "name": "独立性与伯努利概型",
+      "level": 4,
+      "parent_id": "math1.prob.events",
+      "is_leaf": true,
+      "definition": "若 P(AB)=P(A)P(B)，称事件 A 与 B 相互独立；对 n 个事件，要求任意 k(2≤k≤n) 个事件的积事件概率都等于各自概率之积，才称它们相互独立（两两独立不能推出相互独立）。边界条件：独立是由概率等式定义的判定，而非事件关系上的直观感觉；P(A)>0 时 A 与 B 独立等价于 P(B|A)=P(B)。若 A 与 B 独立，则 A 与 B̄、Ā 与 B、Ā 与 B̄ 也都独立。独立重复试验（n 重伯努利概型）中，n 次试验中 A 恰好发生 k 次的概率为 C_n^k p^k (1-p)^{n-k}。",
+      "formulas": [
+        "A,B\\ \\text{独立}\\iff P(AB)=P(A)P(B)",
+        "A,B,C\\ \\text{相互独立}\\iff P(AB)=P(A)P(B),\\ P(AC)=P(A)P(C),\\ P(BC)=P(B)P(C),\\ P(ABC)=P(A)P(B)P(C)",
+        "A,B\\ \\text{独立},\\ P(A)>0\\ \\Longrightarrow\\ P(B|A)=P(B)",
+        "P\\{\\text{恰好发生}\\ k\\ \\text{次}\\}=C_n^kp^k(1-p)^{n-k}"
+      ],
+      "common_traps": [
+        "★ 只验证了两两独立就断定相互独立（三个事件还必须验证 P(ABC)=P(A)P(B)P(C)）",
+        "把「互斥」当成「独立」：当 P(A)>0、P(B)>0 时，互斥的两事件一定不独立",
+        "P(A)=0 或 P(A)=1 时，A 与任意事件都独立，却被误判为不独立",
+        "由 A 与 B 独立、B 与 C 独立错误推出 A 与 C 独立"
+      ],
+      "exam_years": [2011, 2013, 2016, 2019, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.events.total_prob",
+      "name": "全概率公式",
+      "level": 4,
+      "parent_id": "math1.prob.events",
+      "is_leaf": true,
+      "definition": "设 B₁,B₂,…,Bₙ 是样本空间的一个划分（两两互斥、并为 Ω 且每个 P(B_i)>0），则对任意事件 A 有 P(A)=Σᵢ P(B_i)P(A|B_i)。其思想是按「导致 A 发生的各种原因」把事件 A 分解为若干互斥情形后加权求和。边界条件：{B_i} 必须是完备事件组，划分有遗漏或相互重叠都会使结果错误；式中 P(A|B_i) 是各原因下的条件概率，不是联合概率。",
+      "formulas": [
+        "P(A)=\\sum_{i=1}^{n}P(B_i)P(A|B_i)",
+        "P(A)=P(B)P(A|B)+P(\\bar B)P(A|\\bar B)",
+        "P(A)=\\int_{-\\infty}^{+\\infty}P(A|X=x)\\,f_X(x)\\,dx\\quad(\\text{连续型划分})"
+      ],
+      "common_traps": [
+        "★ 完备事件组的划分不完整（漏掉一种情形）或存在重叠，导致 ΣP(B_i)≠1 却未察觉",
+        "把 P(B_i)P(A|B_i) 写成 P(B_i)P(B_i|A)，把正向与反向条件概率弄反",
+        "题目给的是 P(A|B_i) 却仍去求 P(B_i|A)，用错了公式方向",
+        "多阶段试验中把阶段的先后顺序搞反，划分事件选成了结果事件"
+      ],
+      "exam_years": [2010, 2012, 2014, 2016, 2018],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.events.bayes",
+      "name": "贝叶斯公式",
+      "level": 4,
+      "parent_id": "math1.prob.events",
+      "is_leaf": true,
+      "definition": "在 {B_i} 为完备事件组且 P(A)>0 时，P(B_i|A)=P(B_i)P(A|B_i)/Σⱼ P(B_j)P(A|B_j)，即由「结果 A 已经发生」反推各「原因 B_i」的后验概率，分母用全概率公式算出。边界条件：要求 P(A)>0 且各 P(B_i)>0；先验概率 P(B_i) 的选取直接决定结果，先验为 0 的原因其后验恒为 0，无法被数据「救回」。",
+      "formulas": [
+        "P(B_i|A)=\\frac{P(B_i)P(A|B_i)}{\\sum_{j=1}^{n}P(B_j)P(A|B_j)}",
+        "P(B_i|A)=\\frac{P(AB_i)}{P(A)}=\\frac{P(B_i)P(A|B_i)}{P(A)}",
+        "\\frac{P(B_i|A)}{P(B_j|A)}=\\frac{P(B_i)P(A|B_i)}{P(B_j)P(A|B_j)}\\quad(\\text{后验几率形式})",
+        "\\sum_{i=1}^{n}P(B_i|A)=1"
+      ],
+      "common_traps": [
+        "★ 把先验概率 P(B_i) 与后验概率 P(B_i|A) 混为一谈，答案直接照抄题目前半段给出的先验值",
+        "分母漏掉全概率展开，只除以某一个 P(B_i)P(A|B_i)",
+        "把 P(A|B_i) 与 P(B_i|A) 的位置写反，条件方向颠倒",
+        "未说明先验的选取依据就取等可能先验，导致后验结论不可靠"
+      ],
+      "exam_years": [2010, 2012, 2014, 2016, 2018, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.rv1",
+      "name": "一维随机变量及其分布",
+      "level": 2,
+      "parent_id": "math1.prob",
+      "is_leaf": false,
+      "exam_weight": 0.47
+    },
+    {
+      "id": "math1.prob.rv1.dist_func",
+      "name": "分布函数及其性质",
+      "level": 4,
+      "parent_id": "math1.prob.rv1",
+      "is_leaf": true,
+      "definition": "对任意实数 x，F(x)=P{X≤x} 称为随机变量 X 的分布函数。F 单调不减、右连续，且 F(−∞)=0、F(+∞)=1，并有 P{a<X≤b}=F(b)−F(a)。边界条件：F 只保证右连续，跳跃点处的函数值取右极限，左连续不是必要条件，因此判定某函数能否作为分布函数时必须单独检验右连续性。",
+      "formulas": [
+        "F(x)=P\\{X\\le x\\},\\quad -\\infty<x<+\\infty",
+        "F(-\\infty)=0,\\quad F(+\\infty)=1,\\quad 0\\le F(x)\\le 1,\\quad F\\ \\text{单调不减}",
+        "P\\{a<X\\le b\\}=F(b)-F(a)",
+        "P\\{X=a\\}=F(a)-F(a^-)\\quad(\\text{该点处的跳跃高度})"
+      ],
+      "common_traps": [
+        "★ 判断给定函数是否为分布函数时漏检「右连续」这一条（构造在跳跃点左连续的例子最容易被误判）",
+        "把 P{a<X≤b}=F(b)−F(a) 的端点开闭记错，写成 P{a≤X≤b}=F(b)−F(a)",
+        "把 F 的单调不减误当成严格递增，据此断定 X 是连续型",
+        "在 F 的间断点直接求导当作概率密度"
+      ],
+      "exam_years": [2010, 2012, 2015, 2017, 2019, 2022],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [1, 3]
+    },
+    {
+      "id": "math1.prob.rv1.discrete_law",
+      "name": "离散型随机变量分布律",
+      "level": 4,
+      "parent_id": "math1.prob.rv1",
+      "is_leaf": true,
+      "definition": "若 X 只取有限个或可列个值 x_k，则称 X 为离散型随机变量，其分布律为 P{X=x_k}=p_k，满足 p_k≥0 且 Σp_k=1，分布函数为阶梯函数 F(x)=Σ_{x_k≤x}p_k。边界条件：Σp_k=1 的必要条件是求和必须覆盖 X 的全部可能取值（包括无穷级数情形）；由分布函数反求分布律时只能取跳跃点，跳跃高度即该点的概率。",
+      "formulas": [
+        "P\\{X=x_k\\}=p_k,\\quad p_k\\ge 0,\\quad \\sum_{k=1}^{\\infty}p_k=1",
+        "F(x)=\\sum_{x_k\\le x}p_k",
+        "P\\{a\\le X\\le b\\}=\\sum_{a\\le x_k\\le b}p_k",
+        "p_k=F(x_k)-F(x_k^-)"
+      ],
+      "common_traps": [
+        "★ 由分布函数求分布律时漏掉跳跃点，或把跳跃高度误算成 F(x_k) 本身",
+        "验证一组 p_k 是否为分布律时只验证非负性，忘记验证 Σp_k=1",
+        "求 P{a<X<b} 时把端点处非零的概率错算进去（离散型端点是否取到直接影响结果）",
+        "含参数的分布律求参数时忽略 p_k≥0 的取值范围，产生增根"
+      ],
+      "exam_years": [2011, 2013, 2015, 2017, 2019, 2022],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [1, 2]
+    },
+    {
+      "id": "math1.prob.rv1.density",
+      "name": "概率密度与连续型分布",
+      "level": 4,
+      "parent_id": "math1.prob.rv1",
+      "is_leaf": true,
+      "definition": "若存在非负可积函数 f(x)，使对任意实数 x 有 F(x)=∫_{−∞}^{x}f(t)dt，则称 X 为连续型随机变量，f 为 X 的概率密度。f(x)≥0 且 ∫_{−∞}^{+∞}f(x)dx=1，连续型随机变量取任一单点的概率为 0，因此 P{a<X<b}=P{a≤X≤b}。边界条件：密度函数在个别点上可以任意改动而不改变分布；f(x) 的值不是概率，完全可以大于 1；只有在 F 的可导点才有 f(x)=F′(x)。",
+      "formulas": [
+        "F(x)=\\int_{-\\infty}^{x}f(t)\\,dt,\\qquad f(x)=F'(x)\\ (\\text{在 }F\\text{ 的可导点})",
+        "\\int_{-\\infty}^{+\\infty}f(x)\\,dx=1,\\qquad f(x)\\ge 0",
+        "P\\{a<X<b\\}=\\int_a^b f(x)\\,dx=P\\{a\\le X\\le b\\}",
+        "P\\{X=a\\}=0"
+      ],
+      "common_traps": [
+        "★ 认为 f(x) 就是概率因而要求 f(x)≤1（密度可以大于 1，如 N(0,0.01) 的峰值约为 40）",
+        "把 P{a<X<b} 与 P{a≤X≤b} 区别对待，多算了端点反而算错（连续型二者恒相等）",
+        "在 F 的不可导点（尤其是分段点）强行求导当密度",
+        "求待定常数时只用归一化条件，漏用 f(x)≥0 对参数的约束"
+      ],
+      "exam_years": [2010, 2012, 2015, 2017, 2020, 2022],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [1, 3]
+    },
+    {
+      "id": "math1.prob.rv1.common_discrete",
+      "name": "常见离散型分布",
+      "level": 4,
+      "parent_id": "math1.prob.rv1",
+      "is_leaf": true,
+      "definition": "常考离散分布包括：0-1 分布 B(1,p)、二项分布 B(n,p)（n 重伯努利试验中成功次数）、泊松分布 P(λ)（单位时间或面积内稀有事件发生次数）、几何分布 G(p)（首次成功所需的试验次数）以及超几何分布。边界条件：二项分布要求各次试验相互独立且成功概率相同，不放回抽样应用超几何分布；泊松分布可作为二项分布在 n 很大、p 很小且 np→λ 时的近似。",
+      "formulas": [
+        "P\\{X=k\\}=C_n^kp^k(1-p)^{n-k},\\quad k=0,1,\\dots,n",
+        "P\\{X=k\\}=\\frac{\\lambda^ke^{-\\lambda}}{k!},\\quad k=0,1,2,\\dots",
+        "P\\{X=k\\}=(1-p)^{k-1}p,\\quad k=1,2,\\dots",
+        "\\lim_{n\\to\\infty}C_n^kp^k(1-p)^{n-k}=\\frac{\\lambda^ke^{-\\lambda}}{k!}\\quad(np\\to\\lambda)"
+      ],
+      "common_traps": [
+        "★ 混淆二项分布与泊松分布的参数含义，把 λ 当成 p，或把 n 与 p 的位置对调",
+        "几何分布中把「第 k 次首次成功」的概率写成 p^k，漏掉前 k−1 次失败因子 (1−p)^{k−1}",
+        "对不放回抽样误用二项分布（应为超几何分布）",
+        "求和起点搞错（几何分布从 k=1 起），导致概率和不等于 1"
+      ],
+      "exam_years": [2011, 2013, 2016, 2019, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [1, 3]
+    },
+    {
+      "id": "math1.prob.rv1.uniform_exp",
+      "name": "均匀分布与指数分布",
+      "level": 4,
+      "parent_id": "math1.prob.rv1",
+      "is_leaf": true,
+      "definition": "X~U(a,b) 的密度在 (a,b) 上为常数 1/(b−a)，表示取值在区间内处处「等可能」；X~E(λ) 的密度为 λe^{−λx}(x>0)，常用于描述等待时间与元件寿命，其参数 λ>0。边界条件：均匀分布的密度在区间外为 0，端点是否取到不影响概率；指数分布只在 x>0 上有密度，且是唯一具有无记忆性的连续型分布，该性质不能推广到其他分布。",
+      "formulas": [
+        "f(x)=\\frac{1}{b-a},\\ a<x<b\\ (\\text{其余为 }0);\\qquad F(x)=\\frac{x-a}{b-a},\\ a\\le x\\le b",
+        "f(x)=\\lambda e^{-\\lambda x},\\ x>0;\\qquad F(x)=1-e^{-\\lambda x},\\ x\\ge 0",
+        "P\\{X>t\\}=e^{-\\lambda t}",
+        "P\\{X>s+t\\mid X>s\\}=P\\{X>t\\}\\quad(\\text{无记忆性})"
+      ],
+      "common_traps": [
+        "★ 指数分布的标准形式写错，把 λe^{−λx} 写成 (1/λ)e^{−x/λ}，导致期望、方差、概率全部连带算错",
+        "均匀分布把区间开闭当成影响概率的因素（端点概率为 0，无影响）",
+        "把指数分布的无记忆性套用到均匀分布或正态分布上",
+        "求 P{X>t} 时把 1−e^{−λt} 与 e^{−λt} 写反"
+      ],
+      "exam_years": [2011, 2013, 2014, 2016, 2020, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [1, 3]
+    },
+    {
+      "id": "math1.prob.rv1.normal",
+      "name": "正态分布及其标准化",
+      "level": 4,
+      "parent_id": "math1.prob.rv1",
+      "is_leaf": true,
+      "definition": "X~N(μ,σ²) 的密度为 f(x)=1/(√(2π)σ)·exp(−(x−μ)²/(2σ²))，其中 μ 是位置参数，σ>0 是尺度参数；标准化后 (X−μ)/σ~N(0,1)，从而一切概率都能用标准正态分布函数 Φ 表示。边界条件：记号 N(μ,σ²) 的第二个参数是方差而不是标准差，这是最常见的记错点；密度关于 x=μ 对称，故 Φ(−x)=1−Φ(x)；正态分布的线性组合仍服从正态分布，但乘负数时方差要平方。",
+      "formulas": [
+        "f(x)=\\frac{1}{\\sqrt{2\\pi}\\,\\sigma}e^{-\\frac{(x-\\mu)^2}{2\\sigma^2}}",
+        "\\frac{X-\\mu}{\\sigma}\\sim N(0,1)",
+        "P\\{a<X<b\\}=\\Phi\\!\\left(\\frac{b-\\mu}{\\sigma}\\right)-\\Phi\\!\\left(\\frac{a-\\mu}{\\sigma}\\right)",
+        "\\Phi(-x)=1-\\Phi(x),\\qquad aX+b\\sim N(a\\mu+b,\\ a^2\\sigma^2)"
+      ],
+      "common_traps": [
+        "★ 把 N(μ,σ²) 的第二个参数当成标准差，标准化时直接除以 σ² 而不是 σ",
+        "标准化时只对区间的一端减 μ 或只对一端除以 σ，忘记两端同时变换",
+        "使用 Φ(−x)=1−Φ(x) 时符号写错，算出大于 1 或小于 0 的概率却不回头检查",
+        "由 X~N(μ,σ²) 断定 aX+b 的方差为 aσ²，漏掉系数的平方"
+      ],
+      "exam_years": [2011, 2013, 2016, 2018, 2020, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [1, 2]
+    },
+    {
+      "id": "math1.prob.rv1.func_dist",
+      "name": "随机变量函数的分布",
+      "level": 4,
+      "parent_id": "math1.prob.rv1",
+      "is_leaf": true,
+      "definition": "已知 X 的分布求 Y=g(X) 的分布，通用方法是分布函数法：先写出 F_Y(y)=P{g(X)≤y}，把事件 {g(X)≤y} 解成关于 X 的区间再代入 F_X，最后对 y 求导得到密度；「公式法」f_Y(y)=f_X(h(y))|h′(y)|（h 为 g 的反函数）只适用于 g 严格单调的情形。边界条件：g 非单调时必须回到分布函数法分区间讨论，密度在 Y 的值域外取 0。",
+      "formulas": [
+        "F_Y(y)=P\\{g(X)\\le y\\}=P\\{X\\in g^{-1}((-\\infty,y])\\}",
+        "f_Y(y)=f_X(h(y))\\,|h'(y)|\\quad(g\\ \\text{严格单调},\\ h=g^{-1})",
+        "Y=X^2:\\quad f_Y(y)=\\frac{1}{2\\sqrt y}\\left[f_X(\\sqrt y)+f_X(-\\sqrt y)\\right],\\quad y>0",
+        "Y=e^X:\\quad f_Y(y)=\\frac{1}{y}f_X(\\ln y),\\quad y>0"
+      ],
+      "common_traps": [
+        "★ g 非单调（如 Y=X²、Y=|X|）时直接套用单调情形的公式法，漏掉另一支的贡献（如 X² 应为两支密度之和）",
+        "求出 F_Y 后忘记求导得密度，或复合函数求导时漏乘内层导数",
+        "Y 的值域范围写错，密度在值域外未取 0",
+        "X 为离散型时仍用连续型方法，而正确做法是把取相同函数值的概率直接相加"
+      ],
+      "exam_years": [2010, 2012, 2014, 2018, 2021, 2024],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.rv1.mixed_dist",
+      "name": "混合型随机变量",
+      "level": 4,
+      "parent_id": "math1.prob.rv1",
+      "is_leaf": true,
+      "definition": "存在既非离散型也非连续型的随机变量：其分布函数在若干点上有跳跃、在其余区间上连续增长，这类随机变量称为混合型，典型例子是「以概率 p 取常数值 c、以概率 1−p 服从某连续分布」。处理方法是把全概率公式与分布函数法结合，按是否取到离散点分段讨论。边界条件：混合型随机变量没有概率密度；求其概率时必须同时计入跳跃点的点概率与连续段的积分，还要注意分布函数的右连续取值。",
+      "formulas": [
+        "F(x)=p\\,\\mathbf{1}_{\\{x\\ge c\\}}+(1-p)F_c(x)",
+        "P\\{X\\in B\\}=p\\,\\mathbf{1}_{\\{c\\in B\\}}+(1-p)\\int_B f_c(x)\\,dx",
+        "F(x)=aF_1(x)+(1-a)F_2(x)\\quad(F_1,F_2\\ \\text{均为分布函数},\\ 0\\le a\\le 1)"
+      ],
+      "common_traps": [
+        "★ 对含跳跃点的分布函数直接求导当作密度，漏掉离散部分的质量",
+        "判断随机变量类型时只看分布函数在区间上是否连续，忽略跳跃点",
+        "混合型题目中把点概率与区间概率重复计入或整体漏计",
+        "由 F(x)=aF_1(x)+(1−a)F_2(x) 就断定 X 是连续型（凸组合在 a<1 时仍可能含跳跃点）"
+      ],
+      "exam_years": [2012, 2015, 2018, 2021, 2024],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.rv2",
+      "name": "多维随机变量及其分布",
+      "level": 2,
+      "parent_id": "math1.prob",
+      "is_leaf": false,
+      "exam_weight": 0.57
+    },
+    {
+      "id": "math1.prob.rv2.joint_marginal",
+      "name": "联合分布与边缘分布",
+      "level": 4,
+      "parent_id": "math1.prob.rv2",
+      "is_leaf": true,
+      "definition": "二维随机变量 (X,Y) 的联合分布函数为 F(x,y)=P{X≤x,Y≤y}；离散型用联合分布律 p_{ij}=P{X=x_i,Y=y_j}，连续型用联合密度 f(x,y)，满足 f≥0 且在全平面上的二重积分为 1。边缘分布由联合分布「求和或积分掉另一个变量」得到，如 f_X(x)=∫_{−∞}^{+∞}f(x,y)dy。边界条件：联合分布不能由两个边缘分布唯一确定，边缘相同而联合不同的例子是常考点；当密度的非零区域不是矩形时，求边缘密度的积分限必须随另一个变量分段。",
+      "formulas": [
+        "F(x,y)=P\\{X\\le x,\\ Y\\le y\\}",
+        "f_X(x)=\\int_{-\\infty}^{+\\infty}f(x,y)\\,dy,\\qquad f_Y(y)=\\int_{-\\infty}^{+\\infty}f(x,y)\\,dx",
+        "p_{i\\cdot}=\\sum_{j}p_{ij},\\qquad p_{\\cdot j}=\\sum_{i}p_{ij}",
+        "P\\{(X,Y)\\in D\\}=\\iint_D f(x,y)\\,dx\\,dy,\\qquad \\iint_{\\mathbb{R}^2}f(x,y)\\,dx\\,dy=1"
+      ],
+      "common_traps": [
+        "★ 求边缘密度时积分限写错，尤其当密度的非零区域不是矩形时未按区域解析式对 x（或 y）分段讨论",
+        "由两个边缘分布直接相乘当作联合分布（只有 X 与 Y 独立时才成立）",
+        "用归一化条件求参数时积分区域画错，二重积分的上下限写反",
+        "求 P{(X,Y)∈D} 时忘记把 D 与密度非零区域取交集，导致多积了密度为 0 的部分"
+      ],
+      "exam_years": [2010, 2012, 2014, 2016, 2018, 2021],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.rv2.conditional",
+      "name": "条件分布",
+      "level": 4,
+      "parent_id": "math1.prob.rv2",
+      "is_leaf": true,
+      "definition": "在 P{Y=y_j}>0 时，离散型的条件分布律为 P{X=x_i|Y=y_j}=p_{ij}/p_{·j}；连续型在 f_Y(y)>0 处定义条件密度 f_{X|Y}(x|y)=f(x,y)/f_Y(y)，条件分布函数为对 x 的积分。边界条件：连续型随机变量在单个点上的条件概率无定义，因为 P{Y=y}=0，条件密度是对 y 逐点定义且只在 f_Y(y)>0 处有意义；f_{X|Y}(x|y) 作为 x 的函数必须积分为 1。",
+      "formulas": [
+        "f_{X|Y}(x|y)=\\frac{f(x,y)}{f_Y(y)}\\quad(f_Y(y)>0)",
+        "F_{X|Y}(x|y)=\\int_{-\\infty}^{x}\\frac{f(u,y)}{f_Y(y)}\\,du",
+        "P\\{X=x_i\\mid Y=y_j\\}=\\frac{p_{ij}}{p_{\\cdot j}}\\quad(p_{\\cdot j}>0)",
+        "f(x,y)=f_{X|Y}(x|y)f_Y(y)=f_{Y|X}(y|x)f_X(x)"
+      ],
+      "common_traps": [
+        "★ 条件密度的分母用错，写成 f_X(x)，或把 f_{X|Y} 与 f_{Y|X} 的分子分母张冠李戴",
+        "在 f_Y(y)=0 的点上定义条件密度并代入计算",
+        "求条件分布函数时积分下限机械取 −∞，未与密度非零区域的下界取较大者",
+        "对连续型随机变量用 P{Y=y} 作分母（该概率为 0，条件概率应改用条件密度描述）"
+      ],
+      "exam_years": [2011, 2013, 2015, 2019, 2022],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.rv2.independence",
+      "name": "随机变量的独立性",
+      "level": 4,
+      "parent_id": "math1.prob.rv2",
+      "is_leaf": true,
+      "definition": "随机变量 X 与 Y 相互独立，当且仅当对任意实数 x,y 都有 F(x,y)=F_X(x)F_Y(y)；离散型等价于对所有 i,j 有 p_{ij}=p_{i·}p_{·j}，连续型在密度连续时等价于 f(x,y)=f_X(x)f_Y(y) 几乎处处成立。边界条件：独立要求等式在整个平面上成立，只在某个区域成立推不出独立；二维随机变量独立时其联合分布完全由边缘分布决定，反之不成立。",
+      "formulas": [
+        "F(x,y)=F_X(x)F_Y(y)\\quad \\forall x,y",
+        "p_{ij}=p_{i\\cdot}\\,p_{\\cdot j}\\quad \\forall i,j",
+        "f(x,y)=f_X(x)f_Y(y)\\quad \\text{几乎处处成立}",
+        "X,Y\\ \\text{独立}\\Longrightarrow E(XY)=E(X)E(Y),\\quad D(X\\pm Y)=D(X)+D(Y)"
+      ],
+      "common_traps": [
+        "★ 用 f(x,y)=f_X(x)f_Y(y) 判断独立性时只在某个区域上验证，未要求对几乎所有的 (x,y) 成立，也未检查密度非零区域是否为矩形",
+        "把「不相关」当作「独立」的等价条件（只有二维正态分布时二者才等价）",
+        "看到 f(x,y) 能分离成 g(x)h(y) 就断定独立，忽略了定义域是否为矩形区域",
+        "误认为边缘分布都是正态的二维随机变量一定服从二维正态分布"
+      ],
+      "exam_years": [2011, 2013, 2015, 2019, 2022],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.rv2.uniform2d",
+      "name": "二维均匀分布",
+      "level": 4,
+      "parent_id": "math1.prob.rv2",
+      "is_leaf": true,
+      "definition": "若 (X,Y) 的联合密度在有界区域 D 上为常数、在 D 外为 0，则称 (X,Y) 在 D 上服从均匀分布，密度为 1/S_D（S_D 为 D 的面积）。此时 (X,Y) 落入 D 内任一子区域 A 的概率等于 A 与 D 的面积之比，与 A 的位置和形状无关。边界条件：D 必须有有限的非零面积；「均匀」是对二维区域而言的，两个边缘分布一般既不独立也不服从一维均匀分布，除非 D 是各边平行于坐标轴的矩形。",
+      "formulas": [
+        "f(x,y)=\\frac{1}{S_D},\\ (x,y)\\in D;\\qquad f(x,y)=0,\\ \\text{其他}",
+        "P\\{(X,Y)\\in A\\}=\\frac{S_{A\\cap D}}{S_D}",
+        "\\text{若 }D=[a,b]\\times[c,d],\\ \\text{则 }X\\sim U(a,b),\\ Y\\sim U(c,d)\\ \\text{且独立}"
+      ],
+      "common_traps": [
+        "★ 误认为二维均匀变量的边缘分布必为均匀分布（D 为圆、三角形等非矩形区域时不成立，边缘密度一般是变化的）",
+        "算面积比时漏掉子区域 A 与 D 的交集，直接用 S_A 作分子",
+        "把「二维均匀分布」与「两个独立一维均匀分布之积」混为一谈（后者要求 D 是矩形）",
+        "求边缘密度时未按 D 的边界对 x 分段，直接取固定上下限"
+      ],
+      "exam_years": [2012, 2015, 2018, 2024],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.rv2.normal2d",
+      "name": "二维正态分布",
+      "level": 4,
+      "parent_id": "math1.prob.rv2",
+      "is_leaf": true,
+      "definition": "若 (X,Y) 的联合密度具有参数 μ₁,μ₂,σ₁²,σ₂²,ρ 的标准二次型形式，则称 (X,Y) 服从二维正态分布，记为 N(μ₁,μ₂,σ₁²,σ₂²,ρ)。它的两个边缘分布都是正态分布，参数 ρ 正是 X 与 Y 的相关系数，且 ρ=0 与 X、Y 独立等价。边界条件：要求 σ₁>0、σ₂>0、|ρ|<1；「不相关 ⟺ 独立」这一等价关系只有二维正态才具备；两个边缘都为正态并不能推出联合分布是二维正态。",
+      "formulas": [
+        "f(x,y)=\\frac{1}{2\\pi\\sigma_1\\sigma_2\\sqrt{1-\\rho^2}}\\exp\\left\\{-\\frac{1}{2(1-\\rho^2)}\\left[\\frac{(x-\\mu_1)^2}{\\sigma_1^2}-2\\rho\\frac{(x-\\mu_1)(y-\\mu_2)}{\\sigma_1\\sigma_2}+\\frac{(y-\\mu_2)^2}{\\sigma_2^2}\\right]\\right\\}",
+        "X\\sim N(\\mu_1,\\sigma_1^2),\\qquad Y\\sim N(\\mu_2,\\sigma_2^2)",
+        "\\rho=0\\iff X\\ \\text{与}\\ Y\\ \\text{相互独立}",
+        "aX+bY\\sim N\\!\\left(a\\mu_1+b\\mu_2,\\ a^2\\sigma_1^2+2ab\\rho\\sigma_1\\sigma_2+b^2\\sigma_2^2\\right)"
+      ],
+      "common_traps": [
+        "★ 把「边缘分布都是正态」当作「联合分布是二维正态」的充分条件（正确的方向是二维正态推出边缘正态）",
+        "把「不相关即独立」这一二维正态特有的结论滥用到一般的二维随机变量上",
+        "参数 ρ 与协方差的关系写错（Cov(X,Y)=ρσ₁σ₂，而不是 ρ）",
+        "求线性组合 aX+bY 的方差时漏掉交叉项 2abρσ₁σ₂"
+      ],
+      "exam_years": [2012, 2015, 2018, 2024],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.rv2.sum_dist",
+      "name": "随机变量之和的分布",
+      "level": 4,
+      "parent_id": "math1.prob.rv2",
+      "is_leaf": true,
+      "definition": "设 (X,Y) 的联合密度为 f(x,y)，则 Z=X+Y 的密度由卷积给出：f_Z(z)=∫_{−∞}^{+∞}f(x,z−x)dx；当 X 与 Y 独立时化为两个边缘密度的卷积 f_Z(z)=∫f_X(x)f_Y(z−x)dx，离散型则对使 x_i+y_j=z 的取值对求和。边界条件：被积函数中 x 的有效范围由「x 在 X 的取值域内」与「z−x 在 Y 的取值域内」共同确定，必须随 z 的取值分段讨论；X 与 Y 不独立时不能使用边缘密度的卷积。",
+      "formulas": [
+        "f_Z(z)=\\int_{-\\infty}^{+\\infty}f(x,z-x)\\,dx=\\int_{-\\infty}^{+\\infty}f(z-y,y)\\,dy",
+        "f_{X+Y}(z)=\\int_{-\\infty}^{+\\infty}f_X(x)f_Y(z-x)\\,dx\\quad(X,Y\\ \\text{独立})",
+        "P\\{X+Y=k\\}=\\sum_{i}P\\{X=i\\}P\\{Y=k-i\\}\\quad(\\text{独立离散型})",
+        "X\\sim N(\\mu_1,\\sigma_1^2),\\ Y\\sim N(\\mu_2,\\sigma_2^2)\\ \\text{独立}\\Longrightarrow X+Y\\sim N(\\mu_1+\\mu_2,\\ \\sigma_1^2+\\sigma_2^2)"
+      ],
+      "common_traps": [
+        "★ 用卷积公式时被积函数中变量代换后的积分范围写错，未按 z 的取值分段讨论，是本章最致命的失分点",
+        "X 与 Y 不独立时仍用两个边缘密度的卷积求和的分布",
+        "离散型卷积的求和指标范围写错，漏掉或重复计入某些分解方式",
+        "把 Z=X+Y 的分布函数写成 F_X(z)F_Y(z)（那是 max 的分布函数，不是和的分布）"
+      ],
+      "exam_years": [2010, 2013, 2016, 2019, 2020, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.rv2.maxmin",
+      "name": "最大值与最小值的分布",
+      "level": 4,
+      "parent_id": "math1.prob.rv2",
+      "is_leaf": true,
+      "definition": "设 X₁,…,X_n 相互独立，则 M=max(X₁,…,X_n) 的分布函数为 F_M(z)=∏F_{X_i}(z)，N=min(X₁,…,X_n) 的分布函数为 F_N(z)=1−∏[1−F_{X_i}(z)]；当各 X_i 同分布时分别为 [F(z)]^n 与 1−[1−F(z)]^n，密度由求导得到。边界条件：这两个公式都要求各 X_i 相互独立；当 X_i 不独立时不能使用乘积形式，必须回到联合分布处理。",
+      "formulas": [
+        "F_{\\max}(z)=\\prod_{i=1}^{n}F_{X_i}(z),\\qquad F_{\\min}(z)=1-\\prod_{i=1}^{n}\\left[1-F_{X_i}(z)\\right]",
+        "f_{\\max}(z)=n\\left[F(z)\\right]^{n-1}f(z)\\quad(\\text{独立同分布})",
+        "f_{\\min}(z)=n\\left[1-F(z)\\right]^{n-1}f(z)\\quad(\\text{独立同分布})",
+        "P\\{M\\le z\\}=P\\{X_1\\le z,\\dots,X_n\\le z\\}"
+      ],
+      "common_traps": [
+        "★ 写出 max 的分布函数之积后，套用 min 时忘记公式是 1−∏(1−F)，把两项符号或因子弄错",
+        "对 min 的分布函数求导时漏乘内层导数，少一个因子（应为 n[1−F(z)]^{n−1}f(z)）",
+        "忽略各 X_i 的独立性前提，对不独立的随机变量套用乘积公式",
+        "混淆 P{max≤z} 与 P{max<z} 在离散情形下的差别（连续型无差别，离散型会差一个点概率）"
+      ],
+      "exam_years": [2010, 2013, 2016, 2019, 2020, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.rv2.func2d",
+      "name": "二维随机变量函数分布",
+      "level": 4,
+      "parent_id": "math1.prob.rv2",
+      "is_leaf": true,
+      "definition": "求 (X,Y) 的函数 U=g(X,Y)（Z=X+Y 之外的一般情形）的分布，标准做法是分布函数法：F_U(u)=P{g(X,Y)≤u}=∬_{g(x,y)≤u}f(x,y)dxdy，先画出区域 {g≤u} 再化为累次积分，最后对 u 求导；也可用变量代换法，令 U=g(X,Y)、V=h(X,Y)，由 f_{UV}(u,v)=f_{XY}(x(u,v),y(u,v))|J| 再积掉辅助变量 V。边界条件：区域 {g≤u} 随 u 变化时必须按 u 的取值分段讨论积分限；变量代换要求变换是一一对应且雅可比行列式不为零。",
+      "formulas": [
+        "F_U(u)=\\iint_{g(x,y)\\le u}f(x,y)\\,dx\\,dy",
+        "f_{UV}(u,v)=f_{XY}\\!\\left(x(u,v),y(u,v)\\right)\\left|J\\right|,\\qquad J=\\frac{\\partial(x,y)}{\\partial(u,v)}",
+        "f_U(u)=\\int_{-\\infty}^{+\\infty}f_{UV}(u,v)\\,dv",
+        "P\\{X<Y\\}=\\iint_{x<y}f(x,y)\\,dx\\,dy"
+      ],
+      "common_traps": [
+        "★ 区域 {g(x,y)≤u} 画错或未随 u 的取值分段，导致二重积分的上下限写错",
+        "雅可比行列式取错方向，用了 ∂(u,v)/∂(x,y) 却未取倒数或未取绝对值",
+        "求出联合密度 f_{UV}(u,v) 后忘记再对辅助变量 V 积分就当作 U 的密度",
+        "求 P{X<Y} 型概率时用单重积分代替二重积分，且积分区域 {x<y} 与密度非零区域求交时出错"
+      ],
+      "exam_years": [2014, 2017, 2020, 2022, 2024],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.numchar",
+      "name": "随机变量的数字特征",
+      "level": 2,
+      "parent_id": "math1.prob",
+      "is_leaf": false,
+      "exam_weight": 0.4
+    },
+    {
+      "id": "math1.prob.numchar.exp_def",
+      "name": "数学期望的定义与计算",
+      "level": 4,
+      "parent_id": "math1.prob.numchar",
+      "is_leaf": true,
+      "definition": "离散型 X 的期望为 E(X)=Σ x_k p_k（要求级数绝对收敛），连续型 X 的期望为 E(X)=∫_{−∞}^{+∞}x f(x)dx（要求积分绝对收敛）。更一般地，随机变量函数 g(X) 的期望可直接用 E[g(X)]=Σ g(x_k)p_k 或 ∫g(x)f(x)dx 计算，无需先求 g(X) 的分布。边界条件：期望存在的前提是绝对收敛，若 Σ|x_k|p_k 发散则称期望不存在，此时一切期望运算都失效，柯西分布就是期望不存在的经典反例。",
+      "formulas": [
+        "E(X)=\\sum_{k}x_kp_k\\quad\\left(\\text{要求}\\ \\sum_{k}|x_k|p_k<\\infty\\right)",
+        "E(X)=\\int_{-\\infty}^{+\\infty}xf(x)\\,dx\\quad\\left(\\text{要求}\\ \\int_{-\\infty}^{+\\infty}|x|f(x)\\,dx<\\infty\\right)",
+        "E[g(X)]=\\sum_{k}g(x_k)p_k,\\qquad E[g(X)]=\\int_{-\\infty}^{+\\infty}g(x)f(x)\\,dx",
+        "E(C)=C,\\qquad E(aX+b)=aE(X)+b"
+      ],
+      "common_traps": [
+        "★ 计算期望前不判断级数或积分是否绝对收敛，对期望不存在的分布（如柯西分布）照样算出一个数值",
+        "用定义式时漏乘概率 p_k 或漏掉密度因子 f(x)dx",
+        "求 E[g(X)] 时先去求 g(X) 的分布再求期望，舍近求远且容易把分布算错",
+        "把离散型的求和当成有限项，忽略 X 取可列无穷多个值的情形"
+      ],
+      "exam_years": [2010, 2011, 2013, 2015, 2017, 2019, 2022],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [1, 3]
+    },
+    {
+      "id": "math1.prob.numchar.var_def",
+      "name": "方差的定义与计算",
+      "level": 4,
+      "parent_id": "math1.prob.numchar",
+      "is_leaf": true,
+      "definition": "D(X)=E{[X−E(X)]²} 称为 X 的方差，√D(X) 称为标准差；实用计算公式为 D(X)=E(X²)−[E(X)]²。边界条件：方差存在要求 E(X²)<∞，这一条件比期望存在更强，期望存在并不保证方差存在（如 t 分布）；D(X)≥0，且 D(X)=0 的充要条件是 X 以概率 1 取常数。计算 E(X²) 时仍须使用随机变量函数的期望公式，不能对 X² 的分布想当然。",
+      "formulas": [
+        "D(X)=E\\left\\{[X-E(X)]^2\\right\\}",
+        "D(X)=E(X^2)-[E(X)]^2",
+        "D(aX+b)=a^2D(X),\\qquad D(C)=0",
+        "D(X)=0\\iff P\\{X=E(X)\\}=1"
+      ],
+      "common_traps": [
+        "★ 把 D(X)=E(X²)−[E(X)]² 误写成 E(X²)−E(X)（漏掉期望的平方）",
+        "计算方差前未验证 E(X²) 是否存在就直接套用公式",
+        "把 D(aX+b)=a²D(X) 写成 aD(X)，或误认为还要加上 b",
+        "混淆方差与标准差，在标准化或区间估计中把 σ 与 σ² 用反"
+      ],
+      "exam_years": [2010, 2012, 2014, 2016, 2018, 2021, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [1, 2]
+    },
+    {
+      "id": "math1.prob.numchar.exp_props",
+      "name": "期望与方差的性质",
+      "level": 4,
+      "parent_id": "math1.prob.numchar",
+      "is_leaf": true,
+      "definition": "期望是线性算子：E(aX+bY+c)=aE(X)+bE(Y)+c 对任意随机变量成立，无需独立性；若 X 与 Y 相互独立，则 E(XY)=E(X)E(Y) 且 D(X±Y)=D(X)+D(Y)。边界条件：E(XY)=E(X)E(Y) 的逆命题不成立，即不相关推不出独立；D(X±Y)=D(X)+D(Y) 的充分条件是不相关，独立只是其中一种；方差没有线性性，求 D(X±Y) 时必须补上协方差项。",
+      "formulas": [
+        "E\\!\\left(\\sum_{i=1}^{n}a_iX_i+b\\right)=\\sum_{i=1}^{n}a_iE(X_i)+b",
+        "E(XY)=E(X)E(Y)\\quad(X,Y\\ \\text{独立})",
+        "D(X\\pm Y)=D(X)+D(Y)\\pm 2\\,\\mathrm{Cov}(X,Y)",
+        "D\\!\\left(\\sum_{i=1}^{n}X_i\\right)=\\sum_{i=1}^{n}D(X_i)+2\\sum_{1\\le i<j\\le n}\\mathrm{Cov}(X_i,X_j)"
+      ],
+      "common_traps": [
+        "★ 无条件下使用 D(X+Y)=D(X)+D(Y)，漏掉 2Cov(X,Y)（只有不相关时才成立）",
+        "把期望的可加性当成需要独立条件的性质（期望相加无需独立，乘积的期望才需要）",
+        "由 E(XY)=E(X)E(Y) 反推 X 与 Y 相互独立",
+        "把 D(X−Y) 写成 D(X)−D(Y)（方差没有减法的线性性）"
+      ],
+      "exam_years": [2011, 2013, 2015, 2017, 2019, 2021],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.numchar.common_char",
+      "name": "常见分布的期望与方差",
+      "level": 4,
+      "parent_id": "math1.prob.numchar",
+      "is_leaf": true,
+      "definition": "必须背熟的结论：0-1 分布 B(1,p) 的期望为 p、方差为 p(1−p)；二项分布 B(n,p) 的期望为 np、方差为 np(1−p)；泊松分布 P(λ) 的期望与方差都等于 λ；均匀分布 U(a,b) 的期望为 (a+b)/2、方差为 (b−a)²/12；指数分布 E(λ) 的期望为 1/λ、方差为 1/λ²；正态分布 N(μ,σ²) 的期望为 μ、方差为 σ²。边界条件：这些结论只对上述标准参数化形式成立，若教材把指数分布写成密度 (1/θ)e^{−x/θ}（即 E(θ)），则期望为 θ、方差为 θ²，必须先统一记号再套用。",
+      "formulas": [
+        "B(n,p):\\quad E(X)=np,\\qquad D(X)=np(1-p)",
+        "P(\\lambda):\\quad E(X)=D(X)=\\lambda",
+        "U(a,b):\\quad E(X)=\\frac{a+b}{2},\\qquad D(X)=\\frac{(b-a)^2}{12}",
+        "E(\\lambda):\\quad E(X)=\\frac{1}{\\lambda},\\qquad D(X)=\\frac{1}{\\lambda^2}",
+        "N(\\mu,\\sigma^2):\\quad E(X)=\\mu,\\qquad D(X)=\\sigma^2"
+      ],
+      "common_traps": [
+        "★ 指数分布的参数化方式不统一而记错结果（密度为 (1/θ)e^{−x/θ} 时期望是 θ，密度为 λe^{−λx} 时期望是 1/λ）",
+        "把二项分布的方差记成 np² 或 np",
+        "把均匀分布的方差记成 (b−a)²/12 之外的形式（如 (b−a)/12）",
+        "误以为泊松分布的期望与方差不相等（二者都等于 λ）"
+      ],
+      "exam_years": [2011, 2014, 2015, 2018, 2020, 2024],
+      "typical_qtypes": ["choice", "fill"],
+      "difficulty_range": [1, 2]
+    },
+    {
+      "id": "math1.prob.numchar.cov_corr",
+      "name": "协方差与相关系数",
+      "level": 4,
+      "parent_id": "math1.prob.numchar",
+      "is_leaf": true,
+      "definition": "协方差 Cov(X,Y)=E{[X−E(X)][Y−E(Y)]}=E(XY)−E(X)E(Y)，相关系数 ρ_{XY}=Cov(X,Y)/(√D(X)·√D(Y))。ρ 是无量纲量且满足 |ρ|≤1，其中 |ρ|=1 的充要条件是 X 与 Y 以概率 1 存在线性关系 Y=aX+b（a≠0）。边界条件：定义相关系数要求 D(X)>0 且 D(Y)>0，否则分母为 0、相关系数无定义；协方差与相关系数只刻画线性相关的程度，ρ=0 仅表示没有线性关系。",
+      "formulas": [
+        "\\mathrm{Cov}(X,Y)=E(XY)-E(X)E(Y)",
+        "\\rho_{XY}=\\frac{\\mathrm{Cov}(X,Y)}{\\sqrt{D(X)}\\,\\sqrt{D(Y)}}",
+        "|\\rho_{XY}|\\le 1;\\qquad |\\rho_{XY}|=1\\iff P\\{Y=aX+b\\}=1\\ (a\\ne 0)",
+        "\\mathrm{Cov}(aX+b,\\ cY+d)=ac\\,\\mathrm{Cov}(X,Y)"
+      ],
+      "common_traps": [
+        "★ 相关系数的分母漏开方，写成 D(X)D(Y) 或 √(D(X)D(Y)) 之外的错误形式（应为两个标准差之积）",
+        "对 D(X)=0 的退化随机变量求相关系数（分母为 0，相关系数无定义）",
+        "由 ρ=0 断定 X 与 Y 毫无关系（只说明没有线性关系，例如 Y=X² 在对称区间上 ρ 可为 0）",
+        "计算协方差时把 E(XY) 与 E(X)E(Y) 的顺序或符号写反"
+      ],
+      "exam_years": [2012, 2014, 2016, 2020, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.numchar.uncorrelated",
+      "name": "不相关与独立的关系",
+      "level": 4,
+      "parent_id": "math1.prob.numchar",
+      "is_leaf": true,
+      "definition": "若 Cov(X,Y)=0（等价于 E(XY)=E(X)E(Y)，也等价于 ρ_{XY}=0），则称 X 与 Y 不相关。相互独立一定不相关，但不相关一般推不出独立；唯一的重要例外是当 (X,Y) 服从二维正态分布时，不相关与独立等价。边界条件：这一等价关系只对二维正态成立，不能推广到「边缘为正态」的场合；「不相关」只否定线性关系，X 与 Y 完全可能存在确定性的非线性关系。",
+      "formulas": [
+        "X,Y\\ \\text{不相关}\\iff \\mathrm{Cov}(X,Y)=0\\iff E(XY)=E(X)E(Y)",
+        "X,Y\\ \\text{相互独立}\\Longrightarrow X,Y\\ \\text{不相关}",
+        "(X,Y)\\sim N(\\mu_1,\\mu_2,\\sigma_1^2,\\sigma_2^2,\\rho)\\ \\text{时}:\\quad \\rho=0\\iff X,Y\\ \\text{独立}",
+        "X,Y\\ \\text{不相关}\\Longrightarrow D(X\\pm Y)=D(X)+D(Y)"
+      ],
+      "common_traps": [
+        "★ 由不相关直接推出独立（除二维正态分布外都不成立）",
+        "把「不相关」理解为「毫无关系」，忽略 Y=X² 这类完全相关却 ρ=0 的情形",
+        "在边缘为正态但联合不是二维正态的场合套用「不相关即独立」",
+        "把独立与不相关的推导方向弄反（独立⇒不相关，反之不然）"
+      ],
+      "exam_years": [2012, 2014, 2016, 2020, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.numchar.moments",
+      "name": "矩与协方差矩阵",
+      "level": 4,
+      "parent_id": "math1.prob.numchar",
+      "is_leaf": true,
+      "definition": "k 阶原点矩为 E(X^k)，k 阶中心矩为 E{[X−E(X)]^k}，二维情形还有混合矩 E(X^kY^l)。随机向量 (X₁,…,X_n) 的协方差矩阵 C=(c_{ij}) 满足 c_{ij}=Cov(X_i,X_j)，它是对称矩阵且非负定，对角线元素即各分量的方差。边界条件：矩的存在性要求相应的绝对矩有限；协方差矩阵只能是半正定（正定还要求各分量不退化和线性无关），用它做二次型可得 D(Σa_iX_i)=aᵀCa。",
+      "formulas": [
+        "E(X^k)\\ (k\\ \\text{阶原点矩}),\\qquad E\\{[X-E(X)]^k\\}\\ (k\\ \\text{阶中心矩})",
+        "c_{ij}=\\mathrm{Cov}(X_i,X_j),\\qquad C=(c_{ij})_{n\\times n}=C^{\\mathrm{T}}",
+        "D\\!\\left(\\sum_{i=1}^{n}a_iX_i\\right)=\\boldsymbol{a}^{\\mathrm{T}}C\\boldsymbol{a}\\ge 0",
+        "\\mathrm{Cov}(X,Y)=\\frac{1}{2}\\left[D(X+Y)-D(X)-D(Y)\\right]"
+      ],
+      "common_traps": [
+        "★ 混淆原点矩与中心矩，把二阶中心矩写成 E(X²)（应为 E(X²)−[E(X)]²）",
+        "用 aᵀCa 计算线性组合的方差时忘记写成二次型，直接按各分量方差相加",
+        "认为协方差矩阵一定正定（它只能是半正定，退化情形行列式为 0）",
+        "求混合矩 E(XY) 时误用 E(X)E(Y)（一般不等，只有独立或不相关时才成立）"
+      ],
+      "exam_years": [2013, 2017, 2021, 2024],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.lln",
+      "name": "大数定律与中心极限定理",
+      "level": 2,
+      "parent_id": "math1.prob",
+      "is_leaf": false,
+      "exam_weight": 0.19
+    },
+    {
+      "id": "math1.prob.lln.chebyshev",
+      "name": "切比雪夫不等式",
+      "level": 4,
+      "parent_id": "math1.prob.lln",
+      "is_leaf": true,
+      "definition": "设随机变量 X 的期望 E(X)=μ 与方差 D(X)=σ² 都存在，则对任意 ε>0 有 P{|X−μ|≥ε}≤σ²/ε²，等价形式为 P{|X−μ|<ε}≥1−σ²/ε²。它在大样本场合给出了「X 偏离均值」的概率上界，且不需要知道 X 的具体分布。边界条件：要求方差存在，否则不等式无意义；ε 必须严格大于 0；该不等式给出的界通常相当宽松，只能用于估计上界而不能用来精确计算概率。",
+      "formulas": [
+        "P\\{|X-E(X)|\\ge\\varepsilon\\}\\le\\frac{D(X)}{\\varepsilon^2}",
+        "P\\{|X-E(X)|<\\varepsilon\\}\\ge 1-\\frac{D(X)}{\\varepsilon^2}",
+        "P\\{|X-E(X)|\\ge\\varepsilon\\}=\\frac{D(X)}{\\varepsilon^2}\\ \\text{仅对个别分布取等号}",
+        "\\text{等价形式}:\\ P\\{|X-\\mu|\\ge k\\sigma\\}\\le\\frac{1}{k^2}"
+      ],
+      "common_traps": [
+        "★ 不等号方向记反，把概率上界写成下界（正确形式为 P{|X−μ|≥ε}≤σ²/ε²）",
+        "对期望或方差不存在的随机变量（如柯西分布）使用该不等式",
+        "把分母写成 ε 而不是 ε²，量纲与数值都算错",
+        "用切比雪夫不等式去求精确概率值，忽略它只给出概率的界"
+      ],
+      "exam_years": [2010, 2015, 2021],
+      "typical_qtypes": ["choice", "fill"],
+      "difficulty_range": [1, 2]
+    },
+    {
+      "id": "math1.prob.lln.lln_chebyshev",
+      "name": "切比雪夫大数定律",
+      "level": 4,
+      "parent_id": "math1.prob.lln",
+      "is_leaf": true,
+      "definition": "设 X₁,X₂,… 两两不相关（或相互独立），且各自的方差 D(X_i) 存在并有公共上界，则对任意 ε>0 有 lim_{n→∞}P{|(1/n)ΣX_i−(1/n)ΣE(X_i)|<ε}=1，即样本均值依概率收敛于其期望的平均值。边界条件：要求方差一致有界，这是它与辛钦大数定律最关键的区别；各 X_i 不必同分布，但「方差有界」这一前提不可省略。",
+      "formulas": [
+        "\\lim_{n\\to\\infty}P\\left\\{\\left|\\frac{1}{n}\\sum_{i=1}^{n}X_i-\\frac{1}{n}\\sum_{i=1}^{n}E(X_i)\\right|<\\varepsilon\\right\\}=1",
+        "\\frac{1}{n}\\sum_{i=1}^{n}X_i\\xrightarrow{P}\\frac{1}{n}\\sum_{i=1}^{n}E(X_i)",
+        "\\text{前提}:\\ D(X_i)\\le C\\ (\\forall i)\\ \\text{且}\\ X_i\\ \\text{两两不相关}"
+      ],
+      "common_traps": [
+        "★ 忽略「方差一致有界」这一前提，与只要求独立同分布且期望存在的辛钦大数定律混用",
+        "把依概率收敛与普通数列收敛混为一谈（大数定律说的是概率意义下的收敛）",
+        "误认为大数定律都要求各 X_i 同分布（切比雪夫大数定律并不要求）",
+        "把结论写成样本均值收敛于样本方差或其他无关的量"
+      ],
+      "exam_years": [2013, 2017, 2021],
+      "typical_qtypes": ["choice", "fill"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.lln.lln_bernoulli",
+      "name": "伯努利大数定律",
+      "level": 4,
+      "parent_id": "math1.prob.lln",
+      "is_leaf": true,
+      "definition": "设 n_A 为 n 重伯努利试验中事件 A 发生的次数，p 为每次试验中 A 发生的概率，则对任意 ε>0 有 lim_{n→∞}P{|n_A/n−p|<ε}=1，即频率依概率收敛于概率。它为「用频率估计概率」提供了理论依据，本质是切比雪夫大数定律在 0-1 分布上的特例。边界条件：要求各次试验相互独立且 p 保持不变；结论是依概率收敛，并不意味着 n 充分大时频率一定等于概率。",
+      "formulas": [
+        "\\lim_{n\\to\\infty}P\\left\\{\\left|\\frac{n_A}{n}-p\\right|<\\varepsilon\\right\\}=1",
+        "\\frac{n_A}{n}\\xrightarrow{P}p",
+        "n_A\\sim B(n,p),\\quad E\\!\\left(\\frac{n_A}{n}\\right)=p,\\quad D\\!\\left(\\frac{n_A}{n}\\right)=\\frac{p(1-p)}{n}"
+      ],
+      "common_traps": [
+        "★ 把依概率收敛误解为「n 充分大时频率恒等于概率」（实际只保证偏差较大的可能性很小）",
+        "对不独立或 p 逐次变化的试验套用伯努利大数定律",
+        "把 n_A 的分布写成泊松分布，或把它的期望写成 np(1−p)",
+        "与中心极限定理的结论混用（前者给出收敛性，后者给出近似分布）"
+      ],
+      "exam_years": [2017, 2021, 2023],
+      "typical_qtypes": ["choice", "fill"],
+      "difficulty_range": [1, 2]
+    },
+    {
+      "id": "math1.prob.lln.lln_khinchin",
+      "name": "辛钦大数定律",
+      "level": 4,
+      "parent_id": "math1.prob.lln",
+      "is_leaf": true,
+      "definition": "设 X₁,X₂,… 独立同分布且期望 E(X_i)=μ 存在，则对任意 ε>0 有 lim_{n→∞}P{|(1/n)ΣX_i−μ|<ε}=1，即样本均值依概率收敛于总体均值 μ。边界条件：只要求独立同分布与期望存在，不需要方差存在，这正是它比切比雪夫大数定律更强的地方；但独立同分布的条件不可削弱，期望不存在的序列（如柯西分布）不能使用。",
+      "formulas": [
+        "\\lim_{n\\to\\infty}P\\left\\{\\left|\\frac{1}{n}\\sum_{i=1}^{n}X_i-\\mu\\right|<\\varepsilon\\right\\}=1",
+        "\\frac{1}{n}\\sum_{i=1}^{n}X_i\\xrightarrow{P}\\mu=E(X_1)",
+        "\\text{前提}:\\ X_i\\ \\text{独立同分布且}\\ E|X_1|<\\infty"
+      ],
+      "common_traps": [
+        "★ 与切比雪夫大数定律的条件互换：辛钦只要求独立同分布且期望存在，不要求方差存在或方差有界",
+        "误以为辛钦大数定律要求方差存在（这是两个大数定律最常被混淆的区别）",
+        "对期望不存在的独立同分布序列（如柯西分布）使用该定律",
+        "把「依概率收敛」写成「依分布收敛」或「几乎处处收敛」"
+      ],
+      "exam_years": [2017, 2021, 2023],
+      "typical_qtypes": ["choice", "fill"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.lln.clt_iid",
+      "name": "同分布的中心极限定理",
+      "level": 4,
+      "parent_id": "math1.prob.lln",
+      "is_leaf": true,
+      "definition": "设 X₁,X₂,… 独立同分布，E(X_i)=μ、D(X_i)=σ²>0 都存在，则当 n→∞ 时 (ΣX_i−nμ)/(√n σ) 依分布收敛于 N(0,1)，即 n 较大时 ΣX_i 近似服从 N(nμ,nσ²)，样本均值近似服从 N(μ,σ²/n)。边界条件：要求独立同分布且方差存在且为正；近似效果依赖「n 足够大」（一般 n≥30，总体偏态严重时需要更大），n 很小时不能用正态近似。",
+      "formulas": [
+        "\\frac{\\sum_{i=1}^{n}X_i-n\\mu}{\\sqrt{n}\\,\\sigma}\\xrightarrow{d}N(0,1)",
+        "\\sum_{i=1}^{n}X_i\\ \\text{近似}\\sim N(n\\mu,\\ n\\sigma^2)",
+        "\\bar X=\\frac{1}{n}\\sum_{i=1}^{n}X_i\\ \\text{近似}\\sim N\\!\\left(\\mu,\\ \\frac{\\sigma^2}{n}\\right)",
+        "P\\left\\{\\sum_{i=1}^{n}X_i\\le a\\right\\}\\approx\\Phi\\!\\left(\\frac{a-n\\mu}{\\sqrt{n}\\,\\sigma}\\right)"
+      ],
+      "common_traps": [
+        "★ 标准化时分母写成 nσ 或 √n σ²（正确形式是 √n·σ，n 与 σ 的位置都要摆对）",
+        "对 n 很小的情形直接使用正态近似，未说明近似的前提",
+        "把「依分布收敛」当作「依概率收敛」使用",
+        "离散型总体作正态近似时忽略连续性修正，边界概率偏差较大"
+      ],
+      "exam_years": [2011, 2013, 2017, 2020, 2024],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.lln.clt_demoivre",
+      "name": "棣莫弗—拉普拉斯定理",
+      "level": 4,
+      "parent_id": "math1.prob.lln",
+      "is_leaf": true,
+      "definition": "设 X_n~B(n,p)（n 重伯努利试验中的成功次数），则当 n→∞ 时 (X_n−np)/√(np(1−p)) 依分布收敛于 N(0,1)，即二项分布可用正态分布近似，它是独立同分布中心极限定理在 0-1 分布上的特例。边界条件：要求 np 与 n(1−p) 都足够大（经验上均大于 5 或 10）；p 接近 0 或 1 时正态近似效果很差，此时应改用泊松近似；离散情形作正态近似时建议使用连续性修正。",
+      "formulas": [
+        "\\frac{X_n-np}{\\sqrt{np(1-p)}}\\xrightarrow{d}N(0,1)",
+        "P\\{a\\le X_n\\le b\\}\\approx\\Phi\\!\\left(\\frac{b-np}{\\sqrt{np(1-p)}}\\right)-\\Phi\\!\\left(\\frac{a-np}{\\sqrt{np(1-p)}}\\right)",
+        "P\\{X_n\\le k\\}\\approx\\Phi\\!\\left(\\frac{k+0.5-np}{\\sqrt{np(1-p)}}\\right)\\quad(\\text{连续性修正})",
+        "\\text{适用条件}:\\ np>5,\\quad n(1-p)>5"
+      ],
+      "common_traps": [
+        "★ 分母写成 √(np) 或 np(1−p)，漏掉 p(1−p) 因子或忘记开方",
+        "在 np 或 n(1−p) 很小时仍用正态近似（此时应改用泊松近似）",
+        "离散型求 P{X≤k} 时不做连续性修正，边界值偏差明显",
+        "与独立同分布中心极限定理的条件混用，忘记二项分布是 n 个 0-1 分布之和"
+      ],
+      "exam_years": [2011, 2013, 2017, 2020, 2024],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.stat",
+      "name": "数理统计",
+      "level": 2,
+      "parent_id": "math1.prob",
+      "is_leaf": false,
+      "exam_weight": 0.53
+    },
+    {
+      "id": "math1.prob.stat.population_sample",
+      "name": "总体、样本与统计量",
+      "level": 4,
+      "parent_id": "math1.prob.stat",
+      "is_leaf": true,
+      "definition": "研究对象的全体称为总体，总体的分布即某个随机变量 X 的分布；从总体中独立重复抽取的 n 个随机变量 X₁,…,X_n 称为容量为 n 的简单随机样本，它们与 X 同分布且相互独立。不含任何未知参数的样本函数称为统计量，如样本均值、样本方差、样本 k 阶原点矩。边界条件：简单随机样本要求独立性与同分布性同时成立，无放回抽样且样本量占总体比例较大时不满足独立性；统计量中不能含有未知的总体参数，否则不是统计量。",
+      "formulas": [
+        "X_1,\\dots,X_n\\ \\text{独立同分布，且与}\\ X\\ \\text{同分布}",
+        "\\bar X=\\frac{1}{n}\\sum_{i=1}^{n}X_i,\\qquad S^2=\\frac{1}{n-1}\\sum_{i=1}^{n}(X_i-\\bar X)^2",
+        "A_k=\\frac{1}{n}\\sum_{i=1}^{n}X_i^k,\\qquad B_k=\\frac{1}{n}\\sum_{i=1}^{n}(X_i-\\bar X)^k",
+        "E(\\bar X)=\\mu,\\qquad D(\\bar X)=\\frac{\\sigma^2}{n}"
+      ],
+      "common_traps": [
+        "★ 样本方差的定义中把分母写成 n（应为 n−1，这正是无偏性的来源）",
+        "把含有未知参数的量（如 (X_i−μ)/σ 中的 μ、σ）当作统计量",
+        "混淆样本 k 阶原点矩 A_k 与样本均值 X̄（A₁ 才等于 X̄）",
+        "对非简单随机样本照搬独立同分布的结论"
+      ],
+      "exam_years": [2010, 2012, 2014, 2016, 2018, 2022],
+      "typical_qtypes": ["choice", "fill"],
+      "difficulty_range": [1, 3]
+    },
+    {
+      "id": "math1.prob.stat.sample_mean_var",
+      "name": "样本均值与样本方差",
+      "level": 4,
+      "parent_id": "math1.prob.stat",
+      "is_leaf": true,
+      "definition": "对来自期望 μ、方差 σ² 的总体的简单随机样本，有 E(X̄)=μ、D(X̄)=σ²/n、E(S²)=σ²，且在正态总体下 X̄ 与 S² 相互独立。样本方差的分母取 n−1 正是为了让 E(S²)=σ²，从而成为无偏估计。边界条件：E(S²)=σ² 不依赖总体分布的具体形式，但 S² 的卡方分布律只在正态总体下成立；用 n 作分母的样本二阶中心矩不是 σ² 的无偏估计。",
+      "formulas": [
+        "E(\\bar X)=\\mu,\\qquad D(\\bar X)=\\frac{\\sigma^2}{n}",
+        "E(S^2)=E\\!\\left[\\frac{1}{n-1}\\sum_{i=1}^{n}(X_i-\\bar X)^2\\right]=\\sigma^2",
+        "\\sum_{i=1}^{n}(X_i-\\bar X)^2=\\sum_{i=1}^{n}X_i^2-n\\bar X^2",
+        "\\text{正态总体时}:\\quad \\frac{(n-1)S^2}{\\sigma^2}\\sim\\chi^2(n-1)"
+      ],
+      "common_traps": [
+        "★ 用 n 作分母算出「样本方差」后仍声称它是 σ² 的无偏估计（该量的期望是 (n−1)σ²/n）",
+        "把 D(X̄)=σ²/n 写成 σ²，忽略样本均值的方差随样本量衰减",
+        "用 Σ(X_i−X̄)²/σ² 查 χ² 表时自由度写成 n（应为 n−1）",
+        "在非正态总体下使用 (n−1)S²/σ²~χ²(n−1) 这一结论"
+      ],
+      "exam_years": [2011, 2013, 2015, 2019, 2022],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.stat.chi2_t_f",
+      "name": "三大抽样分布",
+      "level": 4,
+      "parent_id": "math1.prob.stat",
+      "is_leaf": true,
+      "definition": "设 X₁,…,X_n 独立同分布于 N(0,1)，则 χ²=ΣX_i² 服从自由度为 n 的卡方分布 χ²(n)；设 X~N(0,1)、Y~χ²(n) 且两者相互独立，则 t=X/√(Y/n) 服从自由度为 n 的 t 分布；设 U~χ²(n₁)、V~χ²(n₂) 且相互独立，则 F=(U/n₁)/(V/n₂) 服从自由度为 (n₁,n₂) 的 F 分布。边界条件：三个定义都要求构成比值的随机变量相互独立，分子分母的标准形式不能改动；t 分布关于原点对称但尾部比标准正态更厚；F 分布取倒数后自由度次序互换，即 1/F~F(n₂,n₁)。",
+      "formulas": [
+        "\\chi^2=\\sum_{i=1}^{n}X_i^2\\sim\\chi^2(n)\\quad(X_i\\ \\text{i.i.d.}\\sim N(0,1))",
+        "t=\\frac{X}{\\sqrt{Y/n}}\\sim t(n)\\quad(X\\sim N(0,1),\\ Y\\sim\\chi^2(n),\\ \\text{相互独立})",
+        "F=\\frac{U/n_1}{V/n_2}\\sim F(n_1,n_2)\\quad(U\\sim\\chi^2(n_1),\\ V\\sim\\chi^2(n_2),\\ \\text{相互独立})",
+        "\\frac{1}{F}\\sim F(n_2,n_1);\\qquad t^2(n)=F(1,n);\\qquad t_{1-\\alpha}(n)=-t_{\\alpha}(n)"
+      ],
+      "common_traps": [
+        "★ 三大分布的自由度记错，尤其 t 分布分母中 χ² 的自由度、F 分布两个自由度的先后顺序",
+        "把 t 分布与 F 分布的关系用反（正确关系是 t²(n)=F(1,n)，不是 F(n,1)）",
+        "构造 t 统计量时忽略分子与分母必须相互独立这一前提",
+        "把 F 分布的两个自由度顺序写反（分位数关系应为 F_{1−α}(n₁,n₂)=1/F_α(n₂,n₁)）"
+      ],
+      "exam_years": [2011, 2013, 2015, 2019, 2022],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.stat.normal_sample",
+      "name": "正态总体的抽样分布",
+      "level": 4,
+      "parent_id": "math1.prob.stat",
+      "is_leaf": true,
+      "definition": "设 X₁,…,X_n 来自正态总体 N(μ,σ²)，则 X̄~N(μ,σ²/n)，(n−1)S²/σ²~χ²(n−1)，且 X̄ 与 S² 相互独立，由此得 t=(X̄−μ)/(S/√n)~t(n−1)；两个相互独立的正态总体的样本方差之比经标准化后服从 F 分布。边界条件：这些精确分布结论都依赖总体的正态性，非正态总体下只能在大样本时用中心极限定理作近似；σ 已知时应使用服从 N(0,1) 的 u 统计量，σ 未知时才用 t 统计量且自由度是 n−1。",
+      "formulas": [
+        "\\bar X\\sim N\\!\\left(\\mu,\\ \\frac{\\sigma^2}{n}\\right),\\qquad \\frac{(n-1)S^2}{\\sigma^2}\\sim\\chi^2(n-1)",
+        "\\frac{\\bar X-\\mu}{S/\\sqrt{n}}\\sim t(n-1)",
+        "\\frac{\\bar X-\\mu}{\\sigma/\\sqrt{n}}\\sim N(0,1)\\quad(\\sigma\\ \\text{已知})",
+        "\\frac{S_1^2/\\sigma_1^2}{S_2^2/\\sigma_2^2}\\sim F(n_1-1,\\ n_2-1)\\quad(\\text{两个相互独立的正态总体})"
+      ],
+      "common_traps": [
+        "★ 用 t 统计量时分母混用 σ 与 S（σ 已知应查正态表，σ 未知才用 t 分布且自由度为 n−1）",
+        "χ² 统计量的自由度写成 n（应为 n−1）",
+        "构造 F 统计量时把两个样本方差的自由度写成 n₁、n₂（应为 n₁−1、n₂−1）",
+        "在非正态总体下直接使用上述精确分布结论"
+      ],
+      "exam_years": [2011, 2013, 2015, 2019, 2022],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.stat.moment_est",
+      "name": "矩估计法",
+      "level": 4,
+      "parent_id": "math1.prob.stat",
+      "is_leaf": true,
+      "definition": "用样本矩代替相应的总体矩建立方程来求未知参数：若总体含 k 个未知参数 θ₁,…,θ_k，则令总体 l 阶原点矩等于样本 l 阶原点矩（l=1,…,k），解此方程组即得矩估计量。边界条件：矩估计不需要知道总体的分布形式（只要求相应矩存在），但也因此不唯一，可改用中心矩或不同阶矩的组合；当总体的相应矩不存在时矩估计法失效。",
+      "formulas": [
+        "E(X)=\\bar X=\\frac{1}{n}\\sum_{i=1}^{n}X_i",
+        "E(X^2)=\\frac{1}{n}\\sum_{i=1}^{n}X_i^2\\quad\\text{或}\\quad D(X)=\\frac{1}{n}\\sum_{i=1}^{n}(X_i-\\bar X)^2",
+        "\\mu_l(\\theta_1,\\dots,\\theta_k)=A_l,\\quad l=1,\\dots,k",
+        "\\hat\\mu=\\bar X,\\qquad \\hat\\sigma^2=\\frac{1}{n}\\sum_{i=1}^{n}(X_i-\\bar X)^2"
+      ],
+      "common_traps": [
+        "★ 矩估计与最大似然估计的构造步骤混淆，把似然函数求导的步骤写进矩估计",
+        "用样本二阶中心矩（分母为 n）作为 σ² 的矩估计后，误认为它一定是无偏估计",
+        "解出参数的矩估计表达式后未代入样本观测值，或把 X̄ 与样本具体数值混用",
+        "方程个数判断错误（k 个参数只需 k 个方程，多列方程会得到互相矛盾的结果）"
+      ],
+      "exam_years": [2010, 2011, 2012, 2014, 2016, 2018, 2020, 2023],
+      "typical_qtypes": ["fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.stat.mle",
+      "name": "最大似然估计",
+      "level": 4,
+      "parent_id": "math1.prob.stat",
+      "is_leaf": true,
+      "definition": "设总体分布含未知参数 θ，样本观测值为 x₁,…,x_n，似然函数为 L(θ)=∏p(x_i;θ)（离散型）或 ∏f(x_i;θ)（连续型），使 L(θ) 达到最大的 θ̂ 称为 θ 的最大似然估计。常规做法是对 ln L(θ) 求导并令其为 0 解出驻点，再验证它是最大值点。边界条件：只有当 L(θ) 关于 θ 可导且驻点唯一时才能用求导法；当 L(θ) 关于 θ 单调时（如均匀分布 U(0,θ)）驻点不存在，必须由单调性在端点取到最大值；含多个参数时需求解似然方程组。",
+      "formulas": [
+        "L(\\theta)=\\prod_{i=1}^{n}p(x_i;\\theta)\\quad\\text{或}\\quad L(\\theta)=\\prod_{i=1}^{n}f(x_i;\\theta)",
+        "\\ln L(\\theta)=\\sum_{i=1}^{n}\\ln f(x_i;\\theta),\\qquad \\frac{\\mathrm{d}\\ln L(\\theta)}{\\mathrm{d}\\theta}=0",
+        "\\hat\\theta_{\\mathrm{MLE}}=\\arg\\max_{\\theta}L(\\theta)",
+        "\\text{若}\\ \\hat\\theta\\ \\text{是}\\ \\theta\\ \\text{的 MLE，则}\\ g(\\hat\\theta)\\ \\text{是}\\ g(\\theta)\\ \\text{的 MLE}"
+      ],
+      "common_traps": [
+        "★ 对单调型似然函数（如 U(0,θ)）用求导法令导数为 0，求不出估计量而写错，正确做法是由单调性取端点",
+        "忘记先取对数再求导，直接对连乘式求导导致计算量爆炸并频繁出错",
+        "求出驻点后未验证它是最大值点（也可能对应极小值）",
+        "把似然函数写成概率密度的和而不是积，或连乘的指标范围写错"
+      ],
+      "exam_years": [2010, 2011, 2012, 2014, 2016, 2018, 2020, 2023],
+      "typical_qtypes": ["fill", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.stat.unbiased_est",
+      "name": "无偏估计与有效性",
+      "level": 4,
+      "parent_id": "math1.prob.stat",
+      "is_leaf": true,
+      "definition": "若对一切 θ 都有 E(θ̂)=θ，则称 θ̂ 是 θ 的无偏估计；若 θ̂₁、θ̂₂ 都是无偏估计且对一切 θ 有 D(θ̂₁)≤D(θ̂₂)，则称 θ̂₁ 比 θ̂₂ 有效。样本均值 X̄ 与样本方差 S² 分别是 μ 与 σ² 的无偏估计。边界条件：无偏性是对估计量期望的要求，与单次估计的误差大小无关；无偏估计可以不唯一，比较时须用方差；有偏估计也可通过修正变为无偏（如把分母 n 改成 n−1）。",
+      "formulas": [
+        "E(\\hat\\theta)=\\theta\\quad(\\text{对一切}\\ \\theta)",
+        "E(\\bar X)=\\mu,\\qquad E(S^2)=\\sigma^2",
+        "D(\\hat\\theta_1)\\le D(\\hat\\theta_2)\\ \\Longrightarrow\\ \\hat\\theta_1\\ \\text{比}\\ \\hat\\theta_2\\ \\text{有效}",
+        "E\\!\\left[\\frac{1}{n}\\sum_{i=1}^{n}(X_i-\\bar X)^2\\right]=\\frac{n-1}{n}\\sigma^2\\ (\\text{有偏})"
+      ],
+      "common_traps": [
+        "★ 只验证了 E(θ̂)=θ 就宣称估计量「最优」，忽略还需比较方差（有效性）",
+        "把分母为 n 的样本二阶中心矩称为无偏估计（其期望为 (n−1)σ²/n）",
+        "认为无偏估计一定优于有偏估计（按均方误差衡量时有偏估计也可能更好）",
+        "验证无偏性时只对某个具体参数值验证，而非要求「对一切 θ 成立」"
+      ],
+      "exam_years": [2012, 2017, 2020, 2024],
+      "typical_qtypes": ["choice", "solve"],
+      "difficulty_range": [2, 3]
+    },
+    {
+      "id": "math1.prob.stat.interval_hypothesis",
+      "name": "区间估计与假设检验",
+      "level": 4,
+      "parent_id": "math1.prob.stat",
+      "is_leaf": true,
+      "definition": "区间估计是用两个统计量构造随机区间 (θ̂_L,θ̂_U) 使 P{θ̂_L<θ<θ̂_U}=1−α，1−α 为置信度；正态总体均值 μ 的置信区间在 σ 已知时为 X̄±u_{α/2}·σ/√n，σ 未知时为 X̄±t_{α/2}(n−1)·S/√n。假设检验先提出原假设 H₀ 与备择假设 H₁，构造检验统计量并在 H₀ 成立的前提下确定拒绝域，犯第一类错误（弃真）的概率即显著性水平 α。边界条件：置信区间随置信度提高而变长，不能同时追求高置信度与窄区间；检验结论只能是「拒绝 H₀」或「不拒绝 H₀」，不能表述为「接受 H₀」；检验统计量的分布依赖总体正态性。",
+      "formulas": [
+        "P\\{\\hat\\theta_L<\\theta<\\hat\\theta_U\\}=1-\\alpha",
+        "\\sigma\\ \\text{已知}:\\ \\left(\\bar X\\pm u_{\\alpha/2}\\frac{\\sigma}{\\sqrt n}\\right);\\qquad \\sigma\\ \\text{未知}:\\ \\left(\\bar X\\pm t_{\\alpha/2}(n-1)\\frac{S}{\\sqrt n}\\right)",
+        "U=\\frac{\\bar X-\\mu_0}{\\sigma/\\sqrt n}\\sim N(0,1)\\quad(H_0:\\ \\mu=\\mu_0,\\ \\sigma\\ \\text{已知})",
+        "P\\{\\text{拒绝}H_0\\mid H_0\\ \\text{为真}\\}=\\alpha"
+      ],
+      "common_traps": [
+        "★ σ 已知与 σ 未知时误用同一分位数（σ 未知必须用 t 分布分位数，且自由度为 n−1）",
+        "把假设检验中的「不拒绝 H₀」表述为「接受 H₀」（缺少证据不等于证明其成立）",
+        "单侧检验与双侧检验的分位数混用（双侧用 α/2，单侧用 α）",
+        "把第一类错误与第二类错误的概率混为同一个 α，以为二者可以同时任意小"
+      ],
+      "exam_years": [2014, 2016, 2018, 2021, 2023],
+      "typical_qtypes": ["choice", "fill", "solve"],
+      "difficulty_range": [2, 3]
+    }
+  ]
+}

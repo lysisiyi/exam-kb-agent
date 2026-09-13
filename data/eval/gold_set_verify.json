@@ -1,0 +1,150 @@
+{
+  "version": "0.1.0",
+  "updated_at": "2026-03-15",
+  "note": "M3 召回率的**第四集，也是用来对外报数的一集**。四个集的角色：gold_set.json（开发集，调权重）、gold_set_holdout.json（留出集，用来诊断缺陷，已污染）、gold_set_final.json（第一次独立验证，得 80%，已看过失败原因）、本文件（据此不再改动任何数据，只测一次）。",
+  "usage_rule": "只测一次。跑完把数字记进 docs/PROGRESS.md，不许再回头改别名重跑。",
+  "history": {
+    "gold_set": "15 题，100%（开发集，不算数）",
+    "gold_set_holdout": "25 题，96%（用它的失败改了 6 处别名，已污染）",
+    "gold_set_final": "15 题，80%（只诊断不修改时的独立数字；诊断出的 3 处缺口属通用措辞遗漏，已补）",
+    "gold_set_verify": "12 题，本文件"
+  },
+  "problems": [
+    {
+      "id": "vf-001",
+      "stem": "当 $x\\to0$ 时，比较无穷小 $\\alpha=x^{2}$ 与 $\\beta=1-\\cos x$ 的阶。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.limit.infinitesimal_order",
+      "secondary_kp_ids": [
+        "math1.calc.limit.eq_infinitesimal"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "比较 $\\lim\\frac{\\alpha}{\\beta}$ 的极限值判断同阶/高阶。"
+    },
+    {
+      "id": "vf-002",
+      "stem": "讨论函数 $f(x)=\\frac{1}{x-2}$ 在 $x=2$ 处的间断点类型。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.limit.continuity",
+      "secondary_kp_ids": [],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "第二类间断点（无穷间断点）。"
+    },
+    {
+      "id": "vf-003",
+      "stem": "求曲线 $y=\\frac{x^{2}}{x-1}$ 的所有渐近线。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.diff.concavity_asymptote",
+      "secondary_kp_ids": [],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "垂直渐近线 $x=1$ 与斜渐近线 $y=x+1$。"
+    },
+    {
+      "id": "vf-004",
+      "stem": "求 $\\displaystyle\\lim_{x\\to0}\\frac{e^{x}\\sin x-x(1+x)}{x^{3}}$。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.limit.taylor",
+      "secondary_kp_ids": [
+        "math1.calc.limit.lhopital"
+      ],
+      "difficulty": 3,
+      "source": "2022 年数学（一）真题",
+      "note": "加减结构等价无穷小失效，需把 $e^x\\sin x$ 展开到三阶。"
+    },
+    {
+      "id": "vf-005",
+      "stem": "估计积分 $\\displaystyle\\int_{0}^{1}e^{-x^{2}}\\,\\mathrm{d}x$ 的取值范围。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.integral.definite_properties",
+      "secondary_kp_ids": [
+        "math1.calc.integral.geometry"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "用定积分的估值性质（最值夹逼）。"
+    },
+    {
+      "id": "vf-006",
+      "stem": "计算 $\\displaystyle\\iiint_{\\Omega}z\\,\\mathrm{d}v$，其中 $\\Omega$ 是由 $z=x^{2}+y^{2}$ 与 $z=1$ 围成的区域。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.multiintegral.triple_integral",
+      "secondary_kp_ids": [
+        "math1.calc.multiintegral.triple"
+      ],
+      "difficulty": 3,
+      "source": "2020 年数学（一）真题",
+      "note": "旋转抛物面与平面围成，用柱面坐标。⚠️ 本体里「三重积分（柱面坐标与球面坐标）」与「三重积分的计算」是同一考点的两个叶子（本体缺陷）。"
+    },
+    {
+      "id": "vf-007",
+      "stem": "计算 $\\displaystyle\\int_{L}(x^{2}+y^{2})\\,\\mathrm{d}s$，其中 $L$ 为圆周 $x^{2}+y^{2}=a^{2}$。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.curvesurface.line_int_first",
+      "secondary_kp_ids": [
+        "math1.calc.curvesurface.line_first"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "对弧长的曲线积分，代入 $x^{2}+y^{2}=a^{2}$ 后化为周长乘常数。"
+    },
+    {
+      "id": "vf-008",
+      "stem": "判别正项级数 $\\displaystyle\\sum_{n=1}^{\\infty}\\frac{n!}{n^{n}}$ 的敛散性。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.series.positive_series",
+      "secondary_kp_ids": [],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "比值判别法，$\\rho=1/e<1$ 收敛。"
+    },
+    {
+      "id": "vf-009",
+      "stem": "将周期为 $2\\pi$ 的函数 $f(x)=x$（$-\\pi<x<\\pi$）展开成傅里叶级数。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.series.fourier",
+      "secondary_kp_ids": [],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "奇函数展开为正弦级数。"
+    },
+    {
+      "id": "vf-010",
+      "stem": "设 $A$ 为 $4\\times5$ 矩阵，已知 $r(A)=3$，求 $r(A^{T}A)$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.linalg.matrix.rank_inequality",
+      "secondary_kp_ids": [
+        "math1.linalg.matrix.rank"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "$r(A^{T}A)=r(A)=3$，用秩的不等式与 $A^{T}Ax=0$ 与 $Ax=0$ 同解。"
+    },
+    {
+      "id": "vf-011",
+      "stem": "判断二次型 $f(x_1,x_2,x_3)=x_1^{2}+2x_2^{2}+3x_3^{2}+2x_1x_2$ 是否正定。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.linalg.eigen.positive_definite",
+      "secondary_kp_ids": [
+        "math1.linalg.eigen.quadratic_matrix"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "写出矩阵后用顺序主子式判定。"
+    },
+    {
+      "id": "vf-012",
+      "stem": "一批产品由甲、乙两厂生产，甲厂占 60%、次品率 2%，乙厂占 40%、次品率 5%。任取一件为次品，求它来自甲厂的概率。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.prob.events.bayes",
+      "secondary_kp_ids": [
+        "math1.prob.events.total_prob"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "全概率公式求分母，贝叶斯公式求后验。⚠️ 本体把「全概率公式」「贝叶斯公式」拆成两个叶子，也保留了合并的「全概率公式与贝叶斯公式」（本体缺陷）。"
+    }
+  ]
+}

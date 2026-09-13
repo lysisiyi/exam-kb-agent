@@ -1,0 +1,183 @@
+{
+  "version": "0.1.0",
+  "updated_at": "2026-03-15",
+  "note": "M3 知识点标注评测的金标准集。每题的 primary_kp_id 是人工标注的『命题人最想考的那个知识点』，不是解题时最后用到的那步。这是判断标注质量高低的唯一依据。",
+  "confidence_note": "标注者对大部分题目有较高把握；个别题目标注了 note 说明争议点。",
+  "problems": [
+    {
+      "id": "gold-001",
+      "stem": "当 $x\\to 0$ 时，求极限 $\\displaystyle\\lim_{x\\to 0}\\frac{\\sin x - x\\cos x}{x^{3}}$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.calc.limit.taylor",
+      "secondary_kp_ids": [
+        "math1.calc.limit.eq_infinitesimal",
+        "math1.calc.limit.lhopital"
+      ],
+      "difficulty": 2,
+      "source": "2022 年数学（一）真题",
+      "note": "分子是 sinx - xcosx，加减结构使等价无穷小替换失效，必须用泰勒展开到三阶。这是命题人设的陷阱，故主考点是泰勒而非等价无穷小。"
+    },
+    {
+      "id": "gold-002",
+      "stem": "求极限 $\\displaystyle\\lim_{x\\to 0}\\left(1+\\frac{1}{x}\\right)^{x}$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.calc.limit.two_important",
+      "secondary_kp_ids": [
+        "math1.calc.limit.eq_infinitesimal"
+      ],
+      "difficulty": 2,
+      "source": "模拟题",
+      "note": "1^∞ 型未定式，标准做法是取对数化为 0·∞ 再用等价无穷小。主考点是两个重要极限。"
+    },
+    {
+      "id": "gold-003",
+      "stem": "设 $f(x)$ 在 $[0,1]$ 上连续，且 $\\displaystyle\\int_0^1 f(x)\\,\\mathrm{d}x = 0$，$f(1)=0$。证明：存在 $\\xi\\in(0,1)$，使得 $f(\\xi)=0$。",
+      "qtype": "proof",
+      "primary_kp_id": "math1.calc.limit.closed_interval",
+      "secondary_kp_ids": [
+        "math1.calc.limit.zero_point"
+      ],
+      "difficulty": 3,
+      "source": "2023 年数学（一）真题",
+      "note": "关键是用积分中值定理先造出一个零点 c，再对 [c,1] 用罗尔定理。命题人考的是『闭区间上连续函数性质』的综合运用。"
+    },
+    {
+      "id": "gold-004",
+      "stem": "设 $f(x)$ 在 $x=0$ 处可导，$f(0)=0$，则 $\\displaystyle\\lim_{x\\to 0}\\frac{f(x)}{x}=$（　）",
+      "qtype": "choice",
+      "primary_kp_id": "math1.calc.diff.derivative_def",
+      "secondary_kp_ids": [],
+      "difficulty": 1,
+      "source": "2021 年数学（一）真题",
+      "note": "直接考导数的定义式。这是最基础的定义型题。"
+    },
+    {
+      "id": "gold-005",
+      "stem": "设 $A$ 为 3 阶实对称矩阵，$\\lambda_1,\\lambda_2,\\lambda_3$ 为其特征值，且 $\\lambda_1+\\lambda_2+\\lambda_3=0$，求 $|A+E|$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.linalg.eigen.real_symmetric",
+      "secondary_kp_ids": [
+        "math1.linalg.eigen.eigenvalue"
+      ],
+      "difficulty": 2,
+      "source": "模拟题",
+      "note": "利用实对称矩阵可正交对角化，把 |A+E| 化为 ∏(λᵢ+1)，再结合迹为 0 的条件。主考点是实对称矩阵的性质。"
+    },
+    {
+      "id": "gold-006",
+      "stem": "设 $f(x)=x^{3}+ax^{2}+bx$ 在 $x=1$ 处取得极值 $-2$，求 $a,b$ 的值。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.diff.monotonic_extremum",
+      "secondary_kp_ids": [
+        "math1.calc.diff.rules_derivative"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "极值必要条件 f'(1)=0 加上 f(1)=-2 构成方程组。直接考极值条件，不需要二阶判别。"
+    },
+    {
+      "id": "gold-007",
+      "stem": "计算 $\\displaystyle\\int_0^{\\pi/2}\\sin^{3}x\\,\\mathrm{d}x$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.calc.integral.definite_properties",
+      "secondary_kp_ids": [
+        "math1.calc.integral.substitution"
+      ],
+      "difficulty": 2,
+      "source": "模拟题",
+      "note": "奇次幂三角函数定积分，标准做法是拆出 sinx 凑微分或用华里士公式。主考点是定积分的计算技巧。"
+    },
+    {
+      "id": "gold-008",
+      "stem": "设 $D$ 是由 $y=x$, $y=2x$, $x=1$ 所围成的区域，计算二重积分 $\\displaystyle\\iint_D \\frac{x}{x^{2}+y^{2}}\\,\\mathrm{d}x\\,\\mathrm{d}y$。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.multiintegral.double_polar",
+      "secondary_kp_ids": [
+        "math1.calc.multiintegral.double_cartesian"
+      ],
+      "difficulty": 2,
+      "source": "2021 年数学（一）真题",
+      "note": "被积函数与积分区域都是关于原点的射线型，极坐标是自然选择（被积函数化为 1/r·cosθ）。"
+    },
+    {
+      "id": "gold-009",
+      "stem": "判断级数 $\\displaystyle\\sum_{n=1}^{\\infty}\\frac{(-1)^{n}}{\\sqrt{n}}$ 的敛散性；若收敛，说明是条件收敛还是绝对收敛。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.series.alternating_series",
+      "secondary_kp_ids": [],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "莱布尼茨判别法 + 绝对值级数（p=1/2 发散）→ 条件收敛。考的是交错级数与绝对收敛的区分。"
+    },
+    {
+      "id": "gold-010",
+      "stem": "求微分方程 $y'+2xy=x$ 的通解。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.ode.first_order_linear",
+      "secondary_kp_ids": [
+        "math1.calc.integral.antiderivative"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "标准的一阶线性方程，套通解公式 y=e^{-∫P}(∫Qe^{∫P}+C)。"
+    },
+    {
+      "id": "gold-011",
+      "stem": "设 $X\\sim N(0,1)$，求 $P\\{|X|<1\\}$（用标准正态分布函数 $\\Phi$ 表示）。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.prob.rv1.normal_distribution",
+      "secondary_kp_ids": [
+        "math1.prob.rv1.distribution_function"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "直接考正态分布的标准化与对称性。"
+    },
+    {
+      "id": "gold-012",
+      "stem": "设 $X,Y$ 相互独立，$D(X)=1$，$D(Y)=2$，求 $D(2X-3Y)$。",
+      "qtype": "fill",
+      "primary_kp_id": "math1.prob.numchar.variance",
+      "secondary_kp_ids": [
+        "math1.prob.numchar.covariance"
+      ],
+      "difficulty": 1,
+      "source": "教材习题",
+      "note": "方差性质 D(aX+bY)=a²D(X)+b²D(Y)（独立性保证交叉项为 0）。注意系数要平方。"
+    },
+    {
+      "id": "gold-013",
+      "stem": "设 $A$ 为 $n$ 阶矩阵，下列说法正确的是（　）\n\nA. 若 $A$ 有 $n$ 个特征值，则 $A$ 必可对角化\nB. $A$ 可对角化的充要条件是 $A$ 有 $n$ 个线性无关的特征向量\nC. 若 $A$ 可逆，则 $A$ 必可对角化\nD. 若 $A$ 的特征值互不相同，则 $A$ 未必可对角化",
+      "qtype": "choice",
+      "primary_kp_id": "math1.linalg.eigen.similarity",
+      "secondary_kp_ids": [],
+      "difficulty": 2,
+      "source": "模拟题",
+      "note": "B 是充要条件的标准表述。A 把必要条件当充分条件（经典陷阱），D 说反了（互异特征值一定可对角化）。"
+    },
+    {
+      "id": "gold-014",
+      "stem": "设 $\\{a_n\\}$ 满足 $a_1=1$，$a_{n+1}=\\sqrt{2+a_n}$，证明 $\\{a_n\\}$ 收敛并求其极限。",
+      "qtype": "proof",
+      "primary_kp_id": "math1.calc.limit.existence",
+      "secondary_kp_ids": [
+        "math1.calc.limit.seq"
+      ],
+      "difficulty": 3,
+      "source": "教材习题",
+      "note": "必须先证有界（数学归纳法）再证单调，然后才能对递推式取极限解方程。直接假设极限存在是典型错误。"
+    },
+    {
+      "id": "gold-015",
+      "stem": "计算曲线积分 $\\displaystyle\\oint_L (x+y)\\,\\mathrm{d}x + (x-y)\\,\\mathrm{d}y$，其中 $L$ 是圆周 $x^{2}+y^{2}=1$ 取逆时针方向。",
+      "qtype": "solve",
+      "primary_kp_id": "math1.calc.curvesurface.line_int_second_green",
+      "secondary_kp_ids": [
+        "math1.calc.multiintegral.double_polar"
+      ],
+      "difficulty": 2,
+      "source": "教材习题",
+      "note": "∂Q/∂x - ∂P/∂y = 1 - 1 = 0，但格林公式仍适用，结果为 0。考的是格林公式的应用（以及别因为结果是 0 就以为算错了）。"
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+name: kaoyan_math_agent
+description: 考研数学错题 AI 分类管理 Agent（Windows 版 V1）
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── 状态管理与路由 ──────────────────────────────────────────────
+  flutter_riverpod: ^2.5.1
+  go_router: ^14.2.0
+
+  # ── 数据层：SQLite + FTS5 全文检索 ──────────────────────────────
+  drift: ^2.20.0
+  path_provider: ^2.1.4
+  path: ^1.9.0
+  #
+  # ⚠️ 刻意**不**依赖 `sqlite3_flutter_libs`（原为 ^0.5.24）。
+  #
+  # 它和 `sqlite3`（drift 的传递依赖）会提供**同一份原生库**，是两套重复机制：
+  #   - `sqlite3` 走 Dart Native Assets：直接取预编译好的 sqlite3.dll
+  #   - `sqlite3_flutter_libs` 走 CMake：构建时下载 sqlite 源码再现场编译
+  #
+  # 后者在构建时从这里下载源码包：
+  #     https://sqlite.org/2026/sqlite-autoconf-3520000.tar.gz
+  # 实测国内网络拿不到 —— 文件下成 **0 字节**，CMake 的 download 步骤
+  # 反复重试、构建无限期挂住（不是报错退出，是卡死）。
+  #
+  # 而 Native Assets 那条路已经打通：`tools/vendor/sqlite3.x64.windows.dll`
+  # 是之前绕开 GitHub 封锁预置的（见 tools/setup_windows.py），
+  # `data_layer_test.dart` 的 32 个用例跑的就是真实 sqlite3。
+  #
+  # 保留两套还有个隐患：同一份库被链接两次，容易出现重复符号或版本不一致。
+  #
+  # 若将来发现 Native Assets 不足以覆盖某场景，回退办法是预置源码包：
+  # 用镜像下载 sqlite-autoconf-<ver>.tar.gz，放进
+  # `build/windows/x64/_deps/sqlite3-subbuild/sqlite3-populate-prefix/src/`，
+  # 并写上传入 stamp，避免 CMake 重新下载。
+
+  # ── 安全存储（Windows 走 DPAPI，用于存用户自带的 LLM API Key）──
+  flutter_secure_storage: ^9.2.2
+
+  # ── 网络：直连用户自己的 LLM API ────────────────────────────────
+  dio: ^5.7.0
+
+  # ── 数据格式 ────────────────────────────────────────────────────
+  yaml: ^3.1.2          # 解析题目 Markdown 的 frontmatter
+  crypto: ^3.0.5        # 题目去重指纹
+  collection: ^1.18.0
+  uuid: ^4.5.1
+  intl: ^0.19.0
+
+  # ── 导出 ────────────────────────────────────────────────────────
+  #
+  # `pdf` 是**纯 Dart**，负责生成 PDF 字节流 —— M6 组卷导出靠它，留着。
+  #
+  # ⚠️ `printing` 暂时移除（原为 `printing: ^5.13.2`）。它是原生插件，
+  # 构建时会从 GitHub Releases 下载 pdfium 二进制：
+  #     https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/<ver>/pdfium-win-x64.tgz
+  # 国内网络下这一步必然失败：
+  #     CMake Error at .../printing/windows/DownloadProject.cmake:179
+  #       Build step for pdfium failed: 1
+  # 而它当前**没有任何代码在用**（只在 dev_shell 的占位文案里出现过），
+  # 所以不该为了它让整个工程构建不了。
+  #
+  # M6 做 PDF 预览/打印时再引回来，届时的解法是预置 pdfium：
+  # 用 ghproxy.net 镜像下载后放进插件的 `pdfium-download` 目录
+  # （与 sqlite3 原生库同一套办法，见 tools/setup_windows.py）。
+  pdf: ^3.11.1
+
+  # ── 桌面系统集成 ────────────────────────────────────────────────
+  file_selector: ^1.0.3
+  window_manager: ^0.4.2
+  share_plus: ^10.0.2
+
+  # ⚠️ 已移除 flutter_local_notifications。
+  #    17.x 版本**不支持 Windows**（编译期报 No named parameter 'windows'），
+  #    而即使升级到支持的版本，未 MSIX 打包时 cancel() 也无效、
+  #    且不支持重复通知。
+  #    提醒改由应用内调度实现（core/platform/notify_service_windows.dart
+  #    里的 ReminderScheduler），跨平台且不依赖原生能力。
+  #    将来要加系统 Toast 时，只需替换 NotifyService 的实现，调用方不用改。
+
+  # ── 图表：掌握度画像 ────────────────────────────────────────────
+  fl_chart: ^0.69.0
+
+  # ── 图片处理（批量导入）────────────────────────────────────────
+  image: ^4.2.0
+
+  # ── ⚠️ 公式渲染：装不上或发现停更时，改这里的实现即可 ──────────
+  # 业务代码只依赖 lib/core/math/math_renderer.dart 里的 MathRenderer 抽象，
+  # 底层换包不影响任何调用方。候选（按优先级）：
+  #   1. katex              —— 纯 Dart，KaTeX 移植
+  #   2. flutter_math_fork  —— 一年前更新，可用但停更风险
+  #   3. flutter_tex        —— 基于 MathJax
+  # 安装前请先 `flutter pub add katex` 实测；失败则换下一个。
+  # katex: ^0.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  drift_dev: ^2.20.0
+  build_runner: ^2.4.11
+
+flutter:
+  uses-material-design: true
+
+  # 知识资产（知识点本体、错因词表、考频数据、组卷模板）。
+  #
+  # ⚠️ 这些是**构建产物**，事实源在仓库根的 `data/` 目录。
+  #    因为 Flutter 不允许 assets 引用应用目录之外的路径，
+  #    所以采用「单一事实源 + 构建前同步」。
+  #
+  #    修改 data/ 之后必须执行：
+  #        python tools/data/sync_assets.py
+  #    再 `flutter run`，否则 App 读到的还是旧数据。
+  #
+  #    同步逻辑见 tools/data/sync_assets.py。
+  assets:
+    - assets/data/knowledge_points/
+    - assets/data/error_causes.json
+    - assets/data/exam_frequency.json
+    - assets/data/exam_templates.json
+
+  # 中文字体：Windows 自带微软雅黑，无需打包。
+  # 数学公式渲染所需的字体由具体渲染包提供。
