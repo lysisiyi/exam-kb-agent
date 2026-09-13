@@ -129,12 +129,29 @@ class MathRenderCache {
 }
 
 /// 带缓存的渲染器包装。业务代码应当用它，而不是直接用底层渲染器。
+///
+/// ## 两条路径都要缓存
+///
+/// 早先这里只缓存 `render()`，而 `renderMarkdown()` **直接透传** ——
+/// 于是缓存对真正的热路径毫无作用：错题本列表、复习页、详情页走的全是
+/// `renderMarkdown()`，`render()` 在生产代码里一次都没被调用过。
+/// 这不是"少一层优化"，而是"缓存类白写了"：不报错、不崩，
+/// 只是 5000 题滚动时每次都要重新解析 LaTeX。
+///
+/// 现在两条路径都缓存。`render()` 与 `renderMarkdown()` 用同一份
+/// [_cache]，靠 key 前缀区分，避免两者的 key 空间互相污染。
 class CachedMathRenderer implements MathRenderer {
   final MathRenderer inner;
   final MathRenderCache cache;
 
   CachedMathRenderer(this.inner, {MathRenderCache? cache})
       : cache = cache ?? MathRenderCache();
+
+  /// `renderMarkdown` 的 key 前缀。
+  ///
+  /// 必须与 `render` 的 key 区分开：两者的输入空间不同，
+  /// 而 `render(r'x')` 与 `renderMarkdown('x')` 的参数拼起来可能一模一样。
+  static const String _mdPrefix = 'md\u0000';
 
   @override
   Widget render(
@@ -154,7 +171,12 @@ class CachedMathRenderer implements MathRenderer {
     String markdown, {
     MathRenderOptions options = MathRenderOptions.none,
   }) =>
-      inner.renderMarkdown(markdown, options: options);
+      cache.getOrBuild(
+        '$_mdPrefix$markdown',
+        MathStyle.inline,
+        options,
+        () => inner.renderMarkdown(markdown, options: options),
+      );
 
   @override
   bool supports(String latex) => inner.supports(latex);

@@ -45,11 +45,14 @@ Future<void> main() async {
   }
 
   // ── 公式渲染 ──────────────────────────────────────────────────────────
-  // 暂用纯文本兜底渲染器：不依赖任何第三方包，保证工程可编译。
-  // 选定 katex / flutter_math_fork 后在这里替换为：
-  //   MathRendering.install(CachedMathRenderer(KatexRenderer()));
-  // 业务代码只依赖 MathRenderer 抽象，替换不影响调用方。
-  MathRendering.install(const PlainTextMathRenderer());
+  // 当前内层是纯文本兜底渲染器（不渲染公式，只把 LaTeX 源码显示出来），
+  // 它保证工程在没有第三方渲染库时也能编译运行。
+  //
+  // ⚠️ **必须包一层 `CachedMathRenderer`**。错题本列表 / 复习页走的都是
+  // `renderMarkdown()`，每一项题干有 3–5 个公式；不缓存就等于滚动时反复
+  // 重新解析 LaTeX，而"5000 题滚动不掉帧"是 V1 的验收项之一。
+  // 缓存包装与内层渲染器无关，所以换成 KaTeX 时这层不用动。
+  MathRendering.install(CachedMathRenderer(const PlainTextMathRenderer()));
 
   runApp(ProviderScope(child: KaoyanApp(initialTab: _initialTabFromEnv())));
 }
