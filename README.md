@@ -159,9 +159,10 @@ flutter run -d windows   # 需先开开发者模式
 │   │   └── features/
 │   │       ├── knowledge/            知识库三级树
 │   │       └── entry/                录入页 + 公式键盘 + 考点选择器
-│   ├── test/                         单元测试（295 个用例）
+│   ├── test/                         单元测试（310 个用例）
 │   └── tool/
-│       └── recall_lab.dart           召回实验台（快速看每题失败细节）
+│       ├── recall_lab.dart           召回实验台（快速看每题失败细节）
+│       └── tag_eval.dart             ★ T17：真实 LLM 的 Top-1 准确率评测
 │
 ├── data/                             ★ 知识资产（单一事实源）
 │   ├── knowledge_points/             知识点本体（math1/2/3，271 叶子）
@@ -352,6 +353,10 @@ flutter run -d windows
 cd app
 dart run tool/recall_lab.dart --misses --candidates 5
 dart run tool/recall_lab.dart --set gold_set_verify --rank
+
+# T17：真实 LLM 的 Top-1 准确率评测（需要自己的 API Key）
+dart run tool/tag_eval.dart --key=sk-xxxx --set=gold_set --out=t17_gold.json
+dart run tool/tag_eval.dart --key=sk-xxxx --set=gold_set_verify --limit=3   # 先小样本试错
 ```
 
 ---
