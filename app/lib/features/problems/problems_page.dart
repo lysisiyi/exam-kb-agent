@@ -351,7 +351,7 @@ class _ProblemTile extends StatelessWidget {
     // 题干本来就是"保留 LaTeX 的可读文本"，直接交给渲染器即可
     final stem = MathRendering.renderer.renderMarkdown(
       stemText.length > 160 ? '${stemText.substring(0, 160)}…' : stemText,
-      options: MathRenderOptions(fontSize: 13.5),
+      options: const MathRenderOptions(fontSize: 13.5),
     );
 
     return InkWell(

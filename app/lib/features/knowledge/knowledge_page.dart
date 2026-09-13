@@ -45,7 +45,7 @@ class _ErrorView extends ConsumerWidget {
             children: [
               const Icon(Icons.error_outline, size: 44, color: AppColors.danger),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 '知识点本体载入失败',
                 style: AppTypography.sectionTitle,
                 textAlign: TextAlign.center,
@@ -153,7 +153,7 @@ class _Summary extends StatelessWidget {
           const SizedBox(height: 20),
           const Divider(),
           const SizedBox(height: 14),
-          Text('高频考点 Top 10（按考频权重）',
+          const Text('高频考点 Top 10（按考频权重）',
               style: AppTypography.sectionTitle),
           const SizedBox(height: 10),
           Wrap(
@@ -178,7 +178,7 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surface,
         borderRadius: AppRadius.rMd,
         boxShadow: AppShadows.s1,
@@ -282,8 +282,8 @@ class _SectionBlock extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        decoration: BoxDecoration(
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
           color: AppColors.surface,
           borderRadius: AppRadius.rLg,
           boxShadow: AppShadows.s1,
@@ -416,7 +416,7 @@ class _LeafTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.bg,
           borderRadius: AppRadius.rMd,
         ),

@@ -453,8 +453,35 @@ void main() {
 
       await pumpReview(tester);
 
-      expect(find.text('今天的复习做完了'), findsOneWidget);
+      // 一张卡都没有时说的是"错题本还是空的"，而不是"今天做完了" ——
+      // 对着空白卡片说"做完了"会让人以为复习功能坏了
+      expect(find.text('错题本还是空的'), findsOneWidget);
+      expect(find.text('今天的复习做完了'), findsNothing);
       expect(find.text('重新检查'), findsOneWidget);
+    });
+
+    testWidgets('有卡但都不到期时说明下次什么时候来', (tester) async {
+      final now = DateTime.now();
+      await seedInAsync(tester, [
+        SeedProblem(
+          id: 'p-later',
+          stem: '一个月后才复习',
+          card: FsrsCard(
+            due: now.add(const Duration(days: 30)),
+            stability: 20,
+            difficulty: 5,
+            reps: 4,
+            lapses: 0,
+            state: CardState.review,
+          ),
+        ),
+      ]);
+
+      await pumpReview(tester);
+
+      expect(find.text('今天的复习做完了'), findsOneWidget);
+      // 用户真正想知道的是"什么时候再来"
+      expect(find.textContaining('下次'), findsOneWidget);
     });
 
     testWidgets('跳过的题不写状态，也不进日志', (tester) async {

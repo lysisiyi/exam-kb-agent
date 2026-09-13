@@ -12,7 +12,6 @@
 /// 真正调用网络的只有生产代码，测试里一次都不会发生。
 library;
 
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -263,7 +262,7 @@ void main() {
     });
 
     test('覆盖 base_url 与模型，并去掉尾部斜杠', () {
-      final c = LlmConfig(
+      const c = LlmConfig(
         providerId: 'custom',
         apiKey: 'k',
         baseUrlOverride: 'https://my-proxy.example.com/v1/',
@@ -275,26 +274,26 @@ void main() {
     });
 
     test('custom 缺 base_url 时校验失败并给出原因', () {
-      final c = LlmConfig(providerId: 'custom', apiKey: 'k', modelOverride: 'm');
+      const c = LlmConfig(providerId: 'custom', apiKey: 'k', modelOverride: 'm');
       final (ok, problem) = c.validate();
       expect(ok, isFalse);
       expect(problem, contains('API 地址'));
     });
 
     test('需要 Key 的服务商缺 Key 时校验失败', () {
-      final c = LlmConfig(providerId: 'deepseek', apiKey: '  ');
+      const c = LlmConfig(providerId: 'deepseek', apiKey: '  ');
       final (ok, problem) = c.validate();
       expect(ok, isFalse);
       expect(problem, contains('API Key'));
     });
 
     test('ollama 无 Key 也能通过校验', () {
-      final c = LlmConfig(providerId: 'ollama', apiKey: '');
+      const c = LlmConfig(providerId: 'ollama', apiKey: '');
       expect(c.validate().$1, isTrue);
     });
 
     test('base_url 不是 http 开头时校验失败', () {
-      final c = LlmConfig(
+      const c = LlmConfig(
         providerId: 'custom',
         apiKey: 'k',
         baseUrlOverride: 'ftp://x',
@@ -496,7 +495,7 @@ void main() {
     test('jsonMode 在 ollama 上不带 response_format（避免 400）', () async {
       final http = FakeHttp([FakeHttp.ok('{}')]);
       await LlmClient(
-        config: LlmConfig(providerId: 'ollama', apiKey: ''),
+        config: const LlmConfig(providerId: 'ollama', apiKey: ''),
         http: http,
         sleep: _noSleep,
       ).chat(const ChatRequest(system: 's', user: 'u', jsonMode: true));

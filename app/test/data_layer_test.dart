@@ -220,9 +220,9 @@ void main() {
   // ───────────────────────────────────────────────────────────────────────
   group('序列化 ↔ 解析 往返', () {
     test('serialize 后 parse 得到等价内容', () {
-      final parsed = ProblemMarkdownParser().parse(_sampleMd).problem!;
+      final parsed = const ProblemMarkdownParser().parse(_sampleMd).problem!;
       final text = ProblemMarkdownSerializer.serialize(parsed);
-      final again = ProblemMarkdownParser()
+      final again = const ProblemMarkdownParser()
           .parse(text, fallbackId: parsed.id)
           .problem!;
 
@@ -258,8 +258,8 @@ knowledge:
 
 设 $f(x) = \frac{1}{2}x^2$，求 $\lim_{x\to 0}\frac{\sin x}{x}$。
 ''';
-      final p = ProblemMarkdownParser().parse(md).problem!;
-      final round = ProblemMarkdownParser()
+      final p = const ProblemMarkdownParser().parse(md).problem!;
+      final round = const ProblemMarkdownParser()
           .parse(ProblemMarkdownSerializer.serialize(p), fallbackId: p.id)
           .problem!;
 
@@ -269,7 +269,7 @@ knowledge:
     });
 
     test('导出时合并用户状态（my_ 前缀）', () {
-      final p = ProblemMarkdownParser().parse(_sampleMd).problem!;
+      final p = const ProblemMarkdownParser().parse(_sampleMd).problem!;
       final text = ProblemMarkdownSerializer.serialize(
         p,
         includeUserState: {
@@ -284,7 +284,7 @@ knowledge:
       expect(text, contains('my_error_causes: [idea, calc]'));
 
       // 关键：日常解析**不应**把 my_ 字段当成题目属性
-      final again = ProblemMarkdownParser()
+      final again = const ProblemMarkdownParser()
           .parse(text, fallbackId: p.id)
           .problem!;
       expect(again.errorCauses, ['idea'],
@@ -295,7 +295,7 @@ knowledge:
   // ───────────────────────────────────────────────────────────────────────
   group('原子写与读写', () {
     test('save 后文件存在且内容可再解析', () async {
-      final p = ProblemMarkdownParser().parse(_sampleMd).problem!;
+      final p = const ProblemMarkdownParser().parse(_sampleMd).problem!;
       final file = await store.save(p);
 
       expect(file.existsSync(), isTrue);
@@ -307,7 +307,7 @@ knowledge:
     });
 
     test('原子写不留下 .tmp 残留', () async {
-      final p = ProblemMarkdownParser().parse(_sampleMd).problem!;
+      final p = const ProblemMarkdownParser().parse(_sampleMd).problem!;
       await store.save(p);
 
       final leftovers = store.problemsDir
@@ -319,7 +319,7 @@ knowledge:
     });
 
     test('覆盖写后读到新内容', () async {
-      var p = ProblemMarkdownParser().parse(_sampleMd).problem!;
+      var p = const ProblemMarkdownParser().parse(_sampleMd).problem!;
       await store.save(p);
 
       p = p.copyWith(stem: '## 题干\n\n改写后的题干内容');
@@ -347,7 +347,7 @@ knowledge:
   // ───────────────────────────────────────────────────────────────────────
   group('索引构建', () {
     test('从磁盘重建索引', () async {
-      final p = ProblemMarkdownParser().parse(_sampleMd).problem!;
+      final p = const ProblemMarkdownParser().parse(_sampleMd).problem!;
       await store.save(p);
 
       final builder = IndexBuilder(db: db, store: store);
@@ -369,7 +369,7 @@ knowledge:
     });
 
     test('mtime 未变时跳过（增量）', () async {
-      final p = ProblemMarkdownParser().parse(_sampleMd).problem!;
+      final p = const ProblemMarkdownParser().parse(_sampleMd).problem!;
       await store.save(p);
 
       final builder = IndexBuilder(db: db, store: store);
@@ -383,7 +383,7 @@ knowledge:
     });
 
     test('force 时忽略 mtime 全量重解析', () async {
-      final p = ProblemMarkdownParser().parse(_sampleMd).problem!;
+      final p = const ProblemMarkdownParser().parse(_sampleMd).problem!;
       await store.save(p);
 
       final builder = IndexBuilder(db: db, store: store);
@@ -395,7 +395,7 @@ knowledge:
 
     test('解析失败的文件被记账，不中断整体', () async {
       // 一个正常 + 一个题干为空
-      await store.save(ProblemMarkdownParser().parse(_sampleMd).problem!);
+      await store.save(const ProblemMarkdownParser().parse(_sampleMd).problem!);
       await ProblemStore.atomicWriteString(
         File(p.join(store.problemsDir.path, 'broken.md')),
         '---\nid: broken\n---\n\n## 答案\n\n只有答案没有题干',
@@ -412,7 +412,7 @@ knowledge:
     });
 
     test('文件删除后清理索引行，但用户状态保留', () async {
-      final p = ProblemMarkdownParser().parse(_sampleMd).problem!;
+      final p = const ProblemMarkdownParser().parse(_sampleMd).problem!;
       await store.save(p);
 
       final builder = IndexBuilder(db: db, store: store);
@@ -444,7 +444,7 @@ knowledge:
     });
 
     test('rebuildFromScratch 清空派生数据后重建', () async {
-      final p = ProblemMarkdownParser().parse(_sampleMd).problem!;
+      final p = const ProblemMarkdownParser().parse(_sampleMd).problem!;
       await store.save(p);
 
       final builder = IndexBuilder(db: db, store: store);
@@ -453,6 +453,52 @@ knowledge:
 
       expect(report.added, 1);
       expect((await db.stats()).ftsConsistent, isTrue);
+    });
+
+    test('全量重建不碰用户状态（复习进度不能跟着索引一起没）', () async {
+      final p = const ProblemMarkdownParser().parse(_sampleMd).problem!;
+      await store.save(p);
+
+      final builder = IndexBuilder(db: db, store: store);
+      await builder.rebuild();
+
+      // 模拟用户已经复习过这道题
+      await db.into(db.userProblemState).insert(
+            UserProblemStateCompanion.insert(
+              problemId: p.id,
+              wrongCount: const Value(5),
+              fsrsState: const Value('{"due":"2024-06-01T00:00:00.000"}'),
+              mastery: const Value(0.4),
+            ),
+          );
+      await db.into(db.reviewLogs).insert(
+            ReviewLogsCompanion.insert(problemId: p.id, rating: 2),
+          );
+
+      await builder.rebuildFromScratch();
+
+      final state = await db.select(db.userProblemState).getSingle();
+      expect(state.wrongCount, 5);
+      expect(state.mastery, closeTo(0.4, 1e-9));
+      expect(state.fsrsState, isNotNull, reason: 'FSRS 状态必须活过索引重建');
+      expect((await db.select(db.reviewLogs).get()).length, 1);
+    });
+
+    test('schema 里没有外键声明（重建索引才不会级联删掉用户数据）', () async {
+      // 这条是**防回归**用的。`problems_index` 与 `user_problem_state` 之间
+      // 一旦出现 `ON DELETE CASCADE` 外键，`rebuildFromScratch()`（先删索引行）
+      // 就会把用户的复习进度一起删掉 —— 而且是在正常操作路径上静默发生。
+      //
+      // 派生表（problem_knowledge）靠"每次重建全量重算"保证一致，
+      // 不需要靠约束兜底；反过来，约束会把重建变成一件危险的事。
+      final rows = await db
+          .customSelect("SELECT sql FROM sqlite_master WHERE sql LIKE '%FOREIGN KEY%'")
+          .get();
+      expect(
+        rows,
+        isEmpty,
+        reason: '出现了外键：请确认它不会让索引重建级联删除用户数据',
+      );
     });
 
     test('索引会记录 needsReview 计数', () async {
@@ -473,7 +519,7 @@ knowledge:
 
 内容
 ''';
-      await store.save(ProblemMarkdownParser().parse(lowConf).problem!);
+      await store.save(const ProblemMarkdownParser().parse(lowConf).problem!);
       final report = await IndexBuilder(db: db, store: store).rebuild();
       expect(report.needsReview, 1);
     });
@@ -630,7 +676,7 @@ knowledge:
     });
 
     test('索引后写入 last_index_at', () async {
-      final p = ProblemMarkdownParser().parse(_sampleMd).problem!;
+      final p = const ProblemMarkdownParser().parse(_sampleMd).problem!;
       await store.save(p);
       await IndexBuilder(db: db, store: store).rebuild();
 

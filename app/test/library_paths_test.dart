@@ -193,7 +193,7 @@ void main() {
           imagesDir: paths.images,
         );
         final service = ProblemService(db: db, store: store);
-        final stem = r'求 $\lim_{x\to0}\frac{\sin x}{x}$';
+        const stem = r'求 $\lim_{x\to0}\frac{\sin x}{x}$';
 
         final first = await service.save(ProblemDraft(stem: stem));
         expect(first.ok, isTrue, reason: first.error);

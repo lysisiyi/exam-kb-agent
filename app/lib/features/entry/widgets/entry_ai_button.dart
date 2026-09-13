@@ -97,7 +97,12 @@ class _EntryAiButtonState extends ConsumerState<EntryAiButton> {
   }
 
   Future<void> _onPressed() async {
+    // `_loadSettings()` 是异步的，所以这里可能仍在等它 —— 那就自己读一次。
+    // 读完之后必须重新确认 `mounted`：用户可能在等待期间切走了页面，
+    // 此时用 context 弹对话框会抛异常。
     final settings = _settings ?? await const LlmSettingsStore().load();
+    if (!mounted) return;
+
     if (!settings.isConfigured) {
       final saved = await showLlmSettingsDialog(context, initial: settings);
       if (!mounted) return;

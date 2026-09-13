@@ -314,7 +314,7 @@ class ProblemMarkdownParser {
     final warnings = <String>[];
 
     // 1. 基础清理
-    var text = content
+    final text = content
         .replaceAll('\r\n', '\n')
         .replaceAll('\r', '\n')
         .replaceAll(_reInvisible, '');

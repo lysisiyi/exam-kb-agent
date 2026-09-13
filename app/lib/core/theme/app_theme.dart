@@ -234,37 +234,37 @@ abstract final class AppTheme {
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.rMd),
         ),
       ),
-      inputDecorationTheme: InputDecorationTheme(
+      inputDecorationTheme: const InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface2,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        border: const OutlineInputBorder(
+            EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
           borderRadius: AppRadius.rMd,
           borderSide: BorderSide.none,
         ),
-        enabledBorder: const OutlineInputBorder(
+        enabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.rMd,
           borderSide: BorderSide.none,
         ),
-        focusedBorder: const OutlineInputBorder(
+        focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.rMd,
           borderSide: BorderSide(color: AppColors.primary, width: 1.6),
         ),
-        hintStyle: const TextStyle(color: AppColors.ink4, fontSize: 14),
+        hintStyle: TextStyle(color: AppColors.ink4, fontSize: 14),
       ),
-      chipTheme: ChipThemeData(
+      chipTheme: const ChipThemeData(
         backgroundColor: AppColors.surface2,
         side: BorderSide.none,
-        labelStyle: const TextStyle(
+        labelStyle: TextStyle(
           fontSize: 11.5,
           fontWeight: FontWeight.w600,
           color: AppColors.ink2,
         ),
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(7)),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 0),
       ),
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(

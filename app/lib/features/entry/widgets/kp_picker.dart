@@ -106,12 +106,14 @@ List<KpMatch> searchKnowledgePoints(
       }
     }
 
-    if (best > 0) out.add(KpMatch(
+    if (best > 0) {
+      out.add(KpMatch(
           point: p,
           hitField: field,
           hitAlias: alias,
           score: best,
         ));
+    }
   }
 
   out.sort((a, b) {
@@ -184,7 +186,7 @@ class _KpPickerDialogState extends State<_KpPickerDialog> {
   late final TextEditingController _query =
       TextEditingController(text: _initialQuery);
   late String? _primary = widget.initialPrimary;
-  late List<String> _secondary = [...widget.initialSecondary];
+  late final List<String> _secondary = [...widget.initialSecondary];
 
   String get _initialQuery {
     final id = widget.initialPrimary;
@@ -296,7 +298,7 @@ class _KpPickerDialogState extends State<_KpPickerDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(
-            KpSelection(primaryId: null, secondaryIds: const []),
+            const KpSelection(primaryId: null, secondaryIds: []),
           ),
           child: const Text('清空'),
         ),

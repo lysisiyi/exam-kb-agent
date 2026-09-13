@@ -61,10 +61,34 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
   /// 本题开始计时，用于 `review_logs.elapsed_ms`。
   DateTime _shownAt = DateTime.now();
 
+  /// 今日提醒文案。非 null 时在页面顶部显示一条可关闭的横幅。
+  String? _reminder;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _checkReminder();
+  }
+
+  /// 每日提醒检查。
+  ///
+  /// 只判断、不打扰：到点且有到期卡片时给一条**可关闭的横幅**，
+  /// 而不是弹窗。用户点掉即记为"今天提醒过了"，写进 `meta_entries`。
+  Future<void> _checkReminder() async {
+    try {
+      final stats = await ref.read(reviewStatsProvider.future);
+      if (stats.dueNow <= 0) return;
+      final svc = await ref.read(reminderServiceProvider.future);
+      await svc.load();
+      final d = await svc.decide(dueCount: stats.dueNow);
+      if (!mounted || !d.notify) return;
+      setState(() => _reminder =
+          '${d.at} 的复习提醒 · 还有 ${d.dueCount} 张卡等着（提醒只在应用运行时出现）');
+      await svc.markNotified();
+    } catch (_) {
+      // 提醒失败绝不该影响复习页本身
+    }
   }
 
   Future<void> _load() async {
@@ -157,6 +181,45 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
 
   @override
   Widget build(BuildContext context) {
+    final banner = _reminderBanner(context);
+    final body = _buildBody(context);
+    if (banner == null) return body;
+    return Column(
+      children: [banner, Expanded(child: body)],
+    );
+  }
+
+  /// 今日提醒横幅。可关闭，关掉不再出现（当天）。
+  Widget? _reminderBanner(BuildContext context) {
+    final text = _reminder;
+    if (text == null) return null;
+    return Material(
+      color: AppColors.warningWeak,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        child: Row(
+          children: [
+            const Icon(Icons.notifications_active_outlined,
+                size: 17, color: AppColors.warningInk),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                    fontSize: 12, height: 1.5, color: AppColors.warningInk),
+              ),
+            ),
+            TextButton(
+              onPressed: () => setState(() => _reminder = null),
+              child: const Text('知道了', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     if (_error != null) {
       return _ErrorView(error: _error!, onRetry: _load);
     }
@@ -414,7 +477,7 @@ class _CardBody extends StatelessWidget {
         ],
         const SizedBox(height: 22),
         if (!revealed)
-          _HiddenAnswer()
+          const _HiddenAnswer()
         else ...[
           if (p.answer != null) ...[
             const _SectionLabel('答案'),
@@ -733,6 +796,9 @@ class _AllDoneView extends ConsumerWidget {
       future: ref.read(reviewRepositoryProvider.future).then((r) => r.stats()),
       builder: (context, snap) {
         final s = snap.data ?? stats.valueOrNull;
+        // 「一张卡都没有」和「今天做完了」是两件事，文案必须分开 ——
+        // 对着一张空白卡片说"今天做完了"会让人以为复习功能坏了。
+        final nothingYet = s?.isEmpty ?? false;
         return Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(28),
@@ -741,19 +807,24 @@ class _AllDoneView extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.check_circle_outline,
-                      size: 48, color: Color(0xFF0CA678)),
+                  Icon(
+                    nothingYet
+                        ? Icons.inbox_outlined
+                        : Icons.check_circle_outline,
+                    size: 48,
+                    color: nothingYet
+                        ? AppColors.ink4
+                        : const Color(0xFF0CA678),
+                  ),
                   const SizedBox(height: 14),
-                  const Text('今天的复习做完了',
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w700)),
+                  Text(
+                    nothingYet ? '错题本还是空的' : '今天的复习做完了',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                    s == null
-                        ? '错题本里还没有卡片。去「录入」页记下第一道错题，'
-                            '它就会进入复习队列。'
-                        : '共 ${s.totalCards} 张卡 · 今天已复习 ${s.reviewedToday} 次 · '
-                            '新卡 ${s.newCards} 张',
+                    _emptySubtitle(s, nothingYet),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13,
@@ -778,6 +849,25 @@ class _AllDoneView extends ConsumerWidget {
         );
       },
     );
+  }
+
+  /// 空态副标题。
+  ///
+  /// 「下次什么时候来」是这里最有价值的一句 —— 没有它，用户只知道
+  /// "现在不用复习"，却不知道什么时候该回来。
+  static String _emptySubtitle(ReviewStats? s, bool nothingYet) {
+    if (s == null) return '正在读取复习进度…';
+    if (nothingYet) {
+      return '去「录入」页记下第一道错题，它就会进入复习队列。';
+    }
+    final parts = <String>[
+      '共 ${s.totalCards} 张卡',
+      '今天已复习 ${s.reviewedToday} 次',
+      if (s.newCards > 0) '新卡 ${s.newCards} 张',
+    ];
+    final next = s.nextDue;
+    parts.add(next == null ? '已无待安排的卡' : '下次 ${describeDue(next)}');
+    return parts.join(' · ');
   }
 }
 

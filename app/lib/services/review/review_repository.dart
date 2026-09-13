@@ -115,13 +115,24 @@ class ReviewStats {
   /// 未来 7 天每天的到期数量（下标 0 = 今天）。
   final List<int> upcoming;
 
+  /// **最早一张尚未到期**的卡的时间。
+  ///
+  /// 用途：空态文案。没有它就只能说"今天做完了"，
+  /// 而用户真正想知道的是"那我什么时候再来"。
+  /// 全都没到期时也如常返回该时间。
+  final DateTime? nextDue;
+
   const ReviewStats({
     this.totalCards = 0,
     this.dueNow = 0,
     this.newCards = 0,
     this.reviewedToday = 0,
     this.upcoming = const [],
+    this.nextDue,
   });
+
+  /// 是否一张卡都没有（错题本空）。与"今天做完了"是两回事，文案要分开。
+  bool get isEmpty => totalCards == 0;
 }
 
 /// 复习仓库。
@@ -266,6 +277,7 @@ class ReviewRepository {
 
     var dueNow = 0;
     var fresh = 0;
+    DateTime? nextDue;
     final upcoming = List<int>.filled(7, 0);
 
     for (final s in states) {
@@ -281,6 +293,10 @@ class ReviewRepository {
       }
       final d = card.due;
       if (d != null) {
+        // 空态要告诉用户"下次什么时候来"：只记未到期的里最早的那张
+        if (d.isAfter(ts) && (nextDue == null || d.isBefore(nextDue))) {
+          nextDue = d;
+        }
         final days = d.difference(DateTime(ts.year, ts.month, ts.day)).inDays;
         if (days >= 0 && days < 7) upcoming[days]++;
       }
@@ -297,6 +313,7 @@ class ReviewRepository {
       newCards: fresh,
       reviewedToday: reviewedToday,
       upcoming: upcoming,
+      nextDue: nextDue,
     );
   }
 

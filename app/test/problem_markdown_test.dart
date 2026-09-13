@@ -300,7 +300,7 @@ E = mc^2
 
   group('脏数据清理', () {
     test('不可见字符被清除', () {
-      final md = '---\nid: dirty\n---\n\n## 题干\n\n设\u200Bf\u200C(x)\uFEFF=0';
+      const md = '---\nid: dirty\n---\n\n## 题干\n\n设\u200Bf\u200C(x)\uFEFF=0';
       final p = parser.parse(md).problem!;
       expect(p.stem.contains('\u200B'), isFalse);
       expect(p.stem.contains('\u200C'), isFalse);

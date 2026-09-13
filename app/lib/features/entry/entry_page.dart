@@ -325,7 +325,7 @@ class _EntryPageState extends ConsumerState<EntryPage> {
         const SizedBox(height: 18),
 
         // 题型
-        _SectionTitle('题型'),
+        const _SectionTitle('题型'),
         const SizedBox(height: 6),
         Wrap(
           spacing: 6,
@@ -389,7 +389,7 @@ class _EntryPageState extends ConsumerState<EntryPage> {
         const SizedBox(height: 18),
 
         // 答案与解析
-        _SectionTitle('答案与解析'),
+        const _SectionTitle('答案与解析'),
         const SizedBox(height: 6),
         TextField(
           controller: _answer,
@@ -467,7 +467,7 @@ class _EntryPageState extends ConsumerState<EntryPage> {
                   _errorCauses.addAll(r.errorCauses);
                 }
               }),
-              onMessage: (m, {error = false}) => _snack(m, error: error),
+              onMessage: _snack,
             ),
           ],
         ),
@@ -552,7 +552,7 @@ class _EntryPageState extends ConsumerState<EntryPage> {
             warnings: warnings,
             saving: _saving,
             canSave: blocking.isEmpty && !_saving,
-            onSave: () => _save(),
+            onSave: _save,
             onReset: _resetForm,
           ),
         ),

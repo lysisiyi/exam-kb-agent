@@ -195,7 +195,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             child: Column(
               children: [
                 const SizedBox(height: 14),
-                _AppMark(compact: true),
+                const _AppMark(compact: true),
                 const SizedBox(height: 14),
                 Expanded(
                   child: ListView(

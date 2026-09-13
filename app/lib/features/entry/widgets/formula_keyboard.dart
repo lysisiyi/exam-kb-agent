@@ -210,7 +210,7 @@ class _FormulaKeyboardState extends State<FormulaKeyboard> {
                     ),
                   ),
                 const SizedBox(width: 8),
-                _HintChip(
+                const _HintChip(
                   icon: Icons.info_outline,
                   text: '$kFormulaPlaceholder = 占位符，插入后已选中',
                 ),

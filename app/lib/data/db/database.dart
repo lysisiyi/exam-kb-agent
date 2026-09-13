@@ -79,7 +79,12 @@ class AppDatabase extends _$AppDatabase {
           if (from < 3) await m.createTable(llmUsageEntries);
         },
         beforeOpen: (details) async {
-          // 外键约束默认关闭，打开它以保证数据一致性。
+          // 打开外键约束的**执行**开关。注意：当前 schema 里**没有任何
+          // 外键声明**（见下方说明），所以这一行目前是未雨绸缪 ——
+          // 将来真加了外键，它才会起作用。
+          //
+          // ⚠️ 不要因为"反正是空的"就删掉它：一旦有人给表加上 references()，
+          // 少了这一行约束会静默失效（SQLite 默认不执行外键）。
           await customStatement('PRAGMA foreign_keys = ON');
           // WAL 提升并发读写表现（索引构建与 UI 查询会并发）。
           await customStatement('PRAGMA journal_mode = WAL');
@@ -257,11 +262,20 @@ class AppDatabase extends _$AppDatabase {
   /// 清空**派生**数据（保留用户状态）。
   ///
   /// 用途：从 Markdown 全量重建索引前先清场。
+  ///
+  /// 删索引行会触发 FTS 的 `AFTER DELETE` 触发器，逐行通知 FTS ——
+  /// 这是刻意的：用 `DELETE FROM problems_fts` 之类的批量命令绕开触发器，
+  /// 会让 external-content 表与主表失去同步（见 `rebuildFtsIndex` 的说明）。
+  ///
+  /// ## 为什么先删关联行
+  ///
+  /// 现在没有外键，顺序其实不强制。但保留这个顺序是因为它**将来**才对：
+  /// 一旦给 `problem_knowledge` 加上外键，先删主索引行就会被约束挡下来。
+  /// 与其埋一个"加外键那天才发现"的坑，不如现在就把顺序写对。
   Future<void> clearDerivedData() async {
     await transaction(() async {
-      // 先删 FTS（触发器会处理），再删知识关联，最后删主索引
-      await customStatement('DELETE FROM problems_index');
       await delete(problemKnowledge).go();
+      await customStatement('DELETE FROM problems_index');
     });
   }
 

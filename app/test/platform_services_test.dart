@@ -79,7 +79,7 @@ void main() {
     });
 
     test('掩码后的字符串长度不精确等于原长（避免被反推）', () {
-      final secret = 'sk-' + 'x' * 40;
+      final secret = 'sk-${'x' * 40}';
       final masked = SecureStoreWindows.maskSecret(secret)!;
       expect(masked.length, lessThan(secret.length));
     });

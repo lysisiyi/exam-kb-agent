@@ -11,6 +11,7 @@ import '../data/markdown/problem_store.dart';
 import '../domain/knowledge/knowledge_point.dart';
 import '../features/problems/problems_page.dart' show ProblemView;
 import '../services/library/problem_service.dart';
+import '../services/review/reminder_service.dart';
 import '../services/review/review_repository.dart';
 
 /// 当前选中的科目。
@@ -110,6 +111,12 @@ final reviewRepositoryProvider = FutureProvider<ReviewRepository>((ref) async {
 final reviewStatsProvider = FutureProvider<ReviewStats>((ref) async {
   final repo = await ref.watch(reviewRepositoryProvider.future);
   return repo.stats();
+});
+
+/// 每日复习提醒。判断逻辑在 `ReminderService` 里，这里只负责装配。
+final reminderServiceProvider = FutureProvider<ReminderService>((ref) async {
+  final db = await ref.watch(databaseProvider.future);
+  return ReminderService(db: db);
 });
 
 /// 到期队列。打开复习页时取一次。

@@ -165,7 +165,7 @@ void main() {
     });
 
     test('id 由指纹派生 —— 同一道题重复录入落到同一个 id', () {
-      final stem = r'求 $\lim_{x\to0}\frac{\sin x}{x}$';
+      const stem = r'求 $\lim_{x\to0}\frac{\sin x}{x}$';
       final fixed = DateTime(2026, 3, 15);
       final a = ProblemDraft(stem: stem).build(now: fixed);
       final b = ProblemDraft(stem: stem).build(now: fixed);
@@ -342,7 +342,7 @@ void main() {
     });
 
     test('重复录入同一道题会被拦下，且默认不覆盖', () async {
-      final stem = r'求 $\lim_{x\to0}\frac{\sin x}{x}$';
+      const stem = r'求 $\lim_{x\to0}\frac{\sin x}{x}$';
       final first = await service().save(ProblemDraft(
         stem: stem,
         primaryKpId: 'math1.calc.limit.lhopital',
@@ -366,7 +366,7 @@ void main() {
     });
 
     test('确认覆盖时沿用已有 id —— 不能让复习进度丢失', () async {
-      final stem = r'求 $\lim_{x\to0}\frac{\sin x}{x}$';
+      const stem = r'求 $\lim_{x\to0}\frac{\sin x}{x}$';
       final first = await service().save(ProblemDraft(
         stem: stem,
         primaryKpId: 'math1.calc.limit.lhopital',
@@ -400,7 +400,7 @@ void main() {
 
     test('重新保存**不会**动用户状态（双层存储纪律）', () async {
       // 这是本项目最容易犯的静默错误：编辑题干后把复习进度清零。
-      final stem = r'求 $\lim_{x\to0}\frac{\sin x}{x}$';
+      const stem = r'求 $\lim_{x\to0}\frac{\sin x}{x}$';
       final out = await service().save(ProblemDraft(
         stem: stem,
         primaryKpId: 'math1.calc.limit.lhopital',
@@ -547,7 +547,7 @@ void main() {
       final db = openMemoryDatabase();
       try {
         final store = lib.store;
-        await store.save(Problem(
+        await store.save(const Problem(
           id: 'p1',
           fingerprint: 'fp1',
           stem: '第一题',
@@ -558,7 +558,7 @@ void main() {
         var report = await builder.rebuild();
         expect(report.added, 1);
 
-        await store.save(Problem(
+        await store.save(const Problem(
           id: 'p2',
           fingerprint: 'fp2',
           stem: '第二题',

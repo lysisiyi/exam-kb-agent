@@ -106,8 +106,8 @@ Future<void> _pumpEntry(
 }
 
 void main() {
-  setUp(() => MathRendering.reset());
-  tearDown(() => MathRendering.reset());
+  setUp(MathRendering.reset);
+  tearDown(MathRendering.reset);
 
   testWidgets('空题干时给出阻断提示，保存按钮禁用', (tester) async {
     await _pumpEntry(tester);

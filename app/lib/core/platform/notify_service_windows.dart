@@ -150,10 +150,29 @@ class ReminderScheduler {
         'lastNotified': _lastNotifiedDate?.toIso8601String(),
       };
 
+  /// 从持久化的 JSON 恢复。
+  ///
+  /// ## 缺失的键不能覆盖成 null
+  ///
+  /// 这里**只覆盖出现的键**。早先的写法是 `hour = j['hour'] as num?` ——
+  /// 一旦持久化的内容缺 `hour`（或整段是垃圾被解析成空 map），
+  /// `hour` 就变成 null，也就是**静默地把提醒关掉了**。
+  /// 用户会看到提醒再也没出现过，而没有任何地方报错。
+  ///
+  /// 所以缺键 = 保持当前值；无法解析的值才退回默认时间。
   void restoreFromJson(Map<String, dynamic> j) {
-    hour = (j['hour'] as num?)?.toInt();
-    minute = (j['minute'] as num?)?.toInt();
-    final last = j['lastNotified']?.toString();
-    _lastNotifiedDate = last == null ? null : DateTime.tryParse(last);
+    if (j.containsKey('hour')) {
+      final h = (j['hour'] as num?)?.toInt();
+      hour = (h != null && h >= 0 && h <= 23) ? h : 20;
+    }
+    if (j.containsKey('minute')) {
+      final m = (j['minute'] as num?)?.toInt();
+      minute = (m != null && m >= 0 && m <= 59) ? m : 0;
+    }
+    if (j.containsKey('lastNotified')) {
+      final last = j['lastNotified']?.toString();
+      _lastNotifiedDate =
+          (last == null || last.isEmpty) ? null : DateTime.tryParse(last);
+    }
   }
 }
