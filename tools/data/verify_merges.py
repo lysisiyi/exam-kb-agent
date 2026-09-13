@@ -273,6 +273,70 @@ def main() -> int:
             f"样例：{extra[:3]}"
         )
 
+    # ── 5.5 未覆盖的重复（这是漏合并的兜底） ─────────────────────────────
+    #
+    # ⚠️ 真实踩到的坑：写映射时**漏了一组** ——
+    # `math1.calc.ode.first_order_linear`「一阶线性微分方程与伯努利方程」
+    # 与 `math1.calc.ode.linear1`「一阶线性微分方程」两个 id 都活了下来。
+    # 后果不是"少删一个"这么轻：T17 实测 gold-010 因此判错
+    # （LLM 在等价的两个选项里挑了更含糊的那个）。
+    #
+    # 而当时的验证器只检查"映射自身自洽"，管不到"本体里还有没有没被覆盖的重复"。
+    # 这里补上：用重复检测器扫一遍**当前本体**，把不在映射里、
+    # 也没写进 `not_merged` 的候选对报出来。
+    uncovered: list[str] = []
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "_vs_dedupe", Path(__file__).resolve().parent / "dedupe_knowledge.py"
+        )
+        dk = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        spec.loader.exec_module(dk)
+
+        # not_merged 是"名字像但已明确决定不合并"的白名单
+        excused: set[frozenset[str]] = set()
+        for g in mapping.get("not_merged", []):
+            ids = g.get("group") or []
+            if len(ids) >= 2:
+                excused.add(frozenset(ids))
+
+        merged_pairs: set[frozenset[str]] = set()
+        for g in groups:
+            for d in g.get("drops") or []:
+                merged_pairs.add(frozenset({g["keep"], d}))
+
+        for subject in ("math1", "math2", "math3"):
+            p = KP_DIR / f"{subject}.json"
+            if not p.exists():
+                continue
+            nodes = load(p).get("nodes", [])
+            for _why, _scope, a, b, _already in dk._candidates(nodes):
+                pair = frozenset({a["id"], b["id"]})
+                if pair in merged_pairs or pair in excused:
+                    continue
+                uncovered.append(
+                    f"{a['id']}「{a.get('name')}」 与 "
+                    f"{b['id']}「{b.get('name')}」"
+                )
+    except Exception as e:  # noqa: BLE001
+        notes.append(f"未能扫描未覆盖的重复（{e}）")
+
+    if uncovered:
+        notes.append(
+            f"检测到 {len(uncovered)} 组**本体里仍然并存**的疑似重复，"
+            f"既不在映射里也没写进 not_merged：\n      "
+            + "\n      ".join(uncovered[:12])
+            + (
+                f"\n      （另有 {len(uncovered) - 12} 组）"
+                if len(uncovered) > 12
+                else ""
+            )
+            + "\n      → 要么补进 groups 合并掉，要么写进 not_merged 说明为什么不合并。"
+            "\n      ⚠️ 检测器有误报（如二重积分直角/极坐标），必须逐对人工判断。"
+        )
+
     # ── 输出 ───────────────────────────────────────────────────────────────
     if not args.quiet:
         print()

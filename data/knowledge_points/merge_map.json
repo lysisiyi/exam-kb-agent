@@ -121,6 +121,13 @@
       "reason": "同一个「函数展开成幂级数」"
     },
     {
+      "keep": "math1.calc.ode.first_order_linear",
+      "drops": [
+        "math1.calc.ode.linear1"
+      ],
+      "reason": "同一个「一阶线性微分方程」。⚠️ 这一组是**首次执行后补的** —— 写映射时漏了，于是 T17 评测里 gold-010 判错（LLM 挑了更含糊的 linear1）。补它的同时给 verify_merges.py 加了『未覆盖重复』检查，防止再漏"
+    },
+    {
       "keep": "math1.calc.ode.linear2_homo",
       "drops": [
         "math1.calc.ode.second_order_const"
@@ -375,6 +382,20 @@
   "not_merged": [
     {
       "group": [
+        "math2.linalg.det.compute",
+        "math2.linalg.det.properties"
+      ],
+      "why": "「行列式的计算方法」vs「行列式的性质」：一个是算的技巧，一个是不变性质。检测器因名字都含『行列式』而误报"
+    },
+    {
+      "group": [
+        "math2.linalg.equation.homogeneous",
+        "math2.linalg.equation.nonhomogeneous"
+      ],
+      "why": "齐次 vs 非齐次方程组：解空间结构不同（基础解系 vs 特解+基础解系）。检测器误报"
+    },
+    {
+      "group": [
         "math1.calc.ode.linear2_homo",
         "math1.calc.ode.linear2_nonhomo"
       ],
@@ -447,6 +468,7 @@
     "math1.calc.multiintegral.triple",
     "math1.calc.ode.applications",
     "math1.calc.ode.euler",
+    "math1.calc.ode.linear1",
     "math1.calc.ode.reducible",
     "math1.calc.ode.second_order_const",
     "math1.calc.ode.separable",

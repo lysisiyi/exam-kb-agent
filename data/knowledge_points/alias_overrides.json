@@ -369,14 +369,8 @@
       "伯努利方程",
       "通解公式",
       "微分方程",
-      "通解"
-    ],
-    "math1.calc.ode.linear1": [
-      "y'+P(x)y=Q(x)",
-      "y=e^{-\\int P\\,\\mathrm{d}x}\\left[\\int Q(x)e^{\\int P\\,\\mathrm{d}x}\\mathrm{d}x+C\\right]",
-      "常数变易法",
-      "微分方程",
-      "通解"
+      "通解",
+      "常数变易法"
     ],
     "math1.calc.ode.reducible_order": [
       "y''=f(x)",

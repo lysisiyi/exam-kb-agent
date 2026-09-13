@@ -231,9 +231,16 @@ void main() {
     });
 
     test('模型分级决定了置信度门槛', () {
-      expect(ModelTier.recommended.confidenceThreshold, 0.70);
-      expect(ModelTier.acceptable.confidenceThreshold, 0.78);
-      expect(ModelTier.discouraged.confidenceThreshold, 0.85);
+      // 这三个数字是 T17 实测校准出来的，不是拍的：
+      // 67 道题（四个金标准集）上，自报置信度 [0.80,0.90) 的实际准确率只有 40%，
+      // 而 [0.95,1.00] 是 96.5%。门槛 0.70 时 7 个错例只拦住 1 个；
+      // 抬到 0.90 用 9% 的人工确认量能拦住 4/7。
+      //
+      // ⚠️ 改动这些数字必须同时更新 provider_registry.dart 里的校准表，
+      // 并用 `python tools/data/calibrate_t17.py` 重新核对。
+      expect(ModelTier.recommended.confidenceThreshold, 0.90);
+      expect(ModelTier.acceptable.confidenceThreshold, 0.92);
+      expect(ModelTier.discouraged.confidenceThreshold, 0.95);
       // 弱模型门槛必须更高（因为它的"高置信度"往往虚高）
       expect(
         ModelTier.discouraged.confidenceThreshold,

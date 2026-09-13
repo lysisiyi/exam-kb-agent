@@ -217,10 +217,16 @@ class _Args {
         limit = int.tryParse(_val(argv, '--limit') ?? ''),
         out = _val(argv, '--out');
 
+  /// 取值。支持 `--k=v` 与 `--k v` 两种写法。
+  ///
+  /// ⚠️ 两种写法的边界不同，不能共用一个循环上界：
+  /// `--k=v` 可以出现在**最后一个**参数，而 `--k v` 需要后面还有一个元素。
+  /// 早期版本统一写成 `i < argv.length - 1`，导致 `--limit=3` 放在末尾时
+  /// **静默失效**（跑了全部 15 题才发现）。
   static String? _val(List<String> argv, String k) {
-    for (var i = 0; i < argv.length - 1; i++) {
+    for (var i = 0; i < argv.length; i++) {
       if (argv[i].startsWith('$k=')) return argv[i].substring(k.length + 1);
-      if (argv[i] == k) return argv[i + 1];
+      if (argv[i] == k && i + 1 < argv.length) return argv[i + 1];
     }
     return null;
   }
