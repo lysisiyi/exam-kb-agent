@@ -621,7 +621,11 @@ prob.rv2 3 · prob.numeric 3 · prob.limit 1 · prob.stats 2
 | **提醒调度（Windows）** | `core/platform/notify_service_windows.dart` | 应用内每日提醒（不依赖原生） | 🟢 同上 |
 | **OCR 占位** | `core/platform/ocr_service_stub.dart` | 明确报错 + 替代方案提示 | 🟢 同上 |
 | **平台装配** | `core/platform/platform_bootstrap.dart` | 按平台注入 + 能力摘要 | 🟢 同上 |
-| **公式渲染抽象** | `core/math/math_renderer.dart` | `MathRenderer` + LRU 缓存 + 兜底 | — |
+| **公式渲染抽象** | `core/math/math_renderer.dart` | `MathRenderer` + LRU 缓存 + 纯文本兜底 | 🟢 10 个用例 |
+| **KaTeX 渲染器** | `core/math/katex_renderer.dart` | 真渲染（CustomPainter，不走 SVG） | 🟢 14 个用例 |
+| **中文摘分** | `core/math/latex_text_split.dart` | 把 `\text{中文}` 摘给 Flutter 排 | 🟢 18 个用例（含 1400 条真实语料） |
+| **窗口初始化** | `core/platform/window_setup.dart` | 起手尺寸 + 锁最小尺寸 | 🟢 5 个用例 |
+| **每日提醒** | `services/review/reminder_service.dart` | 应用内提醒 + 落盘"今天已提醒" | 🟢 10 个用例 |
 | **主题** | `core/theme/app_theme.dart` | 设计 token（与原型一致） | — |
 | **自适应外壳** | `core/widgets/adaptive_shell.dart` | 底部 Tab / 图标条 / 侧边栏 + **惰性挂载** | 🟢 7 个用例 |
 | **依赖注入** | `core/providers.dart` | Riverpod providers（含复习/列表/检索） | — |
@@ -633,10 +637,11 @@ prob.rv2 3 · prob.numeric 3 · prob.limit 1 · prob.stats 2
 | **开发外壳** | `dev_shell.dart` | 导航 + 占位进度页 | — |
 | **入口** | `main.dart` | 服务注入 + 主题 | — |
 
-**测试用例合计：353 个**（`flutter test` 全绿；`flutter analyze` 0 error / 0 warning）
-（tagger 96 · 缓存与台账 14 · 复习仓库+会话 17 · 错题本列表 8 · 平台服务 33 ·
-数据层 34 · 录入闭环域/服务 35 · Markdown/指纹 24 · 录入界面 21 · FSRS 20 ·
-录入页 12 · 别名 11 · 真实目录入口 6 · 外壳导航 7 · 召回率评测 5 · 主题 4 · 其他）
+**测试用例合计：417 个**（`flutter test` 全绿；`flutter analyze` **No issues found**）
+（tagger 96 · 录入闭环域/服务 35 · 平台服务 33 · 缓存与台账 14 · 复习仓库+会话 20 ·
+数据层 35 · katex 渲染+摘分 32 · Markdown/指纹 24 · 录入界面 21 · FSRS 20 ·
+录入页 12 · 别名 11 · 错题本列表 8 · 外壳导航 7 · 真实目录入口 6 · 召回率评测 5 ·
+主题 4 · 窗口 5 · 其他）
 
 > ⚠️ **测试里最贵的坑**：`testWidgets` 的函数体跑在**假异步时钟**里，
 > 真实文件 IO（`Directory.createTemp`、读写 `.md`）的 Future 永远不会完成 ——
@@ -793,7 +798,7 @@ FTS5 内置的 `unicode61` 分词器按**空白与标点**切词。中文句子�
 |---|---|---|---|
 | T1 | FSRS 权重用 FSRS-5 默认值，实现按 FSRS-6 结构 | 权重语义可能有偏移 | V2 用 `ReviewLog` 跑优化器校准；V1 用单元测试锁行为 |
 | T2 | 分片文件残留（`math1_rest.json` 等） | 无实际影响（内容已并入权威文件） | 可清理；`lint_dart.py` 已降级为提示 |
-| T3 | 公式渲染库最终选型未定 | 列表渲染性能风险 | **实测进行中**（`katex` 候选，见下方"渲染器选型"）。已有 `MathRenderer` 抽象 + 缓存层兜底，替换不影响调用方 |
+| T3 | ~~公式渲染库最终选型未定~~ | ✅ **已解决**：`katex` 1.0.0（KaTeX 的 Flutter 封装） | 实测：`renderToBox` **0.245 ms/式**；1609 条真实语料解析失败 18 条（真实公式只占 2 条）。**不走 SVG**（那条路 460 KiB/式、0.92 ms/式）。中文用摘分绕开"KaTeX 字体无汉字字形"，详见下方「T3 已解决」 |
 | T4 | ~~数学二/三考频数据缺失~~ | ✅ **已解决** | 三科考频齐备，270/270 权重派生成功 |
 | T5 | `exam_frequency.json` 自述 `data_confidence = medium-low` | 权重仅可作相对参考 | 生产前用真实真题逐题标注替换；**UI 上必须标注「估算值」** |
 | T6 | ~~数学一章节粒度不均~~ | ✅ **已解决** | T19 合并后 math1 从 198 收敛到 141 个叶子，落在原计划的 130–150 区间内 |
@@ -922,3 +927,8 @@ math1.linalg.vector.linear_combo      「线性组合与线性表示」      ←
 | 2026-03-16 | 🐛 **审查发现：`describeDue` 把分钟级间隔说成"今天"。** FSRS 第一次评「忘了」和重学都会给出**分钟级**间隔（`intervalDays = 0` → 10 分钟后），而原实现一律按"距今天零点几天"算 → 显示"今天"，等于告诉用户今天不用再看了，正好把刚安排的学习步抹掉；同一天 23:50 做完、下次 00:00 的卡也显示"今天"，那其实是明天。已改为先分钟、再小时、最后才按天。写测试时还纠正了自己两处想当然的断言（`06-12` 相对 `06-10` 是"2 天后"而不是"明天"）—— 测试错、实现对 |
 | 2026-03-16 | 🐛 **审查发现：公式渲染缓存是死代码。** 为「5000 题滚动不掉帧」而写的 `MathRenderCache` **两条路径都没生效**：① `main()` 注入的是未包装的 `PlainTextMathRenderer`，缓存类从未被构造；② 即使包上 `CachedMathRenderer`，它的 `renderMarkdown()` 也直接透传，而列表/复习/详情页走的**全部**是 `renderMarkdown()`（`render()` 在生产代码里一次都没被调用过）。已让 `renderMarkdown` 也走缓存（用前缀隔离 key 空间）、`main()` 改为注入包装后的实例，并新增 `test/math_renderer_test.dart`（10 例）用"数内层被调几次"把契约钉死 —— 其中一条会在 `renderMarkdown` 退回透传时失败。顺带修掉配置对话框里"每敲一个字符就重开一次用量查询"（future 从 build 里挪进 state） |
 | 2026-03-16 | 🧪 **给"用户数据不会被索引重建毁掉"加了防回归断言**。审查时发现多处注释称 `problem_knowledge.problem_id` 是外键、"所以必须先删关联行" —— 实际 schema 里**没有任何外键声明**。已如实改写注释，同时把"要不要真加外键"的决定写下来：给 `problems_index` 与 `user_problem_state` 之间加 `ON DELETE CASCADE` 会让 `rebuildFromScratch()`（先删索引行）**级联删掉用户的复习进度**，而且在正常操作路径上静默发生。新增两条测试：schema 里没有外键声明、全量重建不碰用户状态。**386 测试全绿** |
+| 2026-03-16 | ✅ **T3 已解决：接入 `katex` 1.0.0 作为公式渲染器。** 关键发现是**架构分层**：`katex_dart` 0.1.1 是纯 Dart 引擎（只能给 `BoxNode` 或 SVG），而 Flutter 入口在**另一个包** `katex` 1.0.0 —— 它用 `KatexBoxPainter extends CustomPainter` 直接画 Canvas，**不产 SVG**。所以"每条公式 460 KiB（99.8% 是内嵌字体）"那个体积问题在 App 里根本不存在，`flutter_svg` 也不需要。实测：`renderToBox` **0.245 ms/式**（对比 `renderToSvg` 0.92 ms + 460 KiB），1609 条真实语料解析失败 18 条，其中真实知识点公式只占 2 条。 |
+| 2026-03-16 | 🐛 **T3 过程中发现的头号可用性问题：KaTeX 字体没有汉字字形。** `\text{中文}` 被排进 `KaTeX_Main-Regular`，该字体既无汉字字形、也没有 `fontFamilyFallback`。实测 **691 / 1523（45%）** 条真实知识点公式至少有一个无字形字符（463 个汉字码点、4453 次，外加全角标点 `（）、，：；`）。**如果照 README 直接接入，会得到一个"中文全是方框、但所有测试都过"的渲染器。** 处理方式：新增 `core/math/latex_text_split.dart`，把可安全替换的 `\text{中文}` 摘成普通文本交给 Flutter 排；安全判据三条（不在 `\left..\right` 内、不在 `\begin..\end` 内、不是命令参数或上下标），实测摘分率 **96%+**，并有语料测试守住 90% 下限。 |
+| 2026-03-16 | ⚠️ **一个只能靠真机回答的问题**：Skia 到底会不会给汉字做系统字体回退？**widget 测试答不了** —— 实测发现 `flutter test` 默认用 Ahem 测试字体，**每个字形都画成实心方框**：对照组 `Text('对照 为偶函数 abc')` 与 `Math(r'\text{为偶函数}')` 在 golden 图里都是方框，无法区分"回退成功"与"tofu"。所以没有赌回退，改用摘分（确定能显示）。真机效果仍待人眼确认一次。 |
+| 2026-03-16 | 🐛 **修掉数据里的一条非法 LaTeX**：`math1.linalg.vector.linear_dependence` 有一条 `\text{...}` **少了收尾花括号** —— 渲染器救不了这种错误，只能修数据。新增 `tools/data/check_formulas.py`（花括号配平 + `\left/\right` + `\begin/\end` 成对性），扫三个权威本体 **1400 条公式**，现在 0 问题。这条也说明"用渲染器当校验器"是错的做法：KaTeX 不支持 `\iddots`，但 `\iddots` 本身是合法 LaTeX，两类问题必须分开。 |
+| 2026-03-16 | 🐛 **接渲染器时自己写出的 4 个 bug（都有测试钉住了）**：① `\text{...}` 收尾花括号被算进内容（`为偶函数}`）—— 下标差一位；② `_{...}`/`^{...}` 里的中文被误判成可摘 → 下标内容丢失；③ `\text{甲}\text{乙}` 里第二个 `\text` 被误判成"前一个命令的参数"→ 不摘 → 中文变方框，而**这种写法在真实语料里极常见**（`\text{无关};\ \text{相关}`）；④ 合并相邻同类片段时 `removeLast()` 又放回去，第二段中文丢失。第 ③ 条的根因值得记：判断"是否在某命令的参数里"时，只看向前紧邻的 `{` 不够，还要确认**那个 `{` 与之间没有未配对的 `}`**。**417 测试全绿** |

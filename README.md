@@ -41,9 +41,38 @@
 | M6–M8 | ⚪ 未开始 |
 
 ```
-flutter test    → 353 个用例全绿
-flutter analyze → 0 error / 0 warning
+flutter test    → 417 个用例全绿
+flutter analyze → No issues found
 ```
+
+### 公式渲染（T3 已定）
+
+底层是 **`katex`**（KaTeX 的 Flutter 封装）。关键点是**架构分层**：
+`katex_dart` 是纯 Dart 引擎（只能给箱树或 SVG 字符串），Flutter 入口在另一个包
+`katex` —— 它用 `KatexBoxPainter extends CustomPainter` 直接画 Canvas，
+**不产 SVG**。所以那条"每条公式 460 KiB（99.8% 是内嵌字体）"的 SVG 路子在
+App 里根本不存在，`flutter_svg` 也不需要。
+
+| 实测项 | 数字 |
+|---|---|
+| 解析（`renderToBox`，实用路径） | **0.245 ms/式** |
+| 解析（`renderToSvg`，不用） | 0.92 ms/式 + **460 KiB/式** |
+| 1609 条真实语料解析失败 | 18 条（**真实知识点公式只占 2 条**） |
+
+> ⚠️ **中文是这套渲染器的头号坑**：`\text{中文}` 被排进 `KaTeX_Main-Regular`，
+> 而该字体**没有汉字字形**，也没配 `fontFamilyFallback`。实测
+> **691 / 1523（45%）** 条真实公式至少有一个无字形字符（463 个汉字码点、
+> 4453 次，外加全角标点 `（）、，：；`）。照 README 直接接入，会得到一个
+> "中文全是方框、但所有测试都过"的渲染器。
+>
+> 处理方式是 `core/math/latex_text_split.dart`：把能**安全替换**的
+> `\text{中文}` 摘成普通文本交给 Flutter 排（摘分率 **96%+**，有 1400 条真实
+> 语料的测试守住下限）。摘不掉的 24 条（在 `\left..\right` 内、在
+> `\begin..\end` 内、作为命令参数或上下标）原样交给 katex —— 最坏情况是偏窄，
+> 不会破坏公式结构。
+>
+> 另外：`flutter test` **无法验证**字体回退 —— 默认 Ahem 测试字体把每个字形
+> 都画成实心方框，对照组和被测组在 golden 图里长得一样。所以这里没有赌回退。
 
 ### 知识资产覆盖
 
