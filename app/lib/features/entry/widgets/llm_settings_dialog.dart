@@ -8,12 +8,17 @@
 ///    选 OpenAI 会直接卡在网络那一步，然后再来问"为什么连不上"。
 /// 3. **回显永远只有掩码** —— 已配置时输入框显示 `sk-••••••••3f2a`，
 ///    不把明文放回内存里给 UI。
+/// 4. **说清楚已经花了多少** —— BYOK 模式下钱是用户自己出的，
+///    所以"花了多少"必须在本地算得出来（见 [_UsagePanel]）。
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers.dart';
 import '../../../services/llm/llm_settings.dart';
 import '../../../services/llm/provider_registry.dart';
+import '../../../services/tagger/tag_cache_store.dart';
 
 /// 打开配置对话框。返回保存后的设置；取消返回 null。
 Future<LlmSettings?> showLlmSettingsDialog(
@@ -222,6 +227,8 @@ class _LlmSettingsDialogState extends State<_LlmSettingsDialog> {
                   style: TextStyle(fontSize: 12, color: theme.colorScheme.error),
                 ),
               ],
+              const SizedBox(height: 14),
+              const _UsagePanel(),
             ],
           ),
         ),
@@ -249,4 +256,94 @@ class _LlmSettingsDialogState extends State<_LlmSettingsDialog> {
       ],
     );
   }
+}
+
+/// 用量面板：已经调用了多少次、花了大概多少钱、缓存省了多少。
+///
+/// ## 为什么放在配置对话框里
+///
+/// 用户第一次配 Key 时会犹豫"会不会很贵"。把"上次花了多少"直接放在
+/// 配置旁边，比写在文档里有说服力 —— 而且这个数字是他自己的真实数据。
+class _UsagePanel extends ConsumerWidget {
+  const _UsagePanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    return FutureBuilder<AppUsageView>(
+      future: _load(ref),
+      builder: (context, snap) {
+        final v = snap.data;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest
+                .withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '本机 AI 用量',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                v == null ? '正在读取…' : describeUsage(v.usage),
+                style: const TextStyle(fontSize: 11.5, height: 1.6),
+              ),
+              if (v != null && v.cacheCount > 0) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '本地已缓存 ${v.cacheCount} 道题的标注结果 —— '
+                  '重复录入同一道题不会再花 token。',
+                  style: TextStyle(
+                    fontSize: 11,
+                    height: 1.6,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              if (v != null && !v.usage.isEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '平均每次 ${v.usage.tokensPerCall.round()} tokens'
+                  '${v.usage.costPerCall > 0 ? " · 约 ¥${v.usage.costPerCall.toStringAsFixed(4)}" : ""}'
+                  '　（费用为估算，以服务商账单为准）',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    height: 1.6,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<AppUsageView> _load(WidgetRef ref) async {
+    try {
+      final db = await ref.read(databaseProvider.future);
+      final usage = await UsageLedger(db).summary();
+      final cacheCount = await SqliteTagCache(db: db).count();
+      return AppUsageView(usage: usage, cacheCount: cacheCount);
+    } catch (_) {
+      // 读不到就说"没有记录"，不要让配置对话框因此报错
+      return const AppUsageView(usage: UsageSummary(), cacheCount: 0);
+    }
+  }
+}
+
+/// 用量面板要展示的两个数。
+class AppUsageView {
+  final UsageSummary usage;
+  final int cacheCount;
+
+  const AppUsageView({required this.usage, required this.cacheCount});
 }

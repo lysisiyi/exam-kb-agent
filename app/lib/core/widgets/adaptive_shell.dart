@@ -99,9 +99,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
         final body = IndexedStack(
           index: _index,
           children: [
-            for (final d in widget.destinations)
-              // 未访问过的页面不构建，省内存
-              _LazyPage(builder: d.builder, active: true),
+            for (var i = 0; i < widget.destinations.length; i++)
+              // 未访问过的页面不构建，省内存也不做无谓的 IO
+              _LazyPage(builder: widget.destinations[i].builder, active: i == _index),
           ],
         );
 
@@ -380,8 +380,15 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 }
 
 /// 惰性页面：只在首次可见时构建，之后保留状态。
+///
+/// ⚠️ `IndexedStack` 会构建它的**所有**子节点，所以"懒惰"必须由这里实现，
+/// 不能指望 `IndexedStack`。把 [active] 去掉（写成常量 `true`）会让每个 Tab
+/// 在启动时全部构建：知识库、复习、错题本三个页面同时开始各自的异步加载，
+/// 既拖慢启动，也让"某个页面一打开就崩"更难定位。
 class _LazyPage extends StatefulWidget {
   final Widget Function() builder;
+
+  /// 是否至少被选中过一次。
   final bool active;
 
   const _LazyPage({required this.builder, required this.active});
@@ -395,8 +402,8 @@ class _LazyPageState extends State<_LazyPage> {
 
   @override
   Widget build(BuildContext context) {
-    _child ??= widget.builder();
-    return _child!;
+    if (widget.active) _child ??= widget.builder();
+    return _child ?? const SizedBox.shrink();
   }
 }
 

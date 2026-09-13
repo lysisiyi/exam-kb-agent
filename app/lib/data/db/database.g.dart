@@ -1481,7 +1481,7 @@ class $UserProblemStateTable extends UserProblemState
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => const {};
+  Set<GeneratedColumn> get $primaryKey => {problemId};
   @override
   UserProblemStateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -2943,6 +2943,712 @@ class MetaEntriesCompanion extends UpdateCompanion<MetaRow> {
   }
 }
 
+class $TagCacheEntriesTable extends TagCacheEntries
+    with TableInfo<$TagCacheEntriesTable, TagCacheRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TagCacheEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _fingerprintMeta =
+      const VerificationMeta('fingerprint');
+  @override
+  late final GeneratedColumn<String> fingerprint = GeneratedColumn<String>(
+      'fingerprint', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _resultMeta = const VerificationMeta('result');
+  @override
+  late final GeneratedColumn<String> result = GeneratedColumn<String>(
+      'result', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _modelMeta = const VerificationMeta('model');
+  @override
+  late final GeneratedColumn<String> model = GeneratedColumn<String>(
+      'model', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [fingerprint, result, model, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'tag_cache_entries';
+  @override
+  VerificationContext validateIntegrity(Insertable<TagCacheRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('fingerprint')) {
+      context.handle(
+          _fingerprintMeta,
+          fingerprint.isAcceptableOrUnknown(
+              data['fingerprint']!, _fingerprintMeta));
+    } else if (isInserting) {
+      context.missing(_fingerprintMeta);
+    }
+    if (data.containsKey('result')) {
+      context.handle(_resultMeta,
+          result.isAcceptableOrUnknown(data['result']!, _resultMeta));
+    } else if (isInserting) {
+      context.missing(_resultMeta);
+    }
+    if (data.containsKey('model')) {
+      context.handle(
+          _modelMeta, model.isAcceptableOrUnknown(data['model']!, _modelMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {fingerprint};
+  @override
+  TagCacheRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TagCacheRow(
+      fingerprint: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}fingerprint'])!,
+      result: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}result'])!,
+      model: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}model'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $TagCacheEntriesTable createAlias(String alias) {
+    return $TagCacheEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class TagCacheRow extends DataClass implements Insertable<TagCacheRow> {
+  /// 题目指纹。
+  final String fingerprint;
+
+  /// 标注结果 `TagResult.toJson()` 的 JSON 字符串。
+  final String result;
+
+  /// 产出这个结果的模型名（用于换模型后失效）。
+  final String model;
+  final DateTime createdAt;
+  const TagCacheRow(
+      {required this.fingerprint,
+      required this.result,
+      required this.model,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['fingerprint'] = Variable<String>(fingerprint);
+    map['result'] = Variable<String>(result);
+    map['model'] = Variable<String>(model);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  TagCacheEntriesCompanion toCompanion(bool nullToAbsent) {
+    return TagCacheEntriesCompanion(
+      fingerprint: Value(fingerprint),
+      result: Value(result),
+      model: Value(model),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory TagCacheRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TagCacheRow(
+      fingerprint: serializer.fromJson<String>(json['fingerprint']),
+      result: serializer.fromJson<String>(json['result']),
+      model: serializer.fromJson<String>(json['model']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'fingerprint': serializer.toJson<String>(fingerprint),
+      'result': serializer.toJson<String>(result),
+      'model': serializer.toJson<String>(model),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  TagCacheRow copyWith(
+          {String? fingerprint,
+          String? result,
+          String? model,
+          DateTime? createdAt}) =>
+      TagCacheRow(
+        fingerprint: fingerprint ?? this.fingerprint,
+        result: result ?? this.result,
+        model: model ?? this.model,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  TagCacheRow copyWithCompanion(TagCacheEntriesCompanion data) {
+    return TagCacheRow(
+      fingerprint:
+          data.fingerprint.present ? data.fingerprint.value : this.fingerprint,
+      result: data.result.present ? data.result.value : this.result,
+      model: data.model.present ? data.model.value : this.model,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TagCacheRow(')
+          ..write('fingerprint: $fingerprint, ')
+          ..write('result: $result, ')
+          ..write('model: $model, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(fingerprint, result, model, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TagCacheRow &&
+          other.fingerprint == this.fingerprint &&
+          other.result == this.result &&
+          other.model == this.model &&
+          other.createdAt == this.createdAt);
+}
+
+class TagCacheEntriesCompanion extends UpdateCompanion<TagCacheRow> {
+  final Value<String> fingerprint;
+  final Value<String> result;
+  final Value<String> model;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const TagCacheEntriesCompanion({
+    this.fingerprint = const Value.absent(),
+    this.result = const Value.absent(),
+    this.model = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TagCacheEntriesCompanion.insert({
+    required String fingerprint,
+    required String result,
+    this.model = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : fingerprint = Value(fingerprint),
+        result = Value(result);
+  static Insertable<TagCacheRow> custom({
+    Expression<String>? fingerprint,
+    Expression<String>? result,
+    Expression<String>? model,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (fingerprint != null) 'fingerprint': fingerprint,
+      if (result != null) 'result': result,
+      if (model != null) 'model': model,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TagCacheEntriesCompanion copyWith(
+      {Value<String>? fingerprint,
+      Value<String>? result,
+      Value<String>? model,
+      Value<DateTime>? createdAt,
+      Value<int>? rowid}) {
+    return TagCacheEntriesCompanion(
+      fingerprint: fingerprint ?? this.fingerprint,
+      result: result ?? this.result,
+      model: model ?? this.model,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (fingerprint.present) {
+      map['fingerprint'] = Variable<String>(fingerprint.value);
+    }
+    if (result.present) {
+      map['result'] = Variable<String>(result.value);
+    }
+    if (model.present) {
+      map['model'] = Variable<String>(model.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TagCacheEntriesCompanion(')
+          ..write('fingerprint: $fingerprint, ')
+          ..write('result: $result, ')
+          ..write('model: $model, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LlmUsageEntriesTable extends LlmUsageEntries
+    with TableInfo<$LlmUsageEntriesTable, LlmUsageRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LlmUsageEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _providerMeta =
+      const VerificationMeta('provider');
+  @override
+  late final GeneratedColumn<String> provider = GeneratedColumn<String>(
+      'provider', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _modelMeta = const VerificationMeta('model');
+  @override
+  late final GeneratedColumn<String> model = GeneratedColumn<String>(
+      'model', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(''));
+  static const VerificationMeta _purposeMeta =
+      const VerificationMeta('purpose');
+  @override
+  late final GeneratedColumn<String> purpose = GeneratedColumn<String>(
+      'purpose', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('tag'));
+  static const VerificationMeta _inputTokensMeta =
+      const VerificationMeta('inputTokens');
+  @override
+  late final GeneratedColumn<int> inputTokens = GeneratedColumn<int>(
+      'input_tokens', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _outputTokensMeta =
+      const VerificationMeta('outputTokens');
+  @override
+  late final GeneratedColumn<int> outputTokens = GeneratedColumn<int>(
+      'output_tokens', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _costYuanMeta =
+      const VerificationMeta('costYuan');
+  @override
+  late final GeneratedColumn<double> costYuan = GeneratedColumn<double>(
+      'cost_yuan', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        provider,
+        model,
+        purpose,
+        inputTokens,
+        outputTokens,
+        costYuan,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'llm_usage_entries';
+  @override
+  VerificationContext validateIntegrity(Insertable<LlmUsageRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('provider')) {
+      context.handle(_providerMeta,
+          provider.isAcceptableOrUnknown(data['provider']!, _providerMeta));
+    } else if (isInserting) {
+      context.missing(_providerMeta);
+    }
+    if (data.containsKey('model')) {
+      context.handle(
+          _modelMeta, model.isAcceptableOrUnknown(data['model']!, _modelMeta));
+    }
+    if (data.containsKey('purpose')) {
+      context.handle(_purposeMeta,
+          purpose.isAcceptableOrUnknown(data['purpose']!, _purposeMeta));
+    }
+    if (data.containsKey('input_tokens')) {
+      context.handle(
+          _inputTokensMeta,
+          inputTokens.isAcceptableOrUnknown(
+              data['input_tokens']!, _inputTokensMeta));
+    }
+    if (data.containsKey('output_tokens')) {
+      context.handle(
+          _outputTokensMeta,
+          outputTokens.isAcceptableOrUnknown(
+              data['output_tokens']!, _outputTokensMeta));
+    }
+    if (data.containsKey('cost_yuan')) {
+      context.handle(_costYuanMeta,
+          costYuan.isAcceptableOrUnknown(data['cost_yuan']!, _costYuanMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LlmUsageRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LlmUsageRow(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      provider: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}provider'])!,
+      model: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}model'])!,
+      purpose: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}purpose'])!,
+      inputTokens: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}input_tokens'])!,
+      outputTokens: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}output_tokens'])!,
+      costYuan: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}cost_yuan']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $LlmUsageEntriesTable createAlias(String alias) {
+    return $LlmUsageEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class LlmUsageRow extends DataClass implements Insertable<LlmUsageRow> {
+  final int id;
+
+  /// 服务商 id，如 `deepseek`。
+  final String provider;
+
+  /// 模型名。
+  final String model;
+
+  /// 本次调用的用途，如 `tag`。将来还有 `solve` / `paper` 等。
+  final String purpose;
+  final int inputTokens;
+  final int outputTokens;
+
+  /// 费用估算（元）。null 表示该模型不在价目表里。
+  final double? costYuan;
+  final DateTime createdAt;
+  const LlmUsageRow(
+      {required this.id,
+      required this.provider,
+      required this.model,
+      required this.purpose,
+      required this.inputTokens,
+      required this.outputTokens,
+      this.costYuan,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['provider'] = Variable<String>(provider);
+    map['model'] = Variable<String>(model);
+    map['purpose'] = Variable<String>(purpose);
+    map['input_tokens'] = Variable<int>(inputTokens);
+    map['output_tokens'] = Variable<int>(outputTokens);
+    if (!nullToAbsent || costYuan != null) {
+      map['cost_yuan'] = Variable<double>(costYuan);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  LlmUsageEntriesCompanion toCompanion(bool nullToAbsent) {
+    return LlmUsageEntriesCompanion(
+      id: Value(id),
+      provider: Value(provider),
+      model: Value(model),
+      purpose: Value(purpose),
+      inputTokens: Value(inputTokens),
+      outputTokens: Value(outputTokens),
+      costYuan: costYuan == null && nullToAbsent
+          ? const Value.absent()
+          : Value(costYuan),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory LlmUsageRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LlmUsageRow(
+      id: serializer.fromJson<int>(json['id']),
+      provider: serializer.fromJson<String>(json['provider']),
+      model: serializer.fromJson<String>(json['model']),
+      purpose: serializer.fromJson<String>(json['purpose']),
+      inputTokens: serializer.fromJson<int>(json['inputTokens']),
+      outputTokens: serializer.fromJson<int>(json['outputTokens']),
+      costYuan: serializer.fromJson<double?>(json['costYuan']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'provider': serializer.toJson<String>(provider),
+      'model': serializer.toJson<String>(model),
+      'purpose': serializer.toJson<String>(purpose),
+      'inputTokens': serializer.toJson<int>(inputTokens),
+      'outputTokens': serializer.toJson<int>(outputTokens),
+      'costYuan': serializer.toJson<double?>(costYuan),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  LlmUsageRow copyWith(
+          {int? id,
+          String? provider,
+          String? model,
+          String? purpose,
+          int? inputTokens,
+          int? outputTokens,
+          Value<double?> costYuan = const Value.absent(),
+          DateTime? createdAt}) =>
+      LlmUsageRow(
+        id: id ?? this.id,
+        provider: provider ?? this.provider,
+        model: model ?? this.model,
+        purpose: purpose ?? this.purpose,
+        inputTokens: inputTokens ?? this.inputTokens,
+        outputTokens: outputTokens ?? this.outputTokens,
+        costYuan: costYuan.present ? costYuan.value : this.costYuan,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  LlmUsageRow copyWithCompanion(LlmUsageEntriesCompanion data) {
+    return LlmUsageRow(
+      id: data.id.present ? data.id.value : this.id,
+      provider: data.provider.present ? data.provider.value : this.provider,
+      model: data.model.present ? data.model.value : this.model,
+      purpose: data.purpose.present ? data.purpose.value : this.purpose,
+      inputTokens:
+          data.inputTokens.present ? data.inputTokens.value : this.inputTokens,
+      outputTokens: data.outputTokens.present
+          ? data.outputTokens.value
+          : this.outputTokens,
+      costYuan: data.costYuan.present ? data.costYuan.value : this.costYuan,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LlmUsageRow(')
+          ..write('id: $id, ')
+          ..write('provider: $provider, ')
+          ..write('model: $model, ')
+          ..write('purpose: $purpose, ')
+          ..write('inputTokens: $inputTokens, ')
+          ..write('outputTokens: $outputTokens, ')
+          ..write('costYuan: $costYuan, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, provider, model, purpose, inputTokens,
+      outputTokens, costYuan, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LlmUsageRow &&
+          other.id == this.id &&
+          other.provider == this.provider &&
+          other.model == this.model &&
+          other.purpose == this.purpose &&
+          other.inputTokens == this.inputTokens &&
+          other.outputTokens == this.outputTokens &&
+          other.costYuan == this.costYuan &&
+          other.createdAt == this.createdAt);
+}
+
+class LlmUsageEntriesCompanion extends UpdateCompanion<LlmUsageRow> {
+  final Value<int> id;
+  final Value<String> provider;
+  final Value<String> model;
+  final Value<String> purpose;
+  final Value<int> inputTokens;
+  final Value<int> outputTokens;
+  final Value<double?> costYuan;
+  final Value<DateTime> createdAt;
+  const LlmUsageEntriesCompanion({
+    this.id = const Value.absent(),
+    this.provider = const Value.absent(),
+    this.model = const Value.absent(),
+    this.purpose = const Value.absent(),
+    this.inputTokens = const Value.absent(),
+    this.outputTokens = const Value.absent(),
+    this.costYuan = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  LlmUsageEntriesCompanion.insert({
+    this.id = const Value.absent(),
+    required String provider,
+    this.model = const Value.absent(),
+    this.purpose = const Value.absent(),
+    this.inputTokens = const Value.absent(),
+    this.outputTokens = const Value.absent(),
+    this.costYuan = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : provider = Value(provider);
+  static Insertable<LlmUsageRow> custom({
+    Expression<int>? id,
+    Expression<String>? provider,
+    Expression<String>? model,
+    Expression<String>? purpose,
+    Expression<int>? inputTokens,
+    Expression<int>? outputTokens,
+    Expression<double>? costYuan,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (provider != null) 'provider': provider,
+      if (model != null) 'model': model,
+      if (purpose != null) 'purpose': purpose,
+      if (inputTokens != null) 'input_tokens': inputTokens,
+      if (outputTokens != null) 'output_tokens': outputTokens,
+      if (costYuan != null) 'cost_yuan': costYuan,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  LlmUsageEntriesCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? provider,
+      Value<String>? model,
+      Value<String>? purpose,
+      Value<int>? inputTokens,
+      Value<int>? outputTokens,
+      Value<double?>? costYuan,
+      Value<DateTime>? createdAt}) {
+    return LlmUsageEntriesCompanion(
+      id: id ?? this.id,
+      provider: provider ?? this.provider,
+      model: model ?? this.model,
+      purpose: purpose ?? this.purpose,
+      inputTokens: inputTokens ?? this.inputTokens,
+      outputTokens: outputTokens ?? this.outputTokens,
+      costYuan: costYuan ?? this.costYuan,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (provider.present) {
+      map['provider'] = Variable<String>(provider.value);
+    }
+    if (model.present) {
+      map['model'] = Variable<String>(model.value);
+    }
+    if (purpose.present) {
+      map['purpose'] = Variable<String>(purpose.value);
+    }
+    if (inputTokens.present) {
+      map['input_tokens'] = Variable<int>(inputTokens.value);
+    }
+    if (outputTokens.present) {
+      map['output_tokens'] = Variable<int>(outputTokens.value);
+    }
+    if (costYuan.present) {
+      map['cost_yuan'] = Variable<double>(costYuan.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LlmUsageEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('provider: $provider, ')
+          ..write('model: $model, ')
+          ..write('purpose: $purpose, ')
+          ..write('inputTokens: $inputTokens, ')
+          ..write('outputTokens: $outputTokens, ')
+          ..write('costYuan: $costYuan, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2954,6 +3660,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ReviewLogsTable reviewLogs = $ReviewLogsTable(this);
   late final $PapersTable papers = $PapersTable(this);
   late final $MetaEntriesTable metaEntries = $MetaEntriesTable(this);
+  late final $TagCacheEntriesTable tagCacheEntries =
+      $TagCacheEntriesTable(this);
+  late final $LlmUsageEntriesTable llmUsageEntries =
+      $LlmUsageEntriesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2964,7 +3674,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         userProblemState,
         reviewLogs,
         papers,
-        metaEntries
+        metaEntries,
+        tagCacheEntries,
+        llmUsageEntries
       ];
 }
 
@@ -4373,6 +5085,387 @@ typedef $$MetaEntriesTableProcessedTableManager = ProcessedTableManager<
     (MetaRow, BaseReferences<_$AppDatabase, $MetaEntriesTable, MetaRow>),
     MetaRow,
     PrefetchHooks Function()>;
+typedef $$TagCacheEntriesTableCreateCompanionBuilder = TagCacheEntriesCompanion
+    Function({
+  required String fingerprint,
+  required String result,
+  Value<String> model,
+  Value<DateTime> createdAt,
+  Value<int> rowid,
+});
+typedef $$TagCacheEntriesTableUpdateCompanionBuilder = TagCacheEntriesCompanion
+    Function({
+  Value<String> fingerprint,
+  Value<String> result,
+  Value<String> model,
+  Value<DateTime> createdAt,
+  Value<int> rowid,
+});
+
+class $$TagCacheEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $TagCacheEntriesTable> {
+  $$TagCacheEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get fingerprint => $composableBuilder(
+      column: $table.fingerprint, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get result => $composableBuilder(
+      column: $table.result, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get model => $composableBuilder(
+      column: $table.model, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$TagCacheEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $TagCacheEntriesTable> {
+  $$TagCacheEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get fingerprint => $composableBuilder(
+      column: $table.fingerprint, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get result => $composableBuilder(
+      column: $table.result, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get model => $composableBuilder(
+      column: $table.model, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$TagCacheEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TagCacheEntriesTable> {
+  $$TagCacheEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get fingerprint => $composableBuilder(
+      column: $table.fingerprint, builder: (column) => column);
+
+  GeneratedColumn<String> get result =>
+      $composableBuilder(column: $table.result, builder: (column) => column);
+
+  GeneratedColumn<String> get model =>
+      $composableBuilder(column: $table.model, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$TagCacheEntriesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $TagCacheEntriesTable,
+    TagCacheRow,
+    $$TagCacheEntriesTableFilterComposer,
+    $$TagCacheEntriesTableOrderingComposer,
+    $$TagCacheEntriesTableAnnotationComposer,
+    $$TagCacheEntriesTableCreateCompanionBuilder,
+    $$TagCacheEntriesTableUpdateCompanionBuilder,
+    (
+      TagCacheRow,
+      BaseReferences<_$AppDatabase, $TagCacheEntriesTable, TagCacheRow>
+    ),
+    TagCacheRow,
+    PrefetchHooks Function()> {
+  $$TagCacheEntriesTableTableManager(
+      _$AppDatabase db, $TagCacheEntriesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TagCacheEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TagCacheEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TagCacheEntriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> fingerprint = const Value.absent(),
+            Value<String> result = const Value.absent(),
+            Value<String> model = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              TagCacheEntriesCompanion(
+            fingerprint: fingerprint,
+            result: result,
+            model: model,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String fingerprint,
+            required String result,
+            Value<String> model = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              TagCacheEntriesCompanion.insert(
+            fingerprint: fingerprint,
+            result: result,
+            model: model,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable<$TagCacheEntriesTable, TagCacheRow>(table),
+                    BaseReferences<_$AppDatabase, $TagCacheEntriesTable,
+                        TagCacheRow>(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$TagCacheEntriesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $TagCacheEntriesTable,
+    TagCacheRow,
+    $$TagCacheEntriesTableFilterComposer,
+    $$TagCacheEntriesTableOrderingComposer,
+    $$TagCacheEntriesTableAnnotationComposer,
+    $$TagCacheEntriesTableCreateCompanionBuilder,
+    $$TagCacheEntriesTableUpdateCompanionBuilder,
+    (
+      TagCacheRow,
+      BaseReferences<_$AppDatabase, $TagCacheEntriesTable, TagCacheRow>
+    ),
+    TagCacheRow,
+    PrefetchHooks Function()>;
+typedef $$LlmUsageEntriesTableCreateCompanionBuilder = LlmUsageEntriesCompanion
+    Function({
+  Value<int> id,
+  required String provider,
+  Value<String> model,
+  Value<String> purpose,
+  Value<int> inputTokens,
+  Value<int> outputTokens,
+  Value<double?> costYuan,
+  Value<DateTime> createdAt,
+});
+typedef $$LlmUsageEntriesTableUpdateCompanionBuilder = LlmUsageEntriesCompanion
+    Function({
+  Value<int> id,
+  Value<String> provider,
+  Value<String> model,
+  Value<String> purpose,
+  Value<int> inputTokens,
+  Value<int> outputTokens,
+  Value<double?> costYuan,
+  Value<DateTime> createdAt,
+});
+
+class $$LlmUsageEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $LlmUsageEntriesTable> {
+  $$LlmUsageEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get provider => $composableBuilder(
+      column: $table.provider, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get model => $composableBuilder(
+      column: $table.model, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get purpose => $composableBuilder(
+      column: $table.purpose, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get inputTokens => $composableBuilder(
+      column: $table.inputTokens, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get outputTokens => $composableBuilder(
+      column: $table.outputTokens, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get costYuan => $composableBuilder(
+      column: $table.costYuan, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$LlmUsageEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $LlmUsageEntriesTable> {
+  $$LlmUsageEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get provider => $composableBuilder(
+      column: $table.provider, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get model => $composableBuilder(
+      column: $table.model, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get purpose => $composableBuilder(
+      column: $table.purpose, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get inputTokens => $composableBuilder(
+      column: $table.inputTokens, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get outputTokens => $composableBuilder(
+      column: $table.outputTokens,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get costYuan => $composableBuilder(
+      column: $table.costYuan, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$LlmUsageEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LlmUsageEntriesTable> {
+  $$LlmUsageEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get provider =>
+      $composableBuilder(column: $table.provider, builder: (column) => column);
+
+  GeneratedColumn<String> get model =>
+      $composableBuilder(column: $table.model, builder: (column) => column);
+
+  GeneratedColumn<String> get purpose =>
+      $composableBuilder(column: $table.purpose, builder: (column) => column);
+
+  GeneratedColumn<int> get inputTokens => $composableBuilder(
+      column: $table.inputTokens, builder: (column) => column);
+
+  GeneratedColumn<int> get outputTokens => $composableBuilder(
+      column: $table.outputTokens, builder: (column) => column);
+
+  GeneratedColumn<double> get costYuan =>
+      $composableBuilder(column: $table.costYuan, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$LlmUsageEntriesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $LlmUsageEntriesTable,
+    LlmUsageRow,
+    $$LlmUsageEntriesTableFilterComposer,
+    $$LlmUsageEntriesTableOrderingComposer,
+    $$LlmUsageEntriesTableAnnotationComposer,
+    $$LlmUsageEntriesTableCreateCompanionBuilder,
+    $$LlmUsageEntriesTableUpdateCompanionBuilder,
+    (
+      LlmUsageRow,
+      BaseReferences<_$AppDatabase, $LlmUsageEntriesTable, LlmUsageRow>
+    ),
+    LlmUsageRow,
+    PrefetchHooks Function()> {
+  $$LlmUsageEntriesTableTableManager(
+      _$AppDatabase db, $LlmUsageEntriesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LlmUsageEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LlmUsageEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LlmUsageEntriesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> provider = const Value.absent(),
+            Value<String> model = const Value.absent(),
+            Value<String> purpose = const Value.absent(),
+            Value<int> inputTokens = const Value.absent(),
+            Value<int> outputTokens = const Value.absent(),
+            Value<double?> costYuan = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              LlmUsageEntriesCompanion(
+            id: id,
+            provider: provider,
+            model: model,
+            purpose: purpose,
+            inputTokens: inputTokens,
+            outputTokens: outputTokens,
+            costYuan: costYuan,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String provider,
+            Value<String> model = const Value.absent(),
+            Value<String> purpose = const Value.absent(),
+            Value<int> inputTokens = const Value.absent(),
+            Value<int> outputTokens = const Value.absent(),
+            Value<double?> costYuan = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              LlmUsageEntriesCompanion.insert(
+            id: id,
+            provider: provider,
+            model: model,
+            purpose: purpose,
+            inputTokens: inputTokens,
+            outputTokens: outputTokens,
+            costYuan: costYuan,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (
+                    e.readTable<$LlmUsageEntriesTable, LlmUsageRow>(table),
+                    BaseReferences<_$AppDatabase, $LlmUsageEntriesTable,
+                        LlmUsageRow>(db, table, e)
+                  ))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$LlmUsageEntriesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $LlmUsageEntriesTable,
+    LlmUsageRow,
+    $$LlmUsageEntriesTableFilterComposer,
+    $$LlmUsageEntriesTableOrderingComposer,
+    $$LlmUsageEntriesTableAnnotationComposer,
+    $$LlmUsageEntriesTableCreateCompanionBuilder,
+    $$LlmUsageEntriesTableUpdateCompanionBuilder,
+    (
+      LlmUsageRow,
+      BaseReferences<_$AppDatabase, $LlmUsageEntriesTable, LlmUsageRow>
+    ),
+    LlmUsageRow,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4389,4 +5482,8 @@ class $AppDatabaseManager {
       $$PapersTableTableManager(_db, _db.papers);
   $$MetaEntriesTableTableManager get metaEntries =>
       $$MetaEntriesTableTableManager(_db, _db.metaEntries);
+  $$TagCacheEntriesTableTableManager get tagCacheEntries =>
+      $$TagCacheEntriesTableTableManager(_db, _db.tagCacheEntries);
+  $$LlmUsageEntriesTableTableManager get llmUsageEntries =>
+      $$LlmUsageEntriesTableTableManager(_db, _db.llmUsageEntries);
 }

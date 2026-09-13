@@ -156,6 +156,68 @@ void main() {
   });
 
   // ───────────────────────────────────────────────────────────────────────
+  group('Schema 迁移', () {
+    test('v2 库升到 v3 会补出 cache 与 usage 两张表，且用户数据不丢', () async {
+      // 用真实的 v3 库建好，再手工退回 v2 形状（删掉两张新表、改 user_version）
+      final dir = await Directory.systemTemp.createTemp('dsh-migrate-');
+      addTearDown(() async {
+        try {
+          await dir.delete(recursive: true);
+        } catch (_) {}
+      });
+      final file = File('${dir.path}/index.sqlite');
+
+      final v3 = AppDatabase.openFile(file);
+      await v3.into(v3.userProblemState).insert(
+            UserProblemStateCompanion.insert(
+              problemId: 'p-1',
+              wrongCount: const Value(7),
+              fsrsState: const Value('{"due":"2024-06-01T00:00:00.000"}'),
+            ),
+          );
+      await v3.into(v3.tagCacheEntries).insert(
+            TagCacheEntriesCompanion.insert(
+              fingerprint: 'fp-1',
+              result: '{"primary":"x"}',
+              model: const Value('deepseek-chat'),
+            ),
+          );
+      await v3.close();
+
+      // 退回 v2：删掉 v3 才有的两张表 + 把版本号写回去
+      final rollback = AppDatabase.openFile(file);
+      // 直接执行 DDL：这两张表在 v2 里不存在
+      await rollback.customStatement('DROP TABLE tag_cache_entries');
+      await rollback.customStatement('DROP TABLE llm_usage_entries');
+      await rollback.customStatement('PRAGMA user_version = 2');
+      await rollback.close();
+
+      // 现在用当前代码打开：应当走 `onUpgrade` 的 `from < 3` 分支
+      final upgraded = AppDatabase.openFile(file);
+      addTearDown(upgraded.close);
+
+      final tables = await upgraded
+          .customSelect(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
+          )
+          .get();
+      final names = tables.map((r) => r.read<String>('name')).toSet();
+      expect(names, contains('tag_cache_entries'));
+      expect(names, contains('llm_usage_entries'));
+
+      // 已经存在的那一行缓存**不会**被重建（迁移只建表，不动数据）
+      expect(await upgraded.select(upgraded.tagCacheEntries).get(), isEmpty,
+          reason: '退回 v2 时已把表删掉，迁移只负责建空表');
+
+      // 用户数据必须还在
+      final state = await upgraded.select(upgraded.userProblemState).getSingle();
+      expect(state.problemId, 'p-1');
+      expect(state.wrongCount, 7);
+      expect(state.fsrsState, isNotNull);
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
   group('序列化 ↔ 解析 往返', () {
     test('serialize 后 parse 得到等价内容', () {
       final parsed = ProblemMarkdownParser().parse(_sampleMd).problem!;

@@ -203,6 +203,47 @@ class ProblemService {
     );
   }
 
+  /// 删除一道题：**用户状态 → 索引行 → Markdown 文件**，按这个顺序。
+  ///
+  /// ## 为什么必须是这个顺序
+  ///
+  /// `beforeOpen` 里打开了 `PRAGMA foreign_keys = ON`，而
+  /// `problem_knowledge.problem_id` 是外键。所以：
+  ///
+  /// - 状态行、复习历史与关联行**必须先删**，否则删索引行会被外键挡下来
+  /// - Markdown 文件**必须最后删** —— 它是内容的事实源。中途失败时
+  ///   宁可留下"有文件没索引"的孤儿（重建索引即可恢复），
+  ///   也不要出现"有索引没文件"（列表点进去读不到内容）。
+  ///
+  /// 顺带删掉复习状态与复习历史：题目都没了，进度留着没有意义，
+  /// 而且会让"待复习"里出现读不到内容的幽灵卡片。
+  ///
+  /// 返回文件是否也删掉了（索引删除失败会抛异常，不吞）。
+  Future<bool> delete(String problemId) async {
+    final file = store.fileFor(problemId);
+
+    await db.transaction(() async {
+      await (db.delete(db.userProblemState)
+            ..where((t) => t.problemId.equals(problemId)))
+          .go();
+      await (db.delete(db.reviewLogs)
+            ..where((t) => t.problemId.equals(problemId)))
+          .go();
+      await (db.delete(db.problemKnowledge)
+            ..where((t) => t.problemId.equals(problemId)))
+          .go();
+      await (db.delete(db.problemsIndex)..where((t) => t.id.equals(problemId)))
+          .go();
+    });
+
+    try {
+      if (file.existsSync()) await file.delete();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 列出最近录入的题目（按创建时间倒序）。
   Future<List<ExistingProblem>> recent({int limit = 20}) async {
     final rows = await (db.select(db.problemsIndex)

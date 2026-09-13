@@ -5,10 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/db/database.dart';
 import '../data/error_causes.dart';
+import '../data/index/index_builder.dart';
 import '../data/knowledge/knowledge_repository.dart';
 import '../data/markdown/problem_store.dart';
 import '../domain/knowledge/knowledge_point.dart';
+import '../features/problems/problems_page.dart' show ProblemView;
 import '../services/library/problem_service.dart';
+import '../services/review/review_repository.dart';
 
 /// 当前选中的科目。
 ///
@@ -91,3 +94,107 @@ final problemServiceProvider = FutureProvider<ProblemService>((ref) async {
 final errorCauseCatalogProvider = FutureProvider<ErrorCauseCatalog>(
   (ref) => ErrorCauseRepository.instance.load(),
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 复习（FSRS）
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 复习仓库：到期队列 + 打分 + 统计。
+final reviewRepositoryProvider = FutureProvider<ReviewRepository>((ref) async {
+  final db = await ref.watch(databaseProvider.future);
+  final store = await ref.watch(problemStoreProvider.future);
+  return ReviewRepository(db: db, store: store);
+});
+
+/// 复习总览（侧边栏角标、复习页顶部）。
+final reviewStatsProvider = FutureProvider<ReviewStats>((ref) async {
+  final repo = await ref.watch(reviewRepositoryProvider.future);
+  return repo.stats();
+});
+
+/// 到期队列。打开复习页时取一次。
+///
+/// 刻意**不**在这里 invalidate [reviewStatsProvider] —— 复习页自己会在
+/// 载入完和每次打分后 invalidate。这个 provider 可能在 widget 构建期间
+/// 被读取，在构建期间改动另一个 provider 会触发 Riverpod 的断言。
+final dueQueueProvider = FutureProvider<List<DueCard>>((ref) async {
+  final repo = await ref.watch(reviewRepositoryProvider.future);
+  // 先对账：索引里有、状态表里没有的补建成新卡。
+  // 放在这里而不是"保存时建卡"，是为了覆盖批量导入、手工拷贝 .md 等路径。
+  await repo.ensureCards();
+  return repo.dueQueue(limit: 30);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 错题本列表
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 错题本列表。按 [view] 排序/筛选取一次快照。
+///
+/// 刻意**不做**分页：个人错题本是几百到几千条量级，一次全读 + 排序
+/// 比引入分页状态便宜得多，而且列表页的三种排序都要求全量。
+final problemListProvider =
+    FutureProvider.family<List<ProblemListRow>, ProblemView>((ref, view) async {
+  final db = await ref.watch(databaseProvider.future);
+
+  final rows = await db.select(db.problemsIndex).get();
+  final states = await db.select(db.userProblemState).get();
+  final byId = {for (final s in states) s.problemId: s};
+
+  final out = [
+    for (final r in rows)
+      ProblemListRow(
+        problemId: r.id,
+        stemText: r.stemText,
+        primaryKpName: r.primaryKpName,
+        difficulty: r.difficulty,
+        source: r.source,
+        needsReview: r.needsReview,
+        aiTagged: r.aiTagged,
+        createdAt: r.createdAt,
+        state: byId[r.id],
+      ),
+  ];
+
+  switch (view) {
+    case ProblemView.recent:
+      out.sort((a, b) {
+        final ca = a.createdAt?.millisecondsSinceEpoch ?? 0;
+        final cb = b.createdAt?.millisecondsSinceEpoch ?? 0;
+        final byTime = cb.compareTo(ca);
+        return byTime != 0 ? byTime : a.problemId.compareTo(b.problemId);
+      });
+    case ProblemView.mostWrong:
+      out.sort((a, b) {
+        final byWrong = b.wrongCount.compareTo(a.wrongCount);
+        return byWrong != 0 ? byWrong : a.problemId.compareTo(b.problemId);
+      });
+    case ProblemView.due:
+      final now = DateTime.now();
+      // 新卡（没有 fsrs_state）永远算"待复习"，排在已安排的前面
+      final due = out.where((r) {
+        final at = dueOfState(r.state);
+        return at == null || !at.isAfter(now);
+      }).toList()
+        ..sort((a, b) {
+          final da = dueOfState(a.state)?.millisecondsSinceEpoch ?? 0;
+          final dbb = dueOfState(b.state)?.millisecondsSinceEpoch ?? 0;
+          if (da == 0 && dbb != 0) return -1;
+          if (da != 0 && dbb == 0) return 1;
+          final byDue = da.compareTo(dbb);
+          return byDue != 0 ? byDue : a.problemId.compareTo(b.problemId);
+        });
+      return due;
+  }
+
+  return out;
+});
+
+/// FTS5 全文检索。空查询返回空列表（调用方负责别搜空串）。
+final problemSearchProvider =
+    FutureProvider.family<List<SearchHit>, String>((ref, query) async {
+  final q = query.trim();
+  if (q.isEmpty) return const [];
+  final db = await ref.watch(databaseProvider.future);
+  return ProblemSearch(db).search(q, limit: 100);
+});

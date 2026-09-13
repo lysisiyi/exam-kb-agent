@@ -35,7 +35,13 @@ import 'widgets/formula_keyboard.dart';
 import 'widgets/kp_picker.dart';
 
 class EntryPage extends ConsumerStatefulWidget {
-  const EntryPage({super.key});
+  /// 编辑已有题目时传入的初始草稿。为 null 表示"录新题"。
+  ///
+  /// 编辑必须带着原 id（[ProblemDraft.id]）：否则指纹查重会把这次保存
+  /// 当成"重复录入"拦下来，而不是当成"编辑同一道题"。
+  final ProblemDraft? initial;
+
+  const EntryPage({super.key, this.initial});
 
   @override
   ConsumerState<EntryPage> createState() => _EntryPageState();
@@ -63,6 +69,52 @@ class _EntryPageState extends ConsumerState<EntryPage> {
   bool _advancedOpen = false;
   bool _saving = false;
 
+  /// 正在编辑的题目的原 id。
+  ///
+  /// 编辑时**必须**带着它：否则指纹查重会把这次保存当成"重复录入"拦下来，
+  /// 而不是当成"编辑同一道题"。
+  String? _editingId;
+
+  @override
+  void initState() {
+    super.initState();
+    final d = widget.initial;
+    if (d != null) _loadDraft(d);
+  }
+
+  /// 把草稿填进表单（编辑已有题目）。
+  void _loadDraft(ProblemDraft d) {
+    _editingId = d.id;
+    _stem.text = d.stem;
+    _answer.text = d.answer ?? '';
+    _solution.text = d.solution ?? '';
+    _note.text = d.note ?? '';
+    _source.text = d.source ?? '';
+    _qtype = d.qtype;
+    _difficulty = d.difficulty;
+    _sourceType = d.sourceType;
+    _sourceYear = d.sourceYear;
+    _primaryKpId = d.primaryKpId;
+    _secondaryKpIds
+      ..clear()
+      ..addAll(d.secondaryKpIds);
+    _errorCauses
+      ..clear()
+      ..addAll(d.errorCauses);
+    _aiTagged = d.aiTagged;
+    _aiConfidence = d.aiConfidence;
+    _needsReview = d.needsReview;
+    // 选项数按题目来（至少 2，否则选择题校验过不了）
+    if (d.options.length >= 2) {
+      for (final c in _optionCtrls) {
+        c.dispose();
+      }
+      _optionCtrls
+        ..clear()
+        ..addAll(d.options.map((o) => TextEditingController(text: o)));
+    }
+  }
+
   @override
   void dispose() {
     _stem.dispose();
@@ -78,6 +130,7 @@ class _EntryPageState extends ConsumerState<EntryPage> {
   }
 
   ProblemDraft _draft() => ProblemDraft(
+        id: _editingId,
         qtype: _qtype,
         difficulty: _difficulty,
         stem: _stem.text,
@@ -119,6 +172,8 @@ class _EntryPageState extends ConsumerState<EntryPage> {
       _aiConfidence = null;
       _needsReview = false;
       _saving = false;
+      // 清掉"正在编辑"的标记，否则下一道新题会沿用上一题的 id
+      _editingId = null;
     });
     _stemFocus.requestFocus();
   }
@@ -180,6 +235,22 @@ class _EntryPageState extends ConsumerState<EntryPage> {
     }
 
     _snack('已保存：${outcome.problem!.id}');
+
+    // 给新题建一张复习卡（幂等：已有的不动）。
+    // 放在这里而不是"打开复习页时才补"，是为了让保存后立刻统计得到。
+    try {
+      final repo = await ref.read(reviewRepositoryProvider.future);
+      await repo.ensureCards();
+    } catch (_) {
+      // 建卡失败不该让"保存成功"变成失败提示 —— Markdown 已经落盘了
+    }
+    if (!mounted) return;
+
+    // 编辑模式：保存完退回错题本，而不是清空表单继续录
+    if (_editingId != null) {
+      Navigator.of(context).maybePop();
+      return;
+    }
     _resetForm();
   }
 

@@ -5,12 +5,16 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/providers.dart';
 import 'core/widgets/adaptive_shell.dart';
 import 'features/entry/entry_page.dart';
 import 'features/knowledge/knowledge_page.dart';
+import 'features/problems/problems_page.dart';
+import 'features/review/review_page.dart';
 
-class DevShell extends StatelessWidget {
+class DevShell extends ConsumerWidget {
   /// 启动时停在第几个 Tab。
   ///
   /// 默认 0（知识库）。**开发期可覆盖**：`main()` 会读环境变量
@@ -24,7 +28,10 @@ class DevShell extends StatelessWidget {
   const DevShell({super.key, this.initialIndex = 0});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 复习角标：待复习张数。拿不到就先不显示，不阻塞导航。
+    final dueCount = ref.watch(reviewStatsProvider).valueOrNull?.dueNow;
+
     return AdaptiveShell(
       initialIndex: initialIndex,
       destinations: [
@@ -40,42 +47,15 @@ class DevShell extends StatelessWidget {
           icon: Icons.home_outlined,
           selectedIcon: Icons.home,
           shortcutHint: 'Ctrl+2',
-          badgeCount: 0,
-          builder: () => const _Placeholder(
-            title: '今日复习',
-            milestone: 'M5',
-            plan: '错题本 + FSRS 复习调度 + 三档反馈',
-            done: [
-              'FSRS 调度器（纯 Dart）已完成，含单元测试',
-              '响应式外壳已完成',
-            ],
-            todo: [
-              'Drift 建表（user_problem_state / review_logs）',
-              '今日队列生成逻辑',
-              '复习会话页面',
-            ],
-          ),
+          badgeCount: dueCount,
+          builder: () => const ReviewPage(),
         ),
         NavDestination(
           label: '错题本',
           icon: Icons.menu_book_outlined,
           selectedIcon: Icons.menu_book,
           shortcutHint: 'Ctrl+3',
-          builder: () => const _Placeholder(
-            title: '错题本',
-            milestone: 'M5',
-            plan: '列表 / 详情 / 多维筛选 / FTS5 全文搜索',
-            done: [
-              '题目 Markdown 格式规范（docs/DATA_FORMAT.md）已定稿',
-              'Markdown 宽容解析器已完成，含单元测试',
-              '去重指纹已完成',
-            ],
-            todo: [
-              'Markdown 读写 + 原子写',
-              '索引构建与 FTS5',
-              '列表页与详情页',
-            ],
-          ),
+          builder: () => const ProblemsPage(),
         ),
         NavDestination(
           label: '录入',

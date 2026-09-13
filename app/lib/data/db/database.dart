@@ -49,6 +49,8 @@ const String kIndexFileName = 'index.sqlite';
   ReviewLogs,
   Papers,
   MetaEntries,
+  TagCacheEntries,
+  LlmUsageEntries,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
@@ -60,7 +62,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -70,9 +72,11 @@ class AppDatabase extends _$AppDatabase {
           await _seedMeta();
         },
         onUpgrade: (m, from, to) async {
-          // schemaVersion 目前只有 1。将来加迁移时在这里按版本分支处理。
-          // 注意：FTS 对象不受 drift 管理，schema 变更时可能需要手工重建，
-          // 见 [_rebuildFtsObjects]。
+          // 逐版本升级，不要写 `if (from < 2)` 就跳到底 ——
+          // 将来加 v3 时容易漏掉中间步骤。
+          if (from < 2) await _migrateToV2();
+          if (from < 3) await m.createTable(tagCacheEntries);
+          if (from < 3) await m.createTable(llmUsageEntries);
         },
         beforeOpen: (details) async {
           // 外键约束默认关闭，打开它以保证数据一致性。
@@ -83,6 +87,51 @@ class AppDatabase extends _$AppDatabase {
           await _ensureFtsAvailable();
         },
       );
+
+  /// v1 → v2：给 `user_problem_state` 补上 `problem_id` 主键。
+  ///
+  /// ## 为什么要手工重建表
+  ///
+  /// SQLite **不支持** `ALTER TABLE ... ADD PRIMARY KEY`。唯一办法是
+  /// 建新表 → 拷数据 → 删旧表 → 改名。
+  ///
+  /// ## 为什么不能直接删表重建
+  ///
+  /// `user_problem_state` 存的是**用户数据**（错题次数、FSRS 状态、笔记），
+  /// 与可重建的索引表性质完全不同 —— 删了就是真丢了复习进度。
+  /// 所以必须拷贝。拷贝时顺手去重：v1 没有主键约束，理论上可能存在
+  /// 同一题的重复行，取**复习次数最多**的那条（信息最全）。
+  Future<void> _migrateToV2() async {
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS user_problem_state_v2 (
+        problem_id     TEXT    NOT NULL PRIMARY KEY,
+        wrong_count    INTEGER NOT NULL DEFAULT 1,
+        first_seen     INTEGER NOT NULL,
+        last_wrong     INTEGER,
+        fsrs_state     TEXT,
+        mastery        REAL    NOT NULL DEFAULT 0.0,
+        error_causes   TEXT    NOT NULL DEFAULT '[]',
+        note           TEXT,
+        starred        INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+
+    // 按 wrong_count 降序取每条 problem_id 的第一条，即信息最全的那条
+    await customStatement('''
+      INSERT OR REPLACE INTO user_problem_state_v2
+        (problem_id, wrong_count, first_seen, last_wrong,
+         fsrs_state, mastery, error_causes, note, starred)
+      SELECT problem_id, wrong_count, first_seen, last_wrong,
+             fsrs_state, mastery, error_causes, note, starred
+      FROM user_problem_state
+      ORDER BY wrong_count DESC
+    ''');
+
+    await customStatement('DROP TABLE user_problem_state');
+    await customStatement(
+      'ALTER TABLE user_problem_state_v2 RENAME TO user_problem_state',
+    );
+  }
 
   // ───────────────────────────────────────────────────────────────────────
   // FTS5 相关

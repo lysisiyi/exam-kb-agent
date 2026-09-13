@@ -131,11 +131,16 @@ class LlmSettingsStore {
 /// 用当前配置装配标注引擎。未配置时返回 null。
 ///
 /// [http] 可注入，便于测试不真的发请求。
+/// [cache] 传 null 表示不缓存（每次都真的调 API，只在测试/排查时用）。
+/// [onUsage] 每次**真实**调用后回调一次，用于写用量台账。
+/// 命中缓存不会触发它 —— 那种情况没花钱。
 Future<KnowledgeTagger?> buildTagger({
   required KnowledgeBase knowledge,
   required LlmSettings settings,
   HttpAdapter? http,
   RecallConfig recallConfig = RecallConfig.defaults,
+  TagCache? cache,
+  void Function(LlmUsage)? onUsage,
 }) async {
   if (!settings.isConfigured) return null;
   final config = settings.toConfig();
@@ -149,7 +154,9 @@ Future<KnowledgeTagger?> buildTagger({
     client: LlmClient(
       config: config,
       http: http ?? DioHttpAdapter(),
+      onUsage: onUsage,
     ),
     recallConfig: recallConfig,
+    cache: cache,
   );
 }

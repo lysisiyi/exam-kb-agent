@@ -1,6 +1,6 @@
 # 开发进度台账
 
-> 最后更新：2026-03-15
+> 最后更新：2026-03-16
 > 范围依据：`docs/V1_PLAN.md`
 > 每次推进都更新这个文件 —— 它是**唯一可信的进度来源**。
 
@@ -13,14 +13,78 @@
 | **M0 地基**（知识资产 + 格式规范） | 🟢 **完成** | 100% |
 | **M1 项目骨架**（工程 + 抽象层 + 平台服务 + 主题） | 🟢 **完成** | 100% |
 | **M2 数据层**（Drift + Markdown 读写 + 索引 + 检索） | 🟢 **完成** | 100% |
-| **M3 标注引擎**（LLM 客户端 + 召回 + 判定 + 评测） | 🟡 **代码完成，召回已达标；LLM 判定层待实跑** | ~92% |
+| **M3 标注引擎**（LLM 客户端 + 召回 + 判定 + 评测） | 🟢 **完成**（T17 实测达标；缓存与用量台账已接） | ~97% |
 | M4 录入闭环 | 🟢 **主流程完成**（图片识别按计划不做） | ~85% |
-| M5 错题本 + 复习 | ⚪ 未开始 | 0% |
+| **M5 错题本 + 复习** | 🟢 **主流程完成**（列表/检索/详情/删除 + FSRS 复习会话） | ~85% |
 | M6 组卷 + 导出 | ⚪ 未开始 | 0% |
 | M7 PC 批量导入 | ⚪ 未开始 | 0% |
 | M8 画像 + 打磨 | ⚪ 未开始 | 0% |
 
 图例：⚪ 未开始 · 🟡 进行中 · 🟢 完成 · 🔴 阻塞
+
+### ✅ M5 错题本 + 复习：主流程完成（353 个测试全绿）
+
+M4 之后有一个**结构性缺口**：录进去的题只写进了 Markdown 文件，
+界面上任何地方都看不到。"录完第一题会想录第二题"这个前提因此不成立 ——
+所以 M5 不是"锦上添花"，而是补上闭环的另一半。
+
+#### 错题本列表页（`features/problems/problems_page.dart`）
+
+| 入口 | 用户想干什么 | 实现 |
+|---|---|---|
+| 搜索 | "我记得录过一道含 `sinx` 的极限题" | FTS5 全文检索，中文逐字分词 |
+| 最近录入 | "看看我最近录了什么" | 按 `created_at` 倒序 |
+| 错题最多 | "哪几道最该再看一眼" | 按 `wrong_count` 倒序 |
+| 待复习 | "今天该复习哪些" | 只留到期的卡，逾期越久越靠前 |
+
+点开一道题可以看到完整的题干/选项/答案/解析/笔记，并能**编辑**（回填录入页）、
+**再记一次错**、**删除**。删除会连带清掉状态行、复习日志、知识点关联、
+索引行，最后才删 Markdown 文件 —— 顺序反了就会留下"索引里有、文件没了"的悬空行。
+
+#### FSRS 复习（`features/review/review_page.dart` + `services/review/review_repository.dart`）
+
+`FsrsScheduler` 是纯函数（给一张卡和一次评分，算下次什么时候复习）。
+`ReviewRepository` 负责"落地"：到期队列、打分写回状态行、复习日志。
+
+**三个刻意的取舍：**
+
+1. **到期判断在 Dart 里做，不在 SQL 里。** `due` 塞在 `fsrs_state` JSON 里；
+   要在 SQL 里筛就得把 FSRS 字段拆成独立列，而那样每次算法升级都要改 schema。
+   个人错题本是几百到几千条量级，一次全读 + 解析是毫秒级。
+2. **卡片靠"对账"补建，不在保存时创建。** 卡片也可能来自批量导入（M7）、
+   手工把 `.md` 拷进 `problems/`、或旧版本录的题。与其在每条写入路径上都
+   记得建卡，不如在打开复习页时做一次幂等的集合差。
+3. **只有三档打分**（忘了 / 吃力 / 轻松）。FSRS 标准是四档，但真实使用时
+   用户分不清 Good 与 Easy，凭感觉给的 Easy 会把间隔拉得过长。
+   同时**揭晓答案是一个显式动作** —— 直接看答案会把"看懂了"误当成"会做了"。
+
+#### 修掉的真实缺陷
+
+| 缺陷 | 症状 | 根因 |
+|---|---|---|
+| `user_problem_state` 漏了主键 | 同一道题出现两条 FSRS 状态 → 复习队列重复卡片 | 表定义里没写 `primaryKey`；`insertOnConflictUpdate` 没有冲突目标可用，只能退化成"先查再写"，双击评分就写重。修它需要一次迁移（v1→v2 重建表） |
+| `_LazyPage` 写成 `active: true` | 启动时**所有** Tab 一起构建：知识库、复习、错题本同时开始各自的异步加载 | `IndexedStack` 会构建全部子节点，"惰性"必须由 `_LazyPage` 自己实现，不能指望 `IndexedStack` |
+| 生成代码没重跑 | `flutter analyze` 全绿，但 `database.g.dart` 里 `$primaryKey` 还是空的 —— 主键修复**实际未生效** | 改了 `tables.dart` 之后必须重跑 `build_runner`；drift 的运行时错误只在真的插入冲突时才暴露 |
+
+**最后一条值得单独记**：这正是"改完要跑一遍真实路径"的价值 ——
+`flutter analyze` 和 `flutter test`（当时的）都不会发现它。
+
+#### AI 标注：缓存与用量台账（`services/tagger/tag_cache_store.dart`）
+
+BYOK 模式下钱是用户自己出的，所以"我花了多少"必须**在本地算得出来**。
+
+- `tag_cache_entries`：按**题干指纹**缓存标注结果（不是按题目 id ——
+  同一道题换台设备录入 id 会变，指纹不变）。**按模型区分**：T17 实测不同模型
+  Top-1 差 3–5 个百分点，缓存不记模型的话，用户换模型后会一直拿到旧结果
+  且毫无察觉。
+- `llm_usage_entries`：每次**真实**调用记一条，命中缓存不记（没花钱）。
+  配置对话框里直接显示"几次调用 / 多少 token / 约多少钱"，并注明是估算。
+
+缓存与台账的读写**全部吞掉异常** —— 它们都不影响标注能不能跑通，
+所以绝不该让标注失败。也正因如此，它们的 bug 不会有任何症状
+（用户只会觉得"怎么每次都花钱"），只能靠测试盯住：`test/tag_cache_test.dart`。
+
+Schema 因此从 v2 涨到 v3（新增两张表，纯增量，不动已有数据）。
 
 ### ✅ M4 录入闭环：主流程完成
 
@@ -559,16 +623,26 @@ prob.rv2 3 · prob.numeric 3 · prob.limit 1 · prob.stats 2
 | **平台装配** | `core/platform/platform_bootstrap.dart` | 按平台注入 + 能力摘要 | 🟢 同上 |
 | **公式渲染抽象** | `core/math/math_renderer.dart` | `MathRenderer` + LRU 缓存 + 兜底 | — |
 | **主题** | `core/theme/app_theme.dart` | 设计 token（与原型一致） | — |
-| **自适应外壳** | `core/widgets/adaptive_shell.dart` | 底部 Tab / 图标条 / 侧边栏 | 🟢 2 个用例 |
-| **依赖注入** | `core/providers.dart` | Riverpod providers | — |
+| **自适应外壳** | `core/widgets/adaptive_shell.dart` | 底部 Tab / 图标条 / 侧边栏 + **惰性挂载** | 🟢 7 个用例 |
+| **依赖注入** | `core/providers.dart` | Riverpod providers（含复习/列表/检索） | — |
 | **知识库页面** | `features/knowledge/knowledge_page.dart` | 三级树 + 考频权重展示 | — |
+| **错题本列表** | `features/problems/problems_page.dart` | 三种排序 + FTS5 检索 + 详情/编辑/删除 | 🟢 8 个用例 |
+| **复习会话** | `features/review/review_page.dart` | 揭晓式卡片 + 三档打分 + 7 天分布 | 🟢 4 个用例 |
+| **复习仓库** | `services/review/review_repository.dart` | 卡片对账 / 到期队列 / 打分写回 | 🟢 13 个用例 |
+| **标注缓存与台账** | `services/tagger/tag_cache_store.dart` | SQLite 缓存（按模型失效）+ 用量汇总 | 🟢 14 个用例 |
 | **开发外壳** | `dev_shell.dart` | 导航 + 占位进度页 | — |
 | **入口** | `main.dart` | 服务注入 + 主题 | — |
 
-**测试用例合计：310 个**（`flutter test` 全绿，0 error / 0 warning）
-（tagger 96 · 录入闭环域/服务 35 · 平台服务 33 · 数据层 32 · Markdown/指纹 24 ·
-录入界面 21 · FSRS 20 · 录入页 12 · 别名 11 · 真实目录入口 6 · 外壳导航 5 ·
-召回率评测 5 · 主题 4 · 外壳 3 · 其他）
+**测试用例合计：353 个**（`flutter test` 全绿；`flutter analyze` 0 error / 0 warning）
+（tagger 96 · 缓存与台账 14 · 复习仓库+会话 17 · 错题本列表 8 · 平台服务 33 ·
+数据层 34 · 录入闭环域/服务 35 · Markdown/指纹 24 · 录入界面 21 · FSRS 20 ·
+录入页 12 · 别名 11 · 真实目录入口 6 · 外壳导航 7 · 召回率评测 5 · 主题 4 · 其他）
+
+> ⚠️ **测试里最贵的坑**：`testWidgets` 的函数体跑在**假异步时钟**里，
+> 真实文件 IO（`Directory.createTemp`、读写 `.md`）的 Future 永远不会完成 ——
+> 于是测试会在第一行 `await` 上静静挂住，10 分钟后报超时，
+> 看起来像"页面崩了"。凡是 `testWidgets` 里的 IO 都必须包在
+> `tester.runAsync` 里。仓库层的 `test()` 不受影响。
 
 ### 工具链
 
@@ -703,16 +777,13 @@ FTS5 内置的 `unicode61` 分词器按**空白与标点**切词。中文句子�
 
 | # | 任务 | 依赖 | 预估 |
 |---|---|---|---|
-| **N1** | 实现 Windows 平台服务（WinRT OCR / DPAPI / file_selector / 通知） | 环境已就绪 | 2 天 |
-| **N2** | M3 标注引擎（LLM 客户端 + 召回 + 判定 + 置信度门禁） | N1 可并行 | 5 天 |
-| **N3** | M4 录入闭环（公式键盘 + 编辑页 + 错因选择） | M3 | 7 天 |
-| **N4** | 选定公式渲染库（实测 `katex`）接入 `MathRenderer` | — | 0.5 天 |
+| **N8** | M6 组卷：贪心组卷引擎 + 真题结构模板 | 索引/考频已就绪 | 3 天 |
+| **N9** | M6 导出：三版式 PDF（题目卷 / 解析卷 / 错题本） | N8 | 3 天 |
+| **N10** | M7 PC 批量导入（文件夹 → 解析 → 查重 → 入库） | 数据层已就绪 | 2 天 |
+| **N11** | M8 学情画像（薄弱章节 / 错因分布 / 掌握度曲线） | 复习日志已开始积累 | 3 天 |
+| **N12** | 补 Windows 平台服务实跑验证（DPAPI / file_selector / 通知） | 需要用户真机操作 | 0.5 天 |
 
-**M0/M1/M2 全部完成，可以开始 M3 了。**
-| **N6** | Markdown 读写 + 原子写 + 索引构建 | N5 | 2 天 |
-| **N7** | 选定公式渲染库（`katex` 实测），接入 `MathRenderer` | N3 | 0.5 天 |
-
-**N1 是关键路径上的唯一阻塞**，其余全部可并行或紧随其后。
+**M0–M5 主流程已通，下一个里程碑是 M6 组卷 + 导出。**
 
 ---
 
@@ -833,3 +904,11 @@ math1.linalg.vector.linear_combo      「线性组合与线性表示」      ←
 | 2026-03-15 | 🐛 **T17 抓出 T19 漏掉的一组重复**：`ode.first_order_linear` 与 `ode.linear1` 两个 id 都活了下来，直接导致 gold-010 判错。补上后开发集 66.7% → 73.3%。同时给验证器加「未覆盖重复」检查（扫本体找出未映射、也未登记 not_merged 的候选对） |
 | 2026-03-15 | ⚠️ **两次数据损坏事故**（见 T36）：用 `Set-Content` 改含中文的文件，因 PowerShell 5.1 默认 GBK 而毁掉 `app_theme.dart` 与 `docs/PROGRESS.md`。前者靠字节级逆向救回，后者从 git 恢复。**已立规矩：非 ASCII 不走 shell 重定向** |
 | 2026-03-15 | 🐛 **修掉 T19 过程中自己引入的回归**：映射改数据驱动时丢了早期删除标记，`merge_shards` 会把 28 个已删节点搬回（142→170，静默无报错）。新增 `suppressed_drops`（84 个永久删除标记）+ 验证器防回归检查（已用"故意清空"验证过它能抓到） |
+| 2026-03-16 | ✅ **M5 错题本列表完成**（`features/problems/problems_page.dart`）：三种排序（最近录入 / 错题最多 / 待复习）+ FTS5 中文检索 + 详情抽屉 + 编辑（回填录入页，带着原 id 以免被指纹查重拦下）+ 再记一次错 + 删除。删除顺序为**先清 SQLite（状态/日志/知识点关联/索引行）、最后删 Markdown** —— 反过来会留下"索引里有、文件没了"的悬空行。新增 `test/problems_page_test.dart`（8 例）、`test/support/test_env.dart`（临时库 + 内存 sqlite 的公共装配） |
+| 2026-03-16 | ✅ **M5 FSRS 复习完成**：新增 `services/review/review_repository.dart`（卡片对账 / 到期队列 / 打分写回 / 复习日志 / 统计）与 `features/review/review_page.dart`（揭晓式卡片 + 三键打分 + 键盘 1/2/3 + 未来 7 天分布）。三档打分（忘了/吃力/轻松）是刻意取舍 —— 四档里用户分不清 Good 与 Easy。到期判断放在 Dart 里而不是 SQL 里，因为 `due` 塞在 `fsrs_state` JSON 中，拆列会让每次算法升级都要改 schema。新增 `test/review_flow_test.dart`（17 例） |
+| 2026-03-16 | 🐛 **修掉一个从未暴露的真实缺陷：`user_problem_state` 漏了主键。** 表定义里没写 `primaryKey`，于是 `insertOnConflictUpdate` 没有冲突目标可用，只能退化成"先查再写" —— 双击评分按钮就会写出两条 FSRS 状态，复习队列出现重复卡片。修它需要迁移（SQLite 不支持 `ALTER TABLE ADD PRIMARY KEY`）：schema v1→v2，建新表 + 按 `wrong_count DESC` 拷贝去重 + 换名。新增回归用例"连续打分不会写出重复状态行" |
+| 2026-03-16 | 🐛 **`database.g.dart` 没重跑，主键修复实际未生效。** 改完 `tables.dart` 后忘了 `build_runner`：`flutter analyze` 全绿（生成代码里 `$primaryKey` 是 `const {}` 也合法），但 drift 在真的插入冲突时才抛 `Table has no primary key` —— 是新写的复习测试抓出来的。**教训：改 schema 后必须重跑代码生成，并且要有真的写库测试** |
+| 2026-03-16 | 🐛 **`_LazyPage` 写成 `active: true`，启动时所有 Tab 一起构建**：知识库、复习、错题本同时开始各自的异步加载。`IndexedStack` 会构建全部子节点，"惰性"必须由 `_LazyPage` 自己实现（注释里写着"未访问过的页面不构建"，代码却在构建全部）。已改为按选中下标惰性构建，并补了一条直接盯这个策略的用例 |
+| 2026-03-16 | 🐛 **`testWidgets` 的假异步时钟把真实文件 IO 卡死**：`Directory.createTemp`、读写 `.md` 的 Future 在假时钟里永远不会完成，测试会在第一行 `await` 上静静挂住，10 分钟后报超时 —— 看起来像"页面崩了"。修法是交替 `tester.runAsync`（让真实事件循环跑）与 `pump`（重建界面），并停用 `pumpAndSettle`（载入期的进度指示器是无限动画，它永远等不到）。已把这条写进 `test/support/test_env.dart` 与 PROGRESS 的测试说明 |
+| 2026-03-16 | ✅ **AI 标注接上本地缓存与用量台账**（schema v2→v3，新增 `tag_cache_entries` / `llm_usage_entries`，纯增量不动已有数据）。缓存按**题干指纹**（不是题目 id —— 同一道题换设备录入 id 会变、指纹不变）并**按模型区分**（T17 实测不同模型 Top-1 差 3–5 个百分点，不记模型的话用户换模型后会一直拿到旧结果且毫无察觉）；台账只记真实调用，命中缓存不记（没花钱）。配置对话框新增「本机 AI 用量」面板。两者的读写**全部吞掉异常** —— 它们不影响标注能否跑通，也正因如此它们的 bug 没有症状，只能靠测试盯住：新增 `test/tag_cache_test.dart`（14 例） |
+| 2026-03-16 | 🔬 新增 schema 迁移测试：把一个库**退回 v2 形状**（删掉 v3 的两张表 + 写回 `user_version = 2`）再用当前代码打开，验证升级会补出表且用户数据不丢。`flutter analyze` 0 error / 0 warning；**353 测试全绿** |

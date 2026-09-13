@@ -181,6 +181,20 @@ class UserProblemState extends Table {
 
   /// 是否已收藏/标记为顽固错题。
   BoolColumn get starred => boolean().withDefault(const Constant(false))();
+
+  /// 一道题只能有一条状态记录。
+  ///
+  /// ⚠️ 这个主键是**后补的**。初版忘了声明，于是 `problem_id` 只是个普通列 ——
+  /// 而文档与业务逻辑都假设"一题一行"。后果是复习打分时
+  /// `insertOnConflictUpdate` 没有冲突目标可用，只能退化成
+  /// "先查再写"，双击评分按钮这类并发写入就会写出重复行，
+  /// 于是同一道题有两条 FSRS 状态，复习队列出现重复卡片。
+  ///
+  /// 修它需要一次迁移（见 `database.dart` 的 `_migrateToV2`），
+  /// 因为 SQLite 不能给已有表 `ALTER TABLE ... ADD PRIMARY KEY`，
+  /// 只能建新表 + 拷数据 + 换名。
+  @override
+  Set<Column> get primaryKey => {problemId};
 }
 
 /// 复习历史。每次复习一条。
@@ -237,6 +251,75 @@ class Papers extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI 标注缓存与用量台账
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// AI 标注结果的本地缓存。
+///
+/// ## 为什么按"指纹"缓存而不是按题目 id
+///
+/// 指纹是**题干内容**的哈希（见 `domain/fingerprint.dart`），与题目 id 无关。
+/// 同一道题在不同设备/不同批次录入时会拿到不同 id，但指纹相同 ——
+/// 按指纹缓存才能跨批次复用，也才能命中"用户重复录入同一道题"这个高频场景。
+///
+/// ## 为什么存 [model]
+///
+/// 同一道题换一个模型标注，结果可能不同（T17 实测：dev 集上不同模型的
+/// Top-1 差 3–5 个百分点）。缓存如果不记模型，用户换模型后会一直拿到
+/// 旧模型的结果，且**毫无察觉**。所以读缓存时要求模型一致，不一致就重标。
+///
+/// ## 这张表可以被安全删除
+///
+/// 它只是省钱的缓存，删掉只会让下次标注重新走一遍 API，不会丢用户数据。
+@DataClassName('TagCacheRow')
+class TagCacheEntries extends Table {
+  /// 题目指纹。
+  TextColumn get fingerprint => text()();
+
+  /// 标注结果 `TagResult.toJson()` 的 JSON 字符串。
+  TextColumn get result => text()();
+
+  /// 产出这个结果的模型名（用于换模型后失效）。
+  TextColumn get model => text().withDefault(const Constant(''))();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {fingerprint};
+}
+
+/// AI 调用用量台账。每次真正发出请求记一条。
+///
+/// ## 为什么值得单独记一张表
+///
+/// BYOK 模式下用户自己付费 —— 那么"我到底花了多少"必须**在本地算得出来**，
+/// 而不是让用户去服务商后台对账。这也让"标注一道题平均花多少钱"
+/// 变成可回答的问题（`UsageLedger.summary()`）。
+///
+/// 命中缓存时**不记**（没花钱），所以这张表的行数就是真实调用次数。
+@DataClassName('LlmUsageRow')
+class LlmUsageEntries extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// 服务商 id，如 `deepseek`。
+  TextColumn get provider => text()();
+
+  /// 模型名。
+  TextColumn get model => text().withDefault(const Constant(''))();
+
+  /// 本次调用的用途，如 `tag`。将来还有 `solve` / `paper` 等。
+  TextColumn get purpose => text().withDefault(const Constant('tag'))();
+
+  IntColumn get inputTokens => integer().withDefault(const Constant(0))();
+  IntColumn get outputTokens => integer().withDefault(const Constant(0))();
+
+  /// 费用估算（元）。null 表示该模型不在价目表里。
+  RealColumn get costYuan => real().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

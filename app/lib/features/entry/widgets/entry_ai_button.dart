@@ -18,10 +18,14 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers.dart';
 import '../../../domain/knowledge/knowledge_point.dart';
 import '../../../domain/problem_draft.dart';
 import '../../../services/llm/llm_settings.dart';
+import '../../../services/tagger/knowledge_tagger.dart';
+import '../../../services/tagger/tag_cache_store.dart';
 import 'llm_settings_dialog.dart';
 
 /// 标注结果，回填给录入页。
@@ -51,7 +55,7 @@ class AiTagSuggestion {
   });
 }
 
-class EntryAiButton extends StatefulWidget {
+class EntryAiButton extends ConsumerStatefulWidget {
   final ProblemDraft draft;
   final KnowledgeBase knowledge;
 
@@ -70,10 +74,10 @@ class EntryAiButton extends StatefulWidget {
   });
 
   @override
-  State<EntryAiButton> createState() => _EntryAiButtonState();
+  ConsumerState<EntryAiButton> createState() => _EntryAiButtonState();
 }
 
-class _EntryAiButtonState extends State<EntryAiButton> {
+class _EntryAiButtonState extends ConsumerState<EntryAiButton> {
   bool _running = false;
   LlmSettings? _settings;
 
@@ -111,9 +115,29 @@ class _EntryAiButtonState extends State<EntryAiButton> {
 
     setState(() => _running = true);
     try {
+      // 缓存与用量台账都落在本地 sqlite 里。
+      // ⚠️ 拿不到数据库**不能**让标注失败 —— 缓存只是省钱的手段，
+      // 没有它照样能标注。所以这里用一个空实现兜底。
+      TagCache? cache;
+      UsageLedger? ledger;
+      final providerId = settings.providerId;
+      try {
+        final db = await ref.read(databaseProvider.future);
+        final model = settings.toConfig().model;
+        cache = SqliteTagCache(db: db, model: model);
+        ledger = UsageLedger(db);
+      } catch (_) {
+        cache = null;
+        ledger = null;
+      }
+
       final tagger = await buildTagger(
         knowledge: widget.knowledge,
         settings: settings,
+        cache: cache,
+        onUsage: ledger == null
+            ? null
+            : (usage) => ledger!.record(provider: providerId, usage: usage),
       );
       if (tagger == null) {
         widget.onMessage('配置不完整，请检查服务商与 Key', error: true);
@@ -146,7 +170,9 @@ class _EntryAiButtonState extends State<EntryAiButton> {
       ));
       widget.onMessage(
         'AI 建议已填入（置信度 ${(r.confidence * 100).toStringAsFixed(0)}%'
-        '${r.needsReview(threshold) ? "，偏低，建议人工确认" : ""}）',
+        '${r.needsReview(threshold) ? "，偏低，建议人工确认" : ""}）'
+        // 命中缓存时说明一声：用户会看到"秒回"，需要知道为什么快
+        '${outcome.fromCache ? " · 命中本地缓存，未消耗 token" : ""}',
       );
     } catch (e) {
       if (mounted) widget.onMessage('标注失败：$e', error: true);
