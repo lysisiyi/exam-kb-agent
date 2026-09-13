@@ -414,11 +414,30 @@ class ReviewRepository {
 }
 
 /// 供列表页/详情页共用的"下次复习"文案。
+///
+/// ## 为什么必须先看"分钟"，再看"天"
+///
+/// FSRS 在两种情况下会给出**分钟级**间隔：第一次评"忘了"，以及重学
+/// （`intervalDays == 0` 时下次排在 10 分钟后，见 `FsrsScheduler.review`）。
+/// 若直接按"距今天零点几天"算，今天 23:50 做完、下次 00:00 的卡会显示
+/// "今天" —— 而那其实是明天。反过来，10 分钟后要复习的卡显示"今天"，
+/// 等于告诉用户"今天不用管了"，正好把刚安排的学习步抹掉。
 String describeDue(DateTime? due, {DateTime? now}) {
   if (due == null) return '未安排';
   final ts = now ?? DateTime.now();
+
+  final minutes = due.difference(ts).inMinutes;
+  if (minutes < 0) {
+    // 逾期文案按天给：不足一天时说"刚过期"比"已逾期 0 天"诚实
+    final overdueDays = -minutes ~/ (24 * 60);
+    return overdueDays == 0 ? '已到期' : '已逾期 $overdueDays 天';
+  }
+  if (minutes < 60) return '$minutes 分钟后';
+  if (minutes < 24 * 60) return '${minutes ~/ 60} 小时后';
+
+  // 以下按"距今天零点几天"算 —— 到这里间隔已经 >= 1 天，
+  // 日期差的舍入不再造成误导
   final days = due.difference(DateTime(ts.year, ts.month, ts.day)).inDays;
-  if (days < 0) return '已逾期 ${-days} 天';
   if (days == 0) return '今天';
   if (days == 1) return '明天';
   if (days < 30) return '$days 天后';

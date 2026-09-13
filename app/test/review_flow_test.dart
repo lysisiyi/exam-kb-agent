@@ -312,14 +312,40 @@ void main() {
 
   // ───────────────────────────────────────────────────────────────────────────
   group('到期文案', () {
-    test('describeDue 覆盖逾期/今天/明天/远期', () {
+    test('describeDue 覆盖逾期 / 小时内 / 天后 / 月', () {
       final now = DateTime(2024, 6, 10, 12);
       expect(describeDue(null, now: now), '未安排');
       expect(describeDue(DateTime(2024, 6, 7), now: now), '已逾期 3 天');
-      expect(describeDue(DateTime(2024, 6, 10, 8), now: now), '今天');
-      expect(describeDue(DateTime(2024, 6, 11), now: now), '明天');
-      expect(describeDue(DateTime(2024, 6, 15), now: now), '5 天后');
+      // 今天已过点 = 已到期
+      expect(describeDue(DateTime(2024, 6, 10, 8), now: now), '已到期');
+      // 不足 24 小时 → 说小时（跨零点的"明天早上"也走这一档，更精确）
+      expect(describeDue(DateTime(2024, 6, 11), now: now), '12 小时后');
+      // 日级分支
+      expect(describeDue(DateTime(2024, 6, 12), now: now), '2 天后');
+      expect(describeDue(DateTime(2024, 6, 16), now: now), '6 天后');
       expect(describeDue(DateTime(2024, 9, 10), now: now), '3 个月后');
+    });
+
+    test('分钟级间隔要说分钟 —— 说"今天"等于让人别管它', () {
+      // FSRS 第一次评"忘了"会把下次排在 10 分钟后。若显示"今天"，
+      // 用户会以为今天不用再看了，正好把刚安排的学习步抹掉。
+      final now = DateTime(2024, 6, 10, 12, 0);
+      expect(describeDue(DateTime(2024, 6, 10, 12, 10), now: now), '10 分钟后');
+      expect(describeDue(DateTime(2024, 6, 10, 12, 0), now: now), '0 分钟后');
+    });
+
+    test('小时级间隔说小时，并说清是"今天"还是"明天"', () {
+      final now = DateTime(2024, 6, 10, 12, 0);
+      expect(describeDue(DateTime(2024, 6, 10, 18), now: now), '6 小时后');
+      // 跨零点的卡：23:50 做完，下次 00:00 —— 那是明天，不是"今天"
+      final late = DateTime(2024, 6, 10, 23, 50);
+      expect(describeDue(DateTime(2024, 6, 11, 0, 30), now: late), '40 分钟后');
+    });
+
+    test('刚过期不说"已逾期 0 天"', () {
+      final now = DateTime(2024, 6, 10, 12, 0);
+      expect(describeDue(DateTime(2024, 6, 10, 11, 59), now: now), '已到期');
+      expect(describeDue(DateTime(2024, 6, 9, 12, 0), now: now), '已逾期 1 天');
     });
   });
 
