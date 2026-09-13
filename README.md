@@ -79,6 +79,15 @@ app/test    10 个文件   5800+ 行   （295 个用例，全部通过）
 
 ## 快速开始
 
+> **刚克隆仓库？** 只需一条命令 —— 双击 `run_app.bat`。
+> 它会自动补上被忽略的 `app/assets/data/`（由 `data/` 生成）、设好国内镜像与代理、
+> 必要时构建，然后启动 App。
+>
+> ```powershell
+> git clone <repo> && cd Project
+> .\run_app.bat
+> ```
+
 ### 1. Flutter（已装好）
 
 `D:\software\flutter`（3.47.4 stable），国内镜像 `FLUTTER_STORAGE_BASE_URL` /
@@ -179,6 +188,30 @@ flutter run -d windows   # 需先开开发者模式
     ├── index.html                    手机版 5 屏高保真原型
     └── ipad.html                     iPad 版 5 屏 + 适配规则
 ```
+
+---
+
+## 版本控制
+
+仓库只提交**事实源与手写内容**，所有可再生的派生物都在 `.gitignore` 里：
+
+| 被忽略 | 原因 | 怎么恢复 |
+|---|---|---|
+| `app/build/`、`app/.dart_tool/` | Flutter 构建产物 | `flutter pub get && flutter test` |
+| `app/windows/flutter/ephemeral/` | Flutter 生成的临时目录（含 272 MB 的 `.pdb`） | `flutter build windows` |
+| `app/assets/data/` | `data/` 的消费副本 | `python tools/data/sync_assets.py` |
+| `tools/**/__pycache__/` | Python 字节码 | 自动 |
+
+**刻意提交**：`tools/vendor/sqlite3.x64.windows.dll`（1.7 MB）。
+它是 vendored 的预编译原生库 —— 国内网络拿不到 GitHub Releases 上的原件，
+提交它才能让仓库自足（见 `docs/SETUP.md` §3 坑 3）。
+
+`.gitattributes` 把源码行尾统一为 **LF**。这不是洁癖：
+规划里要做 macOS / iOS 版，行尾不一致会让每次提交都出现"整个文件都改了"的假差异。
+
+> 工作目录里另有两个**不属于本项目**的目录已被排除：
+> `星匣AiGameJam/`（291 MB，另一个独立 npm 项目）与 `.perf/`（22 MB，DSH 性能测试脚手架）。
+> 前者若需要版本控制，应在它自己的目录里 `git init`。
 
 ---
 

@@ -572,7 +572,7 @@ FTS5 内置的 `unicode61` 分词器按**空白与标点**切词。中文句子�
 | T30 | ~~脏 `CMakeCache.txt` 把安装前缀固化成 `C:/Program Files`~~ | ✅ 已修复 | 删 `app/build/` 重新配置即可；**不要用 `flutter clean`**（会删掉需要开发者模式才能重建的符号链接） |
 | T31 | **真机交互无法自测** | 保存链路、渲染效果只能由用户确认 | 沙箱回收 GUI 进程（`schtasks` 被拒、WMI 需提权），Agent 无法截图或点按。已用 widget 测试 + `library_paths_test.dart` 把可自测的部分全部覆盖 |
 | T32 | 首次保存会同时触发建目录、建库、写盘、刷索引 | 任一环失败都表现为"点了保存没反应" | 已覆盖"目录未建就开库"与 FTS5 触发器在文件库上的行为；剩余风险是 `path_provider` 在真机返回的路径异常（低） |
-| **T33** | 🔴 **项目没有版本控制（不是 git 仓库）** | **改坏了无法回退** | 已在排查主题 bug 时真实付出代价：用 `Set-Content` 回改 `app_theme.dart` 时按系统 ANSI 编码写入，文件变成非 UTF-8、Dart 直接编译不了，只能靠字节级逆向 + 按 dump 重写救回。**建议立即 `git init`** 并配好 `.gitignore`（排除 `build/`、`.dart_tool/`、`tools/vendor/`、`app/assets/data/`） |
+| T33 | ~~项目没有版本控制（不是 git 仓库）~~ | ✅ **已修复** | 已 `git init`（分支 `main`）+ 首次提交 `a70892e`（122 文件 / 4.35 MB）。`.gitignore` 只提交事实源，排除 `build/`、`.dart_tool/`、`windows/flutter/ephemeral/`、`app/assets/data/`；`.gitattributes` 统一行尾为 LF（为将来的 macOS/iOS 版准备）。工作区里**不属于本项目**的 `星匣AiGameJam/`（291 MB，另一个 npm 项目）与 `.perf/`（22 MB，DSH 性能脚手架）已排除 |
 | T34 | Agent 无法交互 GUI，只能"开在指定页 + 截图"排查 | 视觉类缺陷排查慢 | 已加 `DSH_INITIAL_TAB` 环境变量让 App 直接开在目标页；再用 `CopyFromScreen` 截窗口（同一段命令内，否则进程被回收）。这套组合成功定位了主题 bug |
 | T35 | 视觉属性（颜色/可见性）没有断言 | 文字隐形这类 bug 会静默通过 | 已加 `test/theme_test.dart`（color 非空 + 对比度）；后续凡涉及可见性的改动都应补类似断言 |
 | T12 | Windows 端侧 OCR 未实现 | PC 版无法"识别图片中的文字" | **有意决定**：Native Assets 编译风险高、PC 主路径是批量导入。替代：手输 LaTeX / 粘贴 / 云端多模态（M4） |
@@ -660,4 +660,5 @@ math1.linalg.vector.linear_combo      「线性组合与线性表示」      ←
 | 2026-03-15 | 🐛 顺带修掉一处隐患：`problems_index.stem_text` 原先会剥掉 `\sin`/`\frac`，列表摘要退化成「求 x 0 x x」。查 DDL 确认 FTS5 索引的是 `search_tokens`，故该列不必为检索牺牲可读性 —— 已改为保留 LaTeX 的 `preview()`，并修正 `database.dart`/`tables.dart` 里与 DDL 不符的过时注释 |
 | 2026-03-15 | 🔬 补齐**真实入口路径**的测试空白（T31/T32）：此前所有测试都用 `createAt(临时目录)`，`LibraryPaths.resolve()` **从未被执行过** —— 而首次保存走的正是它。给 `resolve()`/`openDefaultDatabase()` 加了可注入的 `supportDirectory` 缝，新增 6 个用例覆盖"目录未建就开库"、文件库上的 FTS5 触发器、完整保存链路。**301 测试通过** |
 | 2026-03-15 | 🐛 **定位并修复"录入页一片空白"的真凶：主题抹掉了文字颜色。** `AppTypography` 的 `pageTitle/sectionTitle/body/bodyStrong/stem` 都没写 `color`，而 `ThemeData.textTheme.copyWith` 会整体替换掉带颜色的默认样式 → 所有靠继承色的 `Text` 全部隐形。**295 个测试全绿却漏掉了它**，因为 widget 测试断言的是文本内容、不是文本颜色。新增 `test/theme_test.dart`（并验证过它确实能抓到该 bug）。同时修复 `ExpansionTile` 套在带背景 `DecoratedBox` 里触发的框架断言、窄屏 9.8px 溢出。新增 `test/shell_navigation_test.dart`（挂真实外壳点导航，不再绕开真实链路）。**310 测试通过** |
-| 2026-03-15 | 🔴 **发现项目没有版本控制**（T33）。排查过程中用 `Set-Content` 回改文件时按 ANSI 编码写入，`app_theme.dart` 变成非 UTF-8、Dart 编译失败；因无 git 只能靠字节级逆向 + 按 dump 重写救回。已强烈建议 `git init` |
+| 2026-03-15 | 🔴 **发现项目没有版本控制**（T33）。排查过程中用 `Set-Content` 回改文件时按 ANSI 编码写入，`app_theme.dart` 变成非 UTF-8、Dart 编译失败；因无 git 只能靠字节级逆向 + 按 dump 重写救回 |
+| 2026-03-15 | ✅ **T33 已解决：初始化版本控制。** `git init`（分支 `main`）+ 首次提交 `a70892e`（122 文件 / 69,713 行 / 4.35 MB）。`.gitignore` 只提交事实源；`.gitattributes` 统一 LF 行尾。排除工作区内**不属于本项目**的 `星匣AiGameJam/`（291 MB）与 `.perf/`（22 MB）。因 `app/assets/data/` 被忽略，`run_app.bat` 增加"缺 assets 时自动跑 sync_assets" |

@@ -26,6 +26,27 @@ rem   reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Setting
 set "HTTP_PROXY=http://127.0.0.1:26561"
 set "HTTPS_PROXY=http://127.0.0.1:26561"
 
+rem app\assets\data is generated (see .gitignore), so a fresh clone has none.
+rem Flutter fails to build when a declared asset directory is missing.
+if not exist "app\assets\data\knowledge_points\math1.json" (
+  echo Syncing knowledge assets from data\ ...
+  where python >nul 2>nul
+  if errorlevel 1 (
+    echo.
+    echo ERROR: python not found on PATH, cannot build app\assets\data.
+    echo        Install Python, then run: python tools\data\sync_assets.py
+    pause
+    exit /b 1
+  )
+  python "tools\data\sync_assets.py"
+  if errorlevel 1 (
+    echo.
+    echo ERROR: asset sync failed.
+    pause
+    exit /b 1
+  )
+)
+
 if exist "%EXE%" (
   echo Launching %EXE%
   start "" "%EXE%"
