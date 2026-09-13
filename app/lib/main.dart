@@ -21,11 +21,17 @@ import 'core/platform/platform_services.dart';
 // 少了这一行会编译失败（lib/main.dart 报 undefined_function），
 // 而 `flutter test` 不会发现 —— 测试不经过 main()。
 import 'core/platform/platform_services_mock.dart';
+import 'core/platform/window_setup.dart';
 import 'core/theme/app_theme.dart';
 import 'dev_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ── 窗口 ──────────────────────────────────────────────────────────────
+  // 给一个合理的起手尺寸并锁住最小尺寸，否则窗口能被拖到比表单还窄。
+  // 非桌面平台或插件不可用时静默返回，此时用系统默认尺寸。
+  await initDesktopWindow();
 
   // ── 平台服务 ──────────────────────────────────────────────────────────
   // 失败不能阻止启动：最低限度是"知识库能看、公式能渲染"。
