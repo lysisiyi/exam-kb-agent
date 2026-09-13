@@ -13,6 +13,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/math/katex_renderer.dart';
 import 'core/math/math_renderer.dart';
 import 'core/platform/platform_bootstrap.dart';
 import 'core/platform/platform_services.dart';
@@ -45,14 +46,13 @@ Future<void> main() async {
   }
 
   // ── 公式渲染 ──────────────────────────────────────────────────────────
-  // 当前内层是纯文本兜底渲染器（不渲染公式，只把 LaTeX 源码显示出来），
-  // 它保证工程在没有第三方渲染库时也能编译运行。
+  // 底层是 `katex`（KaTeX 的 Flutter 封装：纯 Dart 解析 + CustomPainter
+  // 画 Canvas，**不产 SVG**）；外面套一层 `CachedMathRenderer`。
   //
-  // ⚠️ **必须包一层 `CachedMathRenderer`**。错题本列表 / 复习页走的都是
-  // `renderMarkdown()`，每一项题干有 3–5 个公式；不缓存就等于滚动时反复
-  // 重新解析 LaTeX，而"5000 题滚动不掉帧"是 V1 的验收项之一。
-  // 缓存包装与内层渲染器无关，所以换成 KaTeX 时这层不用动。
-  MathRendering.install(CachedMathRenderer(const PlainTextMathRenderer()));
+  // ⚠️ **缓存层不能省**。错题本列表 / 复习页走的都是 `renderMarkdown()`，
+  // 每一项题干有 3–5 个公式；不缓存就等于滚动时反复解析 LaTeX，
+  // 而"5000 题滚动不掉帧"是 V1 的验收项之一。
+  MathRendering.install(CachedMathRenderer(const KatexRenderer()));
 
   runApp(ProviderScope(child: KaoyanApp(initialTab: _initialTabFromEnv())));
 }

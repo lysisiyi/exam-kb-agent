@@ -92,14 +92,24 @@ dependencies:
   # ── 图片处理（批量导入）────────────────────────────────────────
   image: ^4.2.0
 
-  # ── ⚠️ 公式渲染：装不上或发现停更时，改这里的实现即可 ──────────
-  # 业务代码只依赖 lib/core/math/math_renderer.dart 里的 MathRenderer 抽象，
-  # 底层换包不影响任何调用方。候选（按优先级）：
-  #   1. katex              —— 纯 Dart，KaTeX 移植
-  #   2. flutter_math_fork  —— 一年前更新，可用但停更风险
-  #   3. flutter_tex        —— 基于 MathJax
-  # 安装前请先 `flutter pub add katex` 实测；失败则换下一个。
-  # katex: ^0.2.0
+  # ── 公式渲染 ───────────────────────────────────────────────────
+  # `katex` 是 KaTeX 的 Flutter 封装：底层 `katex_dart`（纯 Dart 解析器）
+  # 把 LaTeX 编成箱树，`KatexBoxPainter extends CustomPainter` 直接画 Canvas。
+  # **不用 WebView，也不产 SVG** —— SVG 那条路每条公式 460 KiB（99.8% 是内嵌
+  # 字体），在列表里滚动不可接受。
+  #
+  # 实测（2026-03-16，katex_dart 0.1.1 + katex 1.0.0）：
+  #   - 解析 1609 条真实公式 314ms（0.196 ms/式）；走 CustomPainter 的画法
+  #     只需 `renderToBox` 的 0.245 ms/式
+  #   - 18 条解析失败，其中真实知识点公式只占 2 条：一条是**数据录入错误**
+  #     （`\text{` 少了收尾花括号，已在 data/ 里修掉，并加了
+  #      `tools/data/check_formulas.py` 守住），另一条是 `\iddots` 不支持
+  #   - CJK 走 Flutter 的 `TextPainter`，回退行为由 `test/katex_render_test.dart`
+  #     盯住
+  #
+  # 业务代码只依赖 lib/core/math/math_renderer.dart 的 MathRenderer 抽象，
+  # 换底层包不影响任何调用方（MathRenderer 的存在就是为了这个）。
+  katex: ^1.0.0
 
 dev_dependencies:
   flutter_test:

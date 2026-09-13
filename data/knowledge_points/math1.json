@@ -3680,7 +3680,7 @@
         "\\alpha_1,\\dots,\\alpha_s\\ \\text{为列向量}:\\ \\text{相关}\\iff r(A)<s;\\ \\text{无关}\\iff r(A)=s",
         "n+1\\ \\text{个}\\ n\\ \\text{维向量必线性相关}",
         "\\text{部分相关}\\Rightarrow\\text{整体相关};\\quad\\text{整体无关}\\Rightarrow\\text{部分无关}",
-        "\\text{无关向量组每个向量增加分量后仍无关；相关向量组去掉分量后仍相关",
+        "\\text{无关向量组每个向量增加分量后仍无关；相关向量组去掉分量后仍相关}",
         "\\alpha_1,\\dots,\\alpha_s\\ \\text{线性相关}\\iff\\exists\\,(k_1,\\dots,k_s)\\ne(0,\\dots,0):\\ \\sum_{i=1}^{s}k_i\\alpha_i=0",
         "\\alpha_1,\\dots,\\alpha_s\\ \\text{线性无关}\\iff r(\\alpha_1,\\dots,\\alpha_s)=s",
         "s>n\\ (n\\ \\text{维向量})\\Rightarrow\\alpha_1,\\dots,\\alpha_s\\ \\text{必线性相关}",
