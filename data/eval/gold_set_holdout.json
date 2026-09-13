@@ -75,7 +75,7 @@
       "qtype": "proof",
       "primary_kp_id": "math1.calc.diff.root_inequality",
       "secondary_kp_ids": [
-        "math1.calc.diff.proof_application"
+        "math1.calc.diff.root_inequality"
       ],
       "difficulty": 2,
       "source": "教材习题",
@@ -145,7 +145,7 @@
       "qtype": "solve",
       "primary_kp_id": "math1.calc.multidiff.conditional_extremum",
       "secondary_kp_ids": [
-        "math1.calc.multidiff.lagrange"
+        "math1.calc.multidiff.conditional_extremum"
       ],
       "difficulty": 2,
       "source": "教材习题",
@@ -217,7 +217,7 @@
       "qtype": "fill",
       "primary_kp_id": "math1.linalg.det.abstract_det",
       "secondary_kp_ids": [
-        "math1.linalg.matrix.adjoint"
+        "math1.linalg.matrix.inverse_adjoint"
       ],
       "difficulty": 2,
       "source": "教材习题",
@@ -229,7 +229,7 @@
       "qtype": "solve",
       "primary_kp_id": "math1.linalg.system.homogeneous",
       "secondary_kp_ids": [
-        "math1.linalg.system.fundamental"
+        "math1.linalg.system.homogeneous"
       ],
       "difficulty": 2,
       "source": "教材习题",

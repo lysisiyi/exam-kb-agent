@@ -1,0 +1,513 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-03-15",
+  "note": "知识点合并映射（技术债 T19）。格式：groups[] = {keep, drops[], reason}。语义是『把 drops 的内容并入 keep，然后删除 drops』—— 内容不会被丢弃，merge_into 会对公式/陷阱/考频年份/别名/题型/难度做并集。由 tools/data/dedupe_knowledge.py 消费。",
+  "why": "本体由多批 AI 生成后按 id 并集合并，不同批次对同一个考点起了不同的英文 id，于是同一个概念出现两个叶子。对标注引擎是致命的：LLM 看到两个等价选项只能掷硬币，Top-1 准确率被人为拉低 —— 这不是模型的问题。",
+  "selection_rule": [
+    "在多个等价叶子里只留一个。选留依据按优先级：",
+    "1. 题干指纹派生出的考点名更接近考研大纲的考点表述（大纲怎么写就留哪个）",
+    "2. 若被 gold_set / gold_set_holdout / gold_set_final / gold_set_verify 引用，优先留它 —— 不轻易改人工标注的基准答案",
+    "3. 名称更具体、信息更全的那个（父括号里的限定语往往是区分度）",
+    "",
+    "⚠️ 明确**不合并**的情况（它们只是名字像，实际是两个考点）：",
+    "  - 二阶常系数【齐次】方程 vs 【非齐次】方程 —— 解的结构与特解设法完全不同",
+    "  - 二重积分【直角坐标】 vs 【极坐标】 —— 换元与雅可比不同",
+    "  - 方程组【齐次】 vs 【非齐次】 —— 解空间结构不同",
+    "  - 【三大抽样分布】 vs 【正态总体的抽样分布】 —— 一般 vs 特殊",
+    "  - 【正定】 vs 【负定/半正定】 —— 判据方向相反",
+    "  - 【行列式的定义与性质】 vs 【矩阵的秩】等 —— 只是同一章，不是同一考点"
+  ],
+  "granularity_note": "『合并型叶子（A 与 B）』与『拆分型叶子（A / B）』并存时，会按下面这条**统一的判据**处理：看考研题目实际怎么出题。若一道题必然同时用到 A 和 B（如『第二类曲线积分』的计算就是套『格林公式』），就保留合并型 —— 否则 LLM 要在两个都对又都不完整的选项里选，反而降低准确率。若大纲把 A、B 列为两个独立考点（齐次/非齐次、区间估计/假设检验），就保留拆分型。",
+  "groups": [
+    {
+      "keep": "math1.calc.diff.rules",
+      "drops": [
+        "math1.calc.diff.rules_derivative"
+      ],
+      "reason": "同一个「求导法则」；留名称更贴近大纲的那个"
+    },
+    {
+      "keep": "math1.calc.diff.root_inequality",
+      "drops": [
+        "math1.calc.diff.proof_application"
+      ],
+      "reason": "同一个「用导数证不等式/讨论方程根」；被 gold_set 引用"
+    },
+    {
+      "keep": "math1.calc.integral.definite_properties",
+      "drops": [
+        "math1.calc.integral.definite"
+      ],
+      "reason": "同一个「定积分性质与牛顿-莱布尼茨公式」；被 gold-007 引用"
+    },
+    {
+      "keep": "math1.calc.multidiff.chain_rule",
+      "drops": [
+        "math1.calc.multidiff.chain"
+      ],
+      "reason": "同一个「复合函数求导」；隐函数另有 multidiff.implicit"
+    },
+    {
+      "keep": "math1.calc.multidiff.conditional_extremum",
+      "drops": [
+        "math1.calc.multidiff.lagrange"
+      ],
+      "reason": "同一个「条件极值与拉格朗日乘数法」"
+    },
+    {
+      "keep": "math1.calc.multiintegral.triple_integral",
+      "drops": [
+        "math1.calc.multiintegral.triple"
+      ],
+      "reason": "同一个「三重积分」；留名称带坐标系的"
+    },
+    {
+      "keep": "math1.calc.multiintegral.application",
+      "drops": [
+        "math1.calc.multiintegral.applications",
+        "math1.calc.multiintegral.apply_gravity"
+      ],
+      "reason": "三个叶子讲同一件事（重积分的几何与物理应用），后两个是子集/错别字式变体"
+    },
+    {
+      "keep": "math1.calc.curvesurface.line_int_first",
+      "drops": [
+        "math1.calc.curvesurface.line_first"
+      ],
+      "reason": "同一个「第一类曲线积分」"
+    },
+    {
+      "keep": "math1.calc.curvesurface.line_int_second_green",
+      "drops": [
+        "math1.calc.curvesurface.line_second",
+        "math1.calc.curvesurface.green"
+      ],
+      "reason": "合并型 vs 拆分型：一道题考『第二类曲线积分』时用的就是格林公式，保留合并型可消除二选一的歧义；且被 gold-015 引用"
+    },
+    {
+      "keep": "math1.calc.curvesurface.surface_int_second_gauss",
+      "drops": [
+        "math1.calc.curvesurface.surface_second",
+        "math1.calc.curvesurface.gauss"
+      ],
+      "reason": "同上：第二类曲面积分的计算就是套高斯公式"
+    },
+    {
+      "keep": "math1.calc.curvesurface.path_independence",
+      "drops": [
+        "math1.calc.curvesurface.path_independent"
+      ],
+      "reason": "同一个「曲线积分与路径无关」"
+    },
+    {
+      "keep": "math1.calc.series.alternating_series",
+      "drops": [
+        "math1.calc.series.alternating"
+      ],
+      "reason": "同一个「交错级数与绝对收敛」；被 gold-009 引用"
+    },
+    {
+      "keep": "math1.calc.series.power_interval",
+      "drops": [
+        "math1.calc.series.power_domain"
+      ],
+      "reason": "同一个「幂级数的收敛半径与收敛域」"
+    },
+    {
+      "keep": "math1.calc.series.function_expansion",
+      "drops": [
+        "math1.calc.series.expansion"
+      ],
+      "reason": "同一个「函数展开成幂级数」"
+    },
+    {
+      "keep": "math1.calc.ode.linear2_homo",
+      "drops": [
+        "math1.calc.ode.second_order_const"
+      ],
+      "reason": "拆分型胜出：齐次/非齐次是大纲的两个独立考点，合并会丢掉解的结构差异。合并型的通用理论并入齐次方程（linear2_nonhomo 保留不动）"
+    },
+    {
+      "keep": "math1.calc.ode.euler_structure",
+      "drops": [
+        "math1.calc.ode.euler"
+      ],
+      "reason": "同一个「欧拉方程」；合并型还带着『解的结构』"
+    },
+    {
+      "keep": "math1.calc.ode.application",
+      "drops": [
+        "math1.calc.ode.applications"
+      ],
+      "reason": "同一个「微分方程的应用」"
+    },
+    {
+      "keep": "math1.linalg.det.expansion_minor",
+      "drops": [
+        "math1.linalg.det.expand"
+      ],
+      "reason": "同一个「按行（列）展开」"
+    },
+    {
+      "keep": "math1.linalg.det.abstract_det",
+      "drops": [
+        "math1.linalg.det.abstract"
+      ],
+      "reason": "同一个「抽象行列式的计算」"
+    },
+    {
+      "keep": "math1.linalg.det.numerical_methods",
+      "drops": [
+        "math1.linalg.det.numeric"
+      ],
+      "reason": "同一个「数值行列式的计算方法」"
+    },
+    {
+      "keep": "math1.linalg.matrix.invertibility",
+      "drops": [
+        "math1.linalg.det.criterion"
+      ],
+      "reason": "「行列式与可逆性、秩的判定」讲的就是可逆性的等价条件，归到矩阵可逆性更合适"
+    },
+    {
+      "keep": "math1.linalg.matrix.operations",
+      "drops": [
+        "math1.linalg.matrix.operation",
+        "math1.linalg.matrix.block"
+      ],
+      "reason": "三个叶子都是「矩阵运算」；合并型名称里已含分块矩阵"
+    },
+    {
+      "keep": "math1.linalg.matrix.inverse_adjoint",
+      "drops": [
+        "math1.linalg.matrix.inverse",
+        "math1.linalg.matrix.adjoint"
+      ],
+      "reason": "合并型 vs 拆分型：A^{-1} 与 A* 通过同一个公式互推，考研常一起考"
+    },
+    {
+      "keep": "math1.linalg.vector.linear_combination",
+      "drops": [
+        "math1.linalg.vector.linear_combo"
+      ],
+      "reason": "同一个「向量的线性组合与线性表示」"
+    },
+    {
+      "keep": "math1.linalg.vector.linear_dependence",
+      "drops": [
+        "math1.linalg.vector.independence"
+      ],
+      "reason": "同一个「线性相关与线性无关的判定」"
+    },
+    {
+      "keep": "math1.linalg.vector.rank_maximal",
+      "drops": [
+        "math1.linalg.vector.rank"
+      ],
+      "reason": "同一个「向量组的秩与极大线性无关组」"
+    },
+    {
+      "keep": "math1.linalg.vector.vector_space",
+      "drops": [
+        "math1.linalg.vector.space"
+      ],
+      "reason": "同一个「向量空间、基与坐标/维数」"
+    },
+    {
+      "keep": "math1.linalg.vector.orthogonalization",
+      "drops": [
+        "math1.linalg.vector.inner"
+      ],
+      "reason": "同一个「内积、施密特正交化与正交矩阵」"
+    },
+    {
+      "keep": "math1.linalg.system.homogeneous",
+      "drops": [
+        "math1.linalg.system.fundamental"
+      ],
+      "reason": "「基础解系与通解结构」是齐次方程组的核心内容"
+    },
+    {
+      "keep": "math1.linalg.system.nonhomogeneous",
+      "drops": [
+        "math1.linalg.system.mutual"
+      ],
+      "reason": "「方程组、向量组与秩的互化」的落点是非齐次解的结构判定"
+    },
+    {
+      "keep": "math1.linalg.eigen.quadratic_matrix",
+      "drops": [
+        "math1.linalg.eigen.quadratic"
+      ],
+      "reason": "同一个「二次型及其矩阵表示」"
+    },
+    {
+      "keep": "math1.prob.events.event_operations",
+      "drops": [
+        "math1.prob.events.event_ops"
+      ],
+      "reason": "同一个「事件的关系与运算」"
+    },
+    {
+      "keep": "math1.prob.events.classical",
+      "drops": [
+        "math1.prob.events.classical_geometric"
+      ],
+      "reason": "拆分型胜出：古典概型与几何概型是可分别命题的两个考点（一个数等可能基本事件，一个算几何度量比）"
+    },
+    {
+      "keep": "math1.prob.events.total_prob",
+      "drops": [
+        "math1.prob.events.total_bayes"
+      ],
+      "reason": "拆分型胜出：贝叶斯题虽先用全概率公式，但基准答案落点是『贝叶斯公式』，合并会让题目归属变模糊；bayes 叶子保留"
+    },
+    {
+      "keep": "math1.prob.rv2.joint_marginal",
+      "drops": [
+        "math1.prob.rv2.joint_distribution"
+      ],
+      "reason": "留『联合分布与边缘分布』（被 gold_set_final 的 fv-012 引用为 primary）；另一个只讲联合分布，是它的子集"
+    },
+    {
+      "keep": "math1.prob.rv2.conditional",
+      "drops": [
+        "math1.prob.rv2.marginal_conditional"
+      ],
+      "reason": "拆分型胜出：条件分布是独立的一节（条件密度公式），与边缘分布分开更好命题"
+    },
+    {
+      "keep": "math1.prob.rv2.function_of_two",
+      "drops": [
+        "math1.prob.rv2.func2d",
+        "math1.prob.rv2.sum_dist",
+        "math1.prob.rv2.maxmin"
+      ],
+      "reason": "同一个「二维随机变量函数的分布」；后三个分别是无括号变体与两种特例"
+    },
+    {
+      "keep": "math1.prob.numchar.expectation",
+      "drops": [
+        "math1.prob.numchar.exp_def"
+      ],
+      "reason": "同一个「数学期望」；留与大纲用词一致的短名"
+    },
+    {
+      "keep": "math1.prob.numchar.variance",
+      "drops": [
+        "math1.prob.numchar.var_def"
+      ],
+      "reason": "同一个「方差」；被 gold-012 引用为 primary，不轻易改基准答案"
+    },
+    {
+      "keep": "math1.prob.numchar.exp_props",
+      "drops": [
+        "math1.prob.numchar.moment"
+      ],
+      "reason": "「矩与期望方差的性质」讲的就是期望方差的性质"
+    },
+    {
+      "keep": "math1.prob.numchar.covariance",
+      "drops": [
+        "math1.prob.numchar.moments"
+      ],
+      "reason": "「矩与协方差矩阵」归到协方差与相关系数"
+    },
+    {
+      "keep": "math1.prob.lln.lln_laws",
+      "drops": [
+        "math1.prob.lln.lln_chebyshev",
+        "math1.prob.lln.lln_bernoulli",
+        "math1.prob.lln.lln_khinchin"
+      ],
+      "reason": "合并型 vs 拆分型：大纲把『大数定律』列为一个考点（各定律是它的特例）；切比雪夫**不等式**另有 chebyshev 叶子，保留"
+    },
+    {
+      "keep": "math1.prob.lln.clt_levy",
+      "drops": [
+        "math1.prob.lln.clt_application"
+      ],
+      "reason": "「中心极限定理的近似计算」是独立同分布 CLT 的应用"
+    },
+    {
+      "keep": "math1.prob.lln.demoivre_laplace",
+      "drops": [
+        "math1.prob.lln.clt_demoivre"
+      ],
+      "reason": "同一个「棣莫弗-拉普拉斯定理」，只是破折号不同"
+    },
+    {
+      "keep": "math1.prob.stat.chi2_t_f",
+      "drops": [
+        "math1.prob.stat.sampling_distribution"
+      ],
+      "reason": "同一个「三大抽样分布」"
+    },
+    {
+      "keep": "math1.prob.stat.unbiased_est",
+      "drops": [
+        "math1.prob.stat.unbiased_efficiency"
+      ],
+      "reason": "同一个「无偏估计与有效性/评价」"
+    },
+    {
+      "keep": "math1.prob.stat.interval_estimation",
+      "drops": [
+        "math1.prob.stat.interval_hypothesis"
+      ],
+      "reason": "拆分型胜出：区间估计与假设检验是大纲的两个独立考点，合并型的内容并入区间估计"
+    },
+    {
+      "keep": "math2.calc.multiintegral.rect",
+      "drops": [
+        "math2.calc.multiintegral.swap"
+      ],
+      "reason": "同一个东西：rect 的名称已含『交换积分次序』"
+    },
+    {
+      "keep": "math2.linalg.eigen.similarity",
+      "drops": [
+        "math2.linalg.eigen.diagonalization"
+      ],
+      "reason": "「对角化的应用」是相似对角化的应用，讲的是同一个考点的两面"
+    }
+  ],
+  "not_merged": [
+    {
+      "group": [
+        "math1.calc.ode.linear2_homo",
+        "math1.calc.ode.linear2_nonhomo"
+      ],
+      "why": "齐次 vs 非齐次：解的结构、特解设法、待定系数法完全不同。相似度 0.82 也不行 —— 去重工具早期就踩过这个坑"
+    },
+    {
+      "group": [
+        "math1.calc.multiintegral.double_cartesian",
+        "math1.calc.multiintegral.double_polar"
+      ],
+      "why": "直角坐标 vs 极坐标：换元与雅可比因子不同，是两道不同的题"
+    },
+    {
+      "group": [
+        "math1.linalg.system.homogeneous",
+        "math1.linalg.system.nonhomogeneous"
+      ],
+      "why": "齐次 vs 非齐次方程组：解空间结构不同"
+    },
+    {
+      "group": [
+        "math1.prob.stat.chi2_t_f",
+        "math1.prob.stat.normal_sample"
+      ],
+      "why": "三大抽样分布（一般）vs 正态总体的抽样分布（特殊）"
+    },
+    {
+      "group": [
+        "math1.linalg.eigen.positive_definite",
+        "math1.linalg.eigen.definiteness_general"
+      ],
+      "why": "正定 vs 负定/半正定：判据方向相反"
+    },
+    {
+      "group": [
+        "math1.prob.rv2.normal2d",
+        "math1.prob.rv1.normal_distribution"
+      ],
+      "why": "一维正态 vs 二维正态"
+    },
+    {
+      "group": [
+        "math1.calc.series.power_interval",
+        "math1.calc.series.power_sum"
+      ],
+      "why": "收敛域 vs 求和函数：两个不同的考法"
+    }
+  ],
+  "suppressed_drops": [
+    "math1.calc.curvesurface.gauss",
+    "math1.calc.curvesurface.green",
+    "math1.calc.curvesurface.line_first",
+    "math1.calc.curvesurface.line_second",
+    "math1.calc.curvesurface.path_independent",
+    "math1.calc.curvesurface.stokes",
+    "math1.calc.curvesurface.surface_first",
+    "math1.calc.curvesurface.surface_second",
+    "math1.calc.diff.proof_application",
+    "math1.calc.diff.rules_derivative",
+    "math1.calc.integral.applications",
+    "math1.calc.integral.by_parts",
+    "math1.calc.integral.definite",
+    "math1.calc.integral.varlimit",
+    "math1.calc.multidiff.chain",
+    "math1.calc.multidiff.direction_gradient",
+    "math1.calc.multidiff.lagrange",
+    "math1.calc.multidiff.partial_deriv",
+    "math1.calc.multiintegral.applications",
+    "math1.calc.multiintegral.apply_gravity",
+    "math1.calc.multiintegral.triple",
+    "math1.calc.ode.applications",
+    "math1.calc.ode.euler",
+    "math1.calc.ode.reducible",
+    "math1.calc.ode.second_order_const",
+    "math1.calc.ode.separable",
+    "math1.calc.series.alternating",
+    "math1.calc.series.expansion",
+    "math1.calc.series.positive",
+    "math1.calc.series.power_domain",
+    "math1.calc.series.sum_function",
+    "math1.linalg.det.abstract",
+    "math1.linalg.det.criterion",
+    "math1.linalg.det.definition",
+    "math1.linalg.det.expand",
+    "math1.linalg.det.numeric",
+    "math1.linalg.eigen.eigen_calc",
+    "math1.linalg.eigen.quadratic",
+    "math1.linalg.eigen.similar",
+    "math1.linalg.matrix.adjoint",
+    "math1.linalg.matrix.block",
+    "math1.linalg.matrix.inverse",
+    "math1.linalg.matrix.operation",
+    "math1.linalg.system.fundamental",
+    "math1.linalg.system.mutual",
+    "math1.linalg.vector.independence",
+    "math1.linalg.vector.inner",
+    "math1.linalg.vector.linear_combo",
+    "math1.linalg.vector.rank",
+    "math1.linalg.vector.space",
+    "math1.prob.events.classical_geometric",
+    "math1.prob.events.event_ops",
+    "math1.prob.events.total_bayes",
+    "math1.prob.lln.chebyshev_inequality",
+    "math1.prob.lln.clt_application",
+    "math1.prob.lln.clt_demoivre",
+    "math1.prob.lln.clt_iid",
+    "math1.prob.lln.lln_bernoulli",
+    "math1.prob.lln.lln_chebyshev",
+    "math1.prob.lln.lln_khinchin",
+    "math1.prob.numchar.common_numchar",
+    "math1.prob.numchar.cov_corr",
+    "math1.prob.numchar.exp_def",
+    "math1.prob.numchar.moment",
+    "math1.prob.numchar.moments",
+    "math1.prob.numchar.var_def",
+    "math1.prob.rv1.density",
+    "math1.prob.rv1.discrete_law",
+    "math1.prob.rv1.dist_func",
+    "math1.prob.rv1.func_dist",
+    "math1.prob.rv1.mixed_dist",
+    "math1.prob.rv1.normal",
+    "math1.prob.rv2.func2d",
+    "math1.prob.rv2.joint_distribution",
+    "math1.prob.rv2.marginal_conditional",
+    "math1.prob.rv2.maxmin",
+    "math1.prob.rv2.normal_2d",
+    "math1.prob.rv2.sum_dist",
+    "math1.prob.rv2.uniform_2d",
+    "math1.prob.stat.interval_hypothesis",
+    "math1.prob.stat.moment_estimation",
+    "math1.prob.stat.population_sample",
+    "math1.prob.stat.sampling_distribution",
+    "math1.prob.stat.unbiased_efficiency"
+  ],
+  "suppressed_drops_note": "已删除、永不复活的叶子 id（永久删除标记）。它们在 AI 分片文件里还留着副本，而 merge_shards.py 是并集合并 —— 不显式跳过就会把去重成果原样搬回权威文件（实测：不跳过时 math1 的 142 个叶子会变回 170）。本列表由『分片叶子 − 权威叶子』算出，包含两批：1) 早期白名单去重删掉的；2) 2026-03-15 T19 合并映射删掉的。新增分片的 id 不在本列表里，所以仍然能正常合并进来。重新计算：tools/data/refresh_suppressed.py"
+}

@@ -18,7 +18,9 @@
       "math2.linalg.equation",
       "math2.linalg.eigen"
     ],
-    "chapters_todo": []
+    "chapters_todo": [],
+    "deduped_at": "2026-03-15",
+    "deduped_removed": 2
   },
   "id_convention": "math2.{科}.{章}.{知识点}；科: calc=高数 linalg=线代 prob=概率",
   "exam_weight_formula": "章节级权威来源=data/exam_frequency.json：raw = total_appearances × avg_score，exam_weight = round(raw / max(raw), 2)。叶子级由 tools/data/merge_knowledge.py 派生：leaf = clamp(chapter × hotspot_boost × year_factor, 0.10, 1.00)，其中 hotspot_boost = 命中该章 hotspots ? 1.15 : 1.0，year_factor = 0.85 + 0.30 × min(len(exam_years), 15) / 15。",
@@ -1653,14 +1655,23 @@
         "\\iint_D f\\,d\\sigma=\\int_a^b dx\\int_{\\varphi_1(x)}^{\\varphi_2(x)}f(x,y)\\,dy\\quad(\\text{X 型})",
         "\\iint_D f\\,d\\sigma=\\int_c^d dy\\int_{\\psi_1(y)}^{\\psi_2(y)}f(x,y)\\,dx\\quad(\\text{Y 型})",
         "\\text{交换次序}:\\ \\int_a^b dx\\int_{\\varphi_1(x)}^{\\varphi_2(x)}f\\,dy=\\int_c^d dy\\int_{\\psi_1(y)}^{\\psi_2(y)}f\\,dx",
-        "\\text{若}\\ D\\ \\text{非标准型，用平行于坐标轴的直线分割成若干标准型小区域}"
+        "\\text{若}\\ D\\ \\text{非标准型，用平行于坐标轴的直线分割成若干标准型小区域}",
+        "\\iint_D f\\,d\\sigma=\\int_a^b dx\\int_{\\varphi_1(x)}^{\\varphi_2(x)}f\\,dy=\\int_c^d dy\\int_{\\psi_1(y)}^{\\psi_2(y)}f\\,dx",
+        "\\int_a^b dx\\int_c^d f(x)g(y)\\,dy=\\left(\\int_a^b f(x)\\,dx\\right)\\left(\\int_c^d g(y)\\,dy\\right)\\quad(\\text{矩形区域上变量分离})",
+        "\\int_a^b dx\\int_a^x f(x,y)\\,dy \\xrightarrow{\\text{交换}} \\int_a^b dy\\int_y^b f(x,y)\\,dx",
+        "F(t)=\\int_a^b f(x,t)\\,dx \\Rightarrow F'(t)=\\int_a^b \\frac{\\partial f}{\\partial t}(x,t)\\,dx\\quad(\\text{需满足可微条件})"
       ],
       "common_traps": [
         "★ 交换积分次序后上下限写错（未重新画区域、未用另一方向穿线定限）",
         "内层积分限中混入外层变量以外的参数，或把内层限写成常数",
         "区域需要分段时未分段，直接用一条曲线作上下限",
         "直接按原次序硬算导致积不出（未意识到应先交换次序）",
-        "把 ∫∫ f dxdy 的 dx 与 dy 顺序当成与积分限顺序无关"
+        "把 ∫∫ f dxdy 的 dx 与 dy 顺序当成与积分限顺序无关",
+        "★ 含参变量 t 的内层积分直接对外层求导，未先交换积分次序把 t 分离出来",
+        "矩形区域上变量可分离时未利用乘积形式，硬算两次积分",
+        "把 ∫_a^b dx ∫_a^x f dy 交换次序时上下限写成 ∫_a^b dy ∫_a^y f dx",
+        "二次积分的内层积分结果仍含外层变量时，当成常数处理",
+        "对二次积分使用中值定理时把两次积分各用一个中值点，与二重积分中值定理混用"
       ],
       "exam_years": [
         2010,
@@ -1668,8 +1679,10 @@
         2012,
         2013,
         2014,
+        2015,
         2016,
         2017,
+        2018,
         2019,
         2020,
         2021,
@@ -1678,67 +1691,25 @@
         2024
       ],
       "typical_qtypes": [
+        "choice",
         "fill",
+        "proof",
         "solve"
       ],
       "difficulty_range": [
         2,
         3
       ],
-      "exam_weight": 0.75,
+      "exam_weight": 0.78,
       "weight_source": "derived",
       "aliases": [
         "\\iint_D f(x,y)\\,\\mathrm{d}x\\,\\mathrm{d}y",
         "\\int_a^b\\mathrm{d}x\\int_{y_1(x)}^{y_2(x)}f(x,y)\\mathrm{d}y",
         "交换积分次序",
+        "\\int_a^b\\mathrm{d}x\\int_{y_1}^{y_2}f\\,\\mathrm{d}y=\\int_c^d\\mathrm{d}y\\int_{x_1}^{x_2}f\\,\\mathrm{d}x",
+        "累次积分",
         "直角坐标下二重积分的计算",
         "直角坐标下二重积分"
-      ]
-    },
-    {
-      "id": "math2.calc.multiintegral.swap",
-      "name": "二次积分与累次积分",
-      "level": 4,
-      "parent_id": "math2.calc.multiintegral",
-      "is_leaf": true,
-      "definition": "把二重积分化为先对一个变量后对另一个变量的两次定积分，称为累次积分（二次积分）。富比尼定理指出：当 f 在闭区域 D 上连续时，二重积分等于任一合理次序的累次积分，既可按 X 型也可按 Y 型计算。含参变量的二次积分求导时须先交换次序或换元，把参变量从内层积分中分离出来。",
-      "formulas": [
-        "\\iint_D f\\,d\\sigma=\\int_a^b dx\\int_{\\varphi_1(x)}^{\\varphi_2(x)}f\\,dy=\\int_c^d dy\\int_{\\psi_1(y)}^{\\psi_2(y)}f\\,dx",
-        "\\int_a^b dx\\int_c^d f(x)g(y)\\,dy=\\left(\\int_a^b f(x)\\,dx\\right)\\left(\\int_c^d g(y)\\,dy\\right)\\quad(\\text{矩形区域上变量分离})",
-        "\\int_a^b dx\\int_a^x f(x,y)\\,dy \\xrightarrow{\\text{交换}} \\int_a^b dy\\int_y^b f(x,y)\\,dx",
-        "F(t)=\\int_a^b f(x,t)\\,dx \\Rightarrow F'(t)=\\int_a^b \\frac{\\partial f}{\\partial t}(x,t)\\,dx\\quad(\\text{需满足可微条件})"
-      ],
-      "common_traps": [
-        "★ 含参变量 t 的内层积分直接对外层求导，未先交换积分次序把 t 分离出来",
-        "矩形区域上变量可分离时未利用乘积形式，硬算两次积分",
-        "把 ∫_a^b dx ∫_a^x f dy 交换次序时上下限写成 ∫_a^b dy ∫_a^y f dx",
-        "二次积分的内层积分结果仍含外层变量时，当成常数处理",
-        "对二次积分使用中值定理时把两次积分各用一个中值点，与二重积分中值定理混用"
-      ],
-      "exam_years": [
-        2012,
-        2015,
-        2018,
-        2020,
-        2023
-      ],
-      "typical_qtypes": [
-        "choice",
-        "fill",
-        "solve",
-        "proof"
-      ],
-      "difficulty_range": [
-        2,
-        3
-      ],
-      "exam_weight": 0.64,
-      "weight_source": "derived",
-      "aliases": [
-        "\\int_a^b\\mathrm{d}x\\int_{y_1}^{y_2}f\\,\\mathrm{d}y=\\int_c^d\\mathrm{d}y\\int_{x_1}^{x_2}f\\,\\mathrm{d}x",
-        "交换积分次序",
-        "累次积分",
-        "二次积分"
       ]
     },
     {
@@ -2790,60 +2761,6 @@
       "exam_weight": 0.58
     },
     {
-      "id": "math2.linalg.eigen.diagonalization",
-      "name": "对角化的应用（矩阵幂与相似不变量）",
-      "level": 4,
-      "parent_id": "math2.linalg.eigen",
-      "is_leaf": true,
-      "definition": "对角化的主要用途是简化方阵的幂、行列式与多项式的计算：若 A=PΛP^{-1}，则 A^k=PΛ^kP^{-1}，从而把矩阵幂化为对角元素的幂。实对称矩阵还可由正交矩阵 Q 对角化，即 A=QΛQ^T。此外，相似不变量（特征值、迹、行列式、秩）常用于反向确定未知参数。",
-      "formulas": [
-        "A=P\\Lambda P^{-1} \\Rightarrow A^{k}=P\\Lambda^{k}P^{-1}",
-        "A^{k}=P\\operatorname{diag}(\\lambda_1^{k},\\dots,\\lambda_n^{k})P^{-1}",
-        "A=Q\\Lambda Q^{T}\\quad(Q\\ \\text{为正交矩阵}) \\Rightarrow A^{k}=Q\\Lambda^{k}Q^{T}",
-        "f(A)=Pf(\\Lambda)P^{-1},\\qquad f(\\Lambda)=\\operatorname{diag}(f(\\lambda_1),\\dots,f(\\lambda_n))",
-        "\\operatorname{tr}(A)=\\sum\\lambda_i,\\qquad |A|=\\prod\\lambda_i"
-      ],
-      "common_traps": [
-        "★ 求 A^k 时只把特征值取 k 次幂，漏掉两端的 P 与 P^{-1}（写成 A^k=PΛ^k 或 Λ^kP^{-1}）",
-        "对不可对角化的矩阵仍用 PΛ^kP^{-1} 求幂（此时须改用 Jordan 形或递推）",
-        "由 tr(A) 或 |A| 反求参数后未回代检验是否与其余条件相容",
-        "把 (A^{-1})^k 的结果写成 P^{-1}Λ^{-k}P（应保持两端顺序为 PΛ^{-k}P^{-1}）",
-        "误以为秩等于非零特征值的个数对任意矩阵都成立（仅对可对角化矩阵成立）"
-      ],
-      "exam_years": [
-        2010,
-        2011,
-        2013,
-        2015,
-        2016,
-        2018,
-        2019,
-        2020,
-        2022,
-        2024
-      ],
-      "typical_qtypes": [
-        "fill",
-        "solve",
-        "proof"
-      ],
-      "difficulty_range": [
-        2,
-        3
-      ],
-      "exam_weight": 0.7,
-      "weight_source": "derived",
-      "aliases": [
-        "A^n=P\\Lambda^nP^{-1}",
-        "\\sum\\lambda_i=\\mathrm{tr}(A)",
-        "\\prod\\lambda_i=|A|",
-        "对角化的应用",
-        "对角化",
-        "矩阵幂",
-        "相似不变量"
-      ]
-    },
-    {
       "id": "math2.linalg.eigen.eigenvalue",
       "name": "特征值与特征向量",
       "level": 4,
@@ -2968,14 +2885,24 @@
         "A\\ \\text{可对角化} \\iff \\text{对每个}\\ \\lambda_i:\\ n-r(\\lambda_i E-A)=m_i\\ (\\text{代数重数})",
         "P^{-1}AP=\\Lambda=\\operatorname{diag}(\\lambda_1,\\dots,\\lambda_n)",
         "A\\ \\text{为实对称矩阵} \\Rightarrow \\exists\\ \\text{正交矩阵}\\ Q:\\ Q^{-1}AQ=Q^{T}AQ=\\Lambda",
-        "A\\sim\\Lambda \\Rightarrow A^{k}=P\\Lambda^{k}P^{-1}"
+        "A\\sim\\Lambda \\Rightarrow A^{k}=P\\Lambda^{k}P^{-1}",
+        "A=P\\Lambda P^{-1} \\Rightarrow A^{k}=P\\Lambda^{k}P^{-1}",
+        "A^{k}=P\\operatorname{diag}(\\lambda_1^{k},\\dots,\\lambda_n^{k})P^{-1}",
+        "A=Q\\Lambda Q^{T}\\quad(Q\\ \\text{为正交矩阵}) \\Rightarrow A^{k}=Q\\Lambda^{k}Q^{T}",
+        "f(A)=Pf(\\Lambda)P^{-1},\\qquad f(\\Lambda)=\\operatorname{diag}(f(\\lambda_1),\\dots,f(\\lambda_n))",
+        "\\operatorname{tr}(A)=\\sum\\lambda_i,\\qquad |A|=\\prod\\lambda_i"
       ],
       "common_traps": [
         "★ 把『有 n 个特征值』当作可对角化条件（必须是有 n 个线性无关的特征向量，重根处的几何重数也要够）",
         "由 A 与 B 特征值相同就断定 A 与 B 相似（特征值相同只是必要条件）",
         "求 P 时把特征向量按行排列（P 的列应为特征向量）",
         "相似变换中把 P^{-1}AP 写成 PAP^{-1}",
-        "误认为所有可对角化矩阵都是实对称矩阵"
+        "误认为所有可对角化矩阵都是实对称矩阵",
+        "★ 求 A^k 时只把特征值取 k 次幂，漏掉两端的 P 与 P^{-1}（写成 A^k=PΛ^k 或 Λ^kP^{-1}）",
+        "对不可对角化的矩阵仍用 PΛ^kP^{-1} 求幂（此时须改用 Jordan 形或递推）",
+        "由 tr(A) 或 |A| 反求参数后未回代检验是否与其余条件相容",
+        "把 (A^{-1})^k 的结果写成 P^{-1}Λ^{-k}P（应保持两端顺序为 PΛ^{-k}P^{-1}）",
+        "误以为秩等于非零特征值的个数对任意矩阵都成立（仅对可对角化矩阵成立）"
       ],
       "exam_years": [
         2010,
@@ -2997,8 +2924,8 @@
       "typical_qtypes": [
         "choice",
         "fill",
-        "solve",
-        "proof"
+        "proof",
+        "solve"
       ],
       "difficulty_range": [
         2,
@@ -3010,6 +2937,9 @@
         "A\\sim\\Lambda",
         "P^{-1}AP=\\Lambda",
         "可对角化",
+        "A^n=P\\Lambda^nP^{-1}",
+        "\\sum\\lambda_i=\\mathrm{tr}(A)",
+        "\\prod\\lambda_i=|A|",
         "矩阵的相似",
         "相似",
         "对角化"

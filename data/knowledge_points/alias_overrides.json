@@ -86,17 +86,12 @@
       "可导必连续",
       "左右导数"
     ],
-    "math1.calc.diff.rules_derivative": [
-      "(uv)'=u'v+uv'",
-      "(\\frac{u}{v})'=\\frac{u'v-uv'}{v^2}",
-      "[f(g(x))]'=f'(g(x))g'(x)",
-      "反函数求导"
-    ],
     "math1.calc.diff.rules": [
       "(uv)'=u'v+uv'",
       "(\\frac{u}{v})'=\\frac{u'v-uv'}{v^2}",
       "[f(g(x))]'=f'(g(x))g'(x)",
-      "基本求导公式"
+      "基本求导公式",
+      "反函数求导"
     ],
     "math1.calc.diff.higher_order": [
       "y^{(n)}",
@@ -133,16 +128,11 @@
       "渐近线",
       "y=kx+b"
     ],
-    "math1.calc.diff.proof_application": [
+    "math1.calc.diff.root_inequality": [
       "f'(\\xi)=0",
       "证明不等式",
       "方程根的个数",
       "f(\\xi)=0"
-    ],
-    "math1.calc.diff.root_inequality": [
-      "f'(\\xi)=0",
-      "证明不等式",
-      "方程根的个数"
     ],
     "math1.calc.integral.antiderivative": [
       "\\int f(x)\\mathrm{d}x=F(x)+C",
@@ -180,11 +170,6 @@
       "华里士公式",
       "定积分的性质"
     ],
-    "math1.calc.integral.definite": [
-      "\\int_a^b f(x)\\mathrm{d}x=F(b)-F(a)",
-      "牛顿-莱布尼茨公式",
-      "\\int_a^b f(x)\\mathrm{d}x"
-    ],
     "math1.calc.integral.variable_limit": [
       "\\Phi(x)=\\int_a^x f(t)\\mathrm{d}t",
       "\\Phi'(x)=f(x)",
@@ -216,9 +201,7 @@
     ],
     "math1.calc.multidiff.chain_rule": [
       "\\frac{\\partial z}{\\partial x}=\\frac{\\partial z}{\\partial u}\\frac{\\partial u}{\\partial x}+\\frac{\\partial z}{\\partial v}\\frac{\\partial v}{\\partial x}",
-      "链式法则"
-    ],
-    "math1.calc.multidiff.chain": [
+      "链式法则",
       "\\frac{\\partial z}{\\partial x}=\\frac{\\partial z}{\\partial u}\\frac{\\partial u}{\\partial x}",
       "F(x,y)=0",
       "\\frac{\\mathrm{d}y}{\\mathrm{d}x}=-\\frac{F_x}{F_y}"
@@ -253,14 +236,8 @@
       "\\lambda\\varphi(x,y)=0",
       "拉格朗日函数",
       "最大值",
-      "最小值"
-    ],
-    "math1.calc.multidiff.lagrange": [
-      "L=f+\\lambda\\varphi",
-      "拉格朗日函数",
-      "\\lambda",
-      "最大值",
-      "最小值"
+      "最小值",
+      "\\lambda"
     ],
     "math1.calc.multiintegral.double_cartesian": [
       "\\iint_D f(x,y)\\,\\mathrm{d}x\\,\\mathrm{d}y",
@@ -289,35 +266,17 @@
       "柱面坐标",
       "球面坐标"
     ],
-    "math1.calc.multiintegral.triple": [
-      "\\iiint_{\\Omega}f(x,y,z)\\,\\mathrm{d}v",
-      "柱面坐标",
-      "球面坐标"
-    ],
     "math1.calc.multiintegral.application": [
       "\\iint_D\\rho(x,y)\\,\\mathrm{d}\\sigma",
       "转动惯量",
       "质心",
-      "形心"
-    ],
-    "math1.calc.multiintegral.applications": [
-      "\\iint_D\\rho(x,y)\\,\\mathrm{d}\\sigma",
-      "转动惯量",
-      "质心",
-      "形心"
-    ],
-    "math1.calc.multiintegral.apply_gravity": [
+      "形心",
       "\\iint_D\\rho\\,\\mathrm{d}\\sigma",
-      "引力",
-      "转动惯量"
+      "引力"
     ],
     "math1.calc.curvesurface.line_int_first": [
       "\\int_L f(x,y)\\,\\mathrm{d}s",
       "\\mathrm{d}s=\\sqrt{1+y'^2}\\,\\mathrm{d}x",
-      "对弧长"
-    ],
-    "math1.calc.curvesurface.line_first": [
-      "\\int_L f(x,y)\\,\\mathrm{d}s",
       "对弧长"
     ],
     "math1.calc.curvesurface.line_int_second_green": [
@@ -327,23 +286,10 @@
       "格林公式",
       "逆时针方向"
     ],
-    "math1.calc.curvesurface.line_second": [
-      "\\int_L P\\,\\mathrm{d}x+Q\\,\\mathrm{d}y",
-      "\\frac{\\partial Q}{\\partial x}-\\frac{\\partial P}{\\partial y}"
-    ],
-    "math1.calc.curvesurface.green": [
-      "\\oint_L P\\,\\mathrm{d}x+Q\\,\\mathrm{d}y=\\iint_D\\left(\\frac{\\partial Q}{\\partial x}-\\frac{\\partial P}{\\partial y}\\right)\\mathrm{d}x\\,\\mathrm{d}y",
-      "\\frac{\\partial Q}{\\partial x}-\\frac{\\partial P}{\\partial y}",
-      "格林公式"
-    ],
     "math1.calc.curvesurface.path_independence": [
       "\\frac{\\partial P}{\\partial y}=\\frac{\\partial Q}{\\partial x}",
       "\\oint_L P\\,\\mathrm{d}x+Q\\,\\mathrm{d}y=0",
       "\\mathrm{d}u=P\\,\\mathrm{d}x+Q\\,\\mathrm{d}y",
-      "与路径无关"
-    ],
-    "math1.calc.curvesurface.path_independent": [
-      "\\frac{\\partial P}{\\partial y}=\\frac{\\partial Q}{\\partial x}",
       "与路径无关"
     ],
     "math1.calc.curvesurface.surface_int_first": [
@@ -357,15 +303,6 @@
       "\\oiint_{\\Sigma}",
       "高斯公式",
       "外侧"
-    ],
-    "math1.calc.curvesurface.surface_second": [
-      "\\iint_{\\Sigma}P\\,\\mathrm{d}y\\,\\mathrm{d}z+Q\\,\\mathrm{d}z\\,\\mathrm{d}x+R\\,\\mathrm{d}x\\,\\mathrm{d}y",
-      "\\frac{\\partial P}{\\partial x}+\\frac{\\partial Q}{\\partial y}+\\frac{\\partial R}{\\partial z}"
-    ],
-    "math1.calc.curvesurface.gauss": [
-      "\\frac{\\partial P}{\\partial x}+\\frac{\\partial Q}{\\partial y}+\\frac{\\partial R}{\\partial z}",
-      "\\oiint_{\\Sigma}",
-      "高斯公式"
     ],
     "math1.calc.curvesurface.stokes_rot_div": [
       "\\mathrm{rot}\\,\\vec{A}",
@@ -448,20 +385,14 @@
       "可降阶",
       "微分方程"
     ],
-    "math1.calc.ode.second_order_const": [
-      "y''+py'+qy=0",
-      "r^2+pr+q=0",
-      "特征方程",
-      "通解",
-      "微分方程"
-    ],
     "math1.calc.ode.linear2_homo": [
       "y''+py'+qy=0",
       "r^2+pr+q=0",
       "\\Delta=p^2-4q",
       "特征根",
       "微分方程",
-      "通解"
+      "通解",
+      "特征方程"
     ],
     "math1.calc.ode.linear2_nonhomo": [
       "y''+py'+qy=f(x)",
@@ -478,20 +409,10 @@
       "解的结构",
       "微分方程"
     ],
-    "math1.calc.ode.euler": [
-      "x^2y''+pxy'+qy=0",
-      "x=e^t",
-      "微分方程"
-    ],
     "math1.calc.ode.application": [
       "\\frac{\\mathrm{d}y}{\\mathrm{d}x}=f(x,y)",
       "变化率",
       "几何应用",
-      "微分方程"
-    ],
-    "math1.calc.ode.applications": [
-      "\\frac{\\mathrm{d}y}{\\mathrm{d}x}=f(x,y)",
-      "变化率",
       "微分方程"
     ],
     "math1.linalg.det.definition_properties": [
@@ -505,24 +426,10 @@
       "代数余子式",
       "余子式"
     ],
-    "math1.linalg.det.expand": [
-      "\\sum_{j=1}^{n}a_{ij}A_{ij}",
-      "代数余子式",
-      "余子式"
-    ],
     "math1.linalg.det.abstract_det": [
       "|A|=\\prod_{i=1}^{n}\\lambda_i",
       "|A^{*}|=|A|^{n-1}",
       "|kA|=k^n|A|",
-      "|A+E|",
-      "|A^{*}|",
-      "|A^{-1}|",
-      "|A^{T}|",
-      "|kA|"
-    ],
-    "math1.linalg.det.abstract": [
-      "|A|=\\prod_{i=1}^{n}\\lambda_i",
-      "|A^{*}|=|A|^{n-1}",
       "|A+E|",
       "|A^{*}|",
       "|A^{-1}|",
@@ -539,25 +446,13 @@
       "爪型行列式",
       "递推法"
     ],
-    "math1.linalg.det.numeric": [
-      "范德蒙德行列式",
-      "加边法",
-      "爪型行列式"
-    ],
     "math1.linalg.matrix.operations": [
       "(AB)^{T}=B^{T}A^{T}",
       "(AB)^{-1}=B^{-1}A^{-1}",
       "(A+B)^{T}=A^{T}+B^{T}",
-      "分块矩阵"
-    ],
-    "math1.linalg.matrix.operation": [
-      "(AB)^{T}=B^{T}A^{T}",
-      "(AB)^{-1}=B^{-1}A^{-1}",
-      "运算律"
-    ],
-    "math1.linalg.matrix.block": [
+      "分块矩阵",
       "\\begin{pmatrix}A&B\\\\C&D\\end{pmatrix}",
-      "分块矩阵"
+      "运算律"
     ],
     "math1.linalg.matrix.rank": [
       "r(A)",
@@ -574,16 +469,9 @@
     "math1.linalg.matrix.inverse_adjoint": [
       "A^{-1}=\\frac{1}{|A|}A^{*}",
       "AA^{*}=A^{*}A=|A|E",
-      "A^{*}=|A|A^{-1}"
-    ],
-    "math1.linalg.matrix.inverse": [
-      "A^{-1}=\\frac{1}{|A|}A^{*}",
-      "AA^{-1}=E"
-    ],
-    "math1.linalg.matrix.adjoint": [
+      "A^{*}=|A|A^{-1}",
       "A^{*}",
-      "AA^{*}=A^{*}A=|A|E",
-      "A^{*}=|A|A^{-1}"
+      "AA^{-1}=E"
     ],
     "math1.linalg.matrix.elementary": [
       "初等行变换",
@@ -610,16 +498,7 @@
       "\\beta=k_1\\alpha_1+k_2\\alpha_2+\\cdots+k_s\\alpha_s",
       "线性表示"
     ],
-    "math1.linalg.vector.linear_combo": [
-      "\\beta=k_1\\alpha_1+k_2\\alpha_2+\\cdots+k_s\\alpha_s",
-      "线性表示"
-    ],
     "math1.linalg.vector.linear_dependence": [
-      "k_1\\alpha_1+k_2\\alpha_2+\\cdots+k_s\\alpha_s=0",
-      "线性相关",
-      "线性无关"
-    ],
-    "math1.linalg.vector.independence": [
       "k_1\\alpha_1+k_2\\alpha_2+\\cdots+k_s\\alpha_s=0",
       "线性相关",
       "线性无关"
@@ -629,16 +508,7 @@
       "极大线性无关组",
       "向量组的秩"
     ],
-    "math1.linalg.vector.rank": [
-      "极大线性无关组",
-      "向量组的秩"
-    ],
     "math1.linalg.vector.vector_space": [
-      "基底",
-      "维数",
-      "\\dim V"
-    ],
-    "math1.linalg.vector.space": [
       "基底",
       "维数",
       "\\dim V"
@@ -654,11 +524,6 @@
       "施密特正交化",
       "正交矩阵"
     ],
-    "math1.linalg.vector.inner": [
-      "[\\alpha,\\beta]=0",
-      "A^{T}A=E",
-      "施密特正交化"
-    ],
     "math1.linalg.vector.equivalence": [
       "向量组等价",
       "r(\\alpha_1,\\cdots,\\alpha_s)=r(\\beta_1,\\cdots,\\beta_t)"
@@ -666,13 +531,18 @@
     "math1.linalg.system.homogeneous": [
       "Ax=0",
       "基础解系",
-      "n-r(A)"
+      "n-r(A)",
+      "n-r(A) 个基础解系",
+      "通解"
     ],
     "math1.linalg.system.nonhomogeneous": [
       "Ax=b",
       "x=\\eta+\\xi",
       "特解",
-      "基础解系"
+      "基础解系",
+      "r(A)=r(A,b)",
+      "Ax=0",
+      "向量组的秩"
     ],
     "math1.linalg.system.parameter": [
       "含参数",
@@ -706,16 +576,6 @@
       "无穷多解",
       "有无穷多解"
     ],
-    "math1.linalg.system.fundamental": [
-      "n-r(A) 个基础解系",
-      "Ax=0",
-      "通解"
-    ],
-    "math1.linalg.system.mutual": [
-      "r(A)=r(A,b)",
-      "Ax=0",
-      "向量组的秩"
-    ],
     "math1.linalg.eigen.similarity": [
       "A\\sim\\Lambda",
       "P^{-1}AP=\\Lambda",
@@ -742,12 +602,6 @@
       "相似不变量"
     ],
     "math1.linalg.eigen.quadratic_matrix": [
-      "f=x^{T}Ax",
-      "A^{T}=A",
-      "合同",
-      "C^{T}AC"
-    ],
-    "math1.linalg.eigen.quadratic": [
       "f=x^{T}Ax",
       "A^{T}=A",
       "合同",
@@ -783,25 +637,15 @@
       "\\bar{A}",
       "A-B"
     ],
-    "math1.prob.events.event_ops": [
-      "A\\cup B",
-      "A\\cap B",
-      "\\bar{A}",
-      "A-B"
-    ],
     "math1.prob.events.prob_props": [
       "P(A\\cup B)=P(A)+P(B)-P(AB)",
       "P(\\bar{A})=1-P(A)",
       "0\\le P(A)\\le1"
     ],
-    "math1.prob.events.classical_geometric": [
-      "P(A)=\\frac{m}{n}",
-      "P(A)=\\frac{S_A}{S_{\\Omega}}",
-      "等可能"
-    ],
     "math1.prob.events.classical": [
       "P(A)=\\frac{m}{n}",
-      "等可能"
+      "等可能",
+      "P(A)=\\frac{S_A}{S_{\\Omega}}"
     ],
     "math1.prob.events.geometric": [
       "P(A)=\\frac{S_A}{S_{\\Omega}}",
@@ -817,13 +661,10 @@
       "伯努利概型",
       "相互独立"
     ],
-    "math1.prob.events.total_bayes": [
-      "P(A)=\\sum_{i=1}^{n}P(B_i)P(A|B_i)",
-      "P(B_i|A)=\\frac{P(B_i)P(A|B_i)}{\\sum_{j}P(B_j)P(A|B_j)}"
-    ],
     "math1.prob.events.total_prob": [
       "P(A)=\\sum_{i=1}^{n}P(B_i)P(A|B_i)",
-      "完备事件组"
+      "完备事件组",
+      "P(B_i|A)=\\frac{P(B_i)P(A|B_i)}{\\sum_{j}P(B_j)P(A|B_j)}"
     ],
     "math1.prob.events.bayes": [
       "P(B_i|A)=\\frac{P(B_i)P(A|B_i)}{\\sum_{j}P(B_j)P(A|B_j)}",
@@ -877,23 +718,18 @@
       "混合型",
       "F(x)=aF_1(x)+(1-a)F_2(x)"
     ],
-    "math1.prob.rv2.joint_distribution": [
-      "F(x,y)=P(X\\le x,Y\\le y)",
-      "f(x,y)=\\frac{\\partial^2F}{\\partial x\\partial y}"
-    ],
     "math1.prob.rv2.joint_marginal": [
       "f_X(x)=\\int_{-\\infty}^{+\\infty}f(x,y)\\,\\mathrm{d}y",
       "边缘分布",
-      "f_Y(y)=\\int_{-\\infty}^{+\\infty}f(x,y)\\,\\mathrm{d}x"
-    ],
-    "math1.prob.rv2.marginal_conditional": [
-      "f_{Y|X}(y|x)=\\frac{f(x,y)}{f_X(x)}",
-      "条件分布",
-      "边缘分布"
+      "f_Y(y)=\\int_{-\\infty}^{+\\infty}f(x,y)\\,\\mathrm{d}x",
+      "F(x,y)=P(X\\le x,Y\\le y)",
+      "f(x,y)=\\frac{\\partial^2F}{\\partial x\\partial y}"
     ],
     "math1.prob.rv2.conditional": [
       "f_{Y|X}(y|x)=\\frac{f(x,y)}{f_X(x)}",
-      "条件密度"
+      "条件密度",
+      "条件分布",
+      "边缘分布"
     ],
     "math1.prob.rv2.independence": [
       "f(x,y)=f_X(x)f_Y(y)",
@@ -913,44 +749,24 @@
       "Z=X+Y",
       "f_Z(z)=\\int_{-\\infty}^{+\\infty}f(x,z-x)\\,\\mathrm{d}x",
       "M=\\max(X,Y)",
-      "N=\\min(X,Y)"
-    ],
-    "math1.prob.rv2.func2d": [
-      "Z=X+Y",
-      "f_Z(z)=\\int_{-\\infty}^{+\\infty}f(x,z-x)\\,\\mathrm{d}x"
-    ],
-    "math1.prob.rv2.sum_dist": [
-      "Z=X+Y",
-      "f_Z(z)=\\int_{-\\infty}^{+\\infty}f(x,z-x)\\,\\mathrm{d}x",
-      "卷积公式"
-    ],
-    "math1.prob.rv2.maxmin": [
-      "M=\\max(X,Y)",
       "N=\\min(X,Y)",
       "F_M(z)=F_X(z)F_Y(z)",
-      "F_N(z)=1-[1-F_X(z)][1-F_Y(z)]"
+      "F_N(z)=1-[1-F_X(z)][1-F_Y(z)]",
+      "卷积公式"
     ],
     "math1.prob.rv2.mixed_joint": [
       "混合型",
       "联合分布"
     ],
-    "math1.prob.numchar.exp_def": [
+    "math1.prob.numchar.expectation": [
       "E(X)=\\sum_{k}x_kp_k",
       "E(X)=\\int_{-\\infty}^{+\\infty}xf(x)\\,\\mathrm{d}x",
       "数学期望"
     ],
-    "math1.prob.numchar.expectation": [
-      "E(X)=\\sum_{k}x_kp_k",
-      "E(X)=\\int_{-\\infty}^{+\\infty}xf(x)\\,\\mathrm{d}x"
-    ],
-    "math1.prob.numchar.var_def": [
+    "math1.prob.numchar.variance": [
       "D(X)=E[X-E(X)]^2",
       "D(X)=E(X^2)-[E(X)]^2",
       "方差"
-    ],
-    "math1.prob.numchar.variance": [
-      "D(X)=E[X-E(X)]^2",
-      "D(X)=E(X^2)-[E(X)]^2"
     ],
     "math1.prob.numchar.exp_props": [
       "E(aX+b)=aE(X)+b",
@@ -958,7 +774,8 @@
       "D(2X-3Y)",
       "D(X\\pm Y)=D(X)+D(Y)",
       "D(X)",
-      "E(X)"
+      "E(X)",
+      "E(X^2)"
     ],
     "math1.prob.numchar.common_char": [
       "E(X)=\\frac{1}{\\lambda}",
@@ -981,17 +798,9 @@
     "math1.prob.numchar.covariance": [
       "Cov(X,Y)=E(XY)-E(X)E(Y)",
       "\\rho_{XY}=\\frac{Cov(X,Y)}{\\sqrt{D(X)}\\sqrt{D(Y)}}",
-      "相关系数"
-    ],
-    "math1.prob.numchar.moments": [
-      "Cov(X,Y)=E(XY)-E(X)E(Y)",
+      "相关系数",
       "协方差矩阵",
       "k 阶原点矩"
-    ],
-    "math1.prob.numchar.moment": [
-      "E(aX+b)=aE(X)+b",
-      "D(aX+b)=a^2D(X)",
-      "E(X^2)"
     ],
     "math1.prob.numchar.application": [
       "Cov(X,Y)"
@@ -1000,40 +809,27 @@
       "P\\{|X-E(X)|\\ge\\varepsilon\\}\\le\\frac{D(X)}{\\varepsilon^2}",
       "切比雪夫不等式"
     ],
-    "math1.prob.lln.lln_chebyshev": [
-      "\\frac{1}{n}\\sum_{i=1}^{n}X_i\\to\\mu",
-      "切比雪夫大数定律"
-    ],
-    "math1.prob.lln.lln_bernoulli": [
-      "\\frac{n_A}{n}\\to p",
-      "伯努利大数定律"
-    ],
-    "math1.prob.lln.lln_khinchin": [
-      "\\frac{1}{n}\\sum_{i=1}^{n}X_i\\to\\mu",
-      "辛钦大数定律",
-      "独立同分布"
-    ],
     "math1.prob.lln.lln_laws": [
       "\\frac{1}{n}\\sum_{i=1}^{n}X_i\\to\\mu",
       "大数定律",
-      "依概率收敛"
+      "依概率收敛",
+      "\\frac{n_A}{n}\\to p",
+      "伯努利大数定律",
+      "切比雪夫大数定律",
+      "辛钦大数定律",
+      "独立同分布"
     ],
     "math1.prob.lln.clt_levy": [
       "\\frac{\\sum_{i=1}^{n}X_i-n\\mu}{\\sqrt{n}\\sigma}\\to N(0,1)",
       "中心极限定理",
-      "独立同分布"
-    ],
-    "math1.prob.lln.clt_demoivre": [
-      "\\frac{n_A-np}{\\sqrt{np(1-p)}}\\to N(0,1)",
-      "棣莫弗—拉普拉斯定理"
+      "独立同分布",
+      "\\frac{\\sum X_i-n\\mu}{\\sqrt{n}\\sigma}\\to N(0,1)",
+      "近似计算"
     ],
     "math1.prob.lln.demoivre_laplace": [
       "\\frac{n_A-np}{\\sqrt{np(1-p)}}\\to N(0,1)",
-      "棣莫弗-拉普拉斯定理"
-    ],
-    "math1.prob.lln.clt_application": [
-      "\\frac{\\sum X_i-n\\mu}{\\sqrt{n}\\sigma}\\to N(0,1)",
-      "近似计算"
+      "棣莫弗-拉普拉斯定理",
+      "棣莫弗—拉普拉斯定理"
     ],
     "math1.prob.stat.sample_statistics": [
       "\\bar{X}=\\frac{1}{n}\\sum_{i=1}^{n}X_i",
@@ -1048,14 +844,6 @@
       "E(S^2)=\\sigma^2"
     ],
     "math1.prob.stat.chi2_t_f": [
-      "\\chi^2=\\sum_{i=1}^{n}X_i^2",
-      "t=\\frac{X}{\\sqrt{Y/n}}",
-      "F=\\frac{X/n_1}{Y/n_2}",
-      "\\chi^2(n)",
-      "t(n)",
-      "F(m,n)"
-    ],
-    "math1.prob.stat.sampling_distribution": [
       "\\chi^2=\\sum_{i=1}^{n}X_i^2",
       "t=\\frac{X}{\\sqrt{Y/n}}",
       "F=\\frac{X/n_1}{Y/n_2}",
@@ -1082,20 +870,13 @@
     "math1.prob.stat.unbiased_est": [
       "E(\\hat{\\theta})=\\theta",
       "无偏估计",
-      "有效性"
-    ],
-    "math1.prob.stat.unbiased_efficiency": [
-      "E(\\hat{\\theta})=\\theta",
-      "无偏估计",
+      "有效性",
       "最小方差"
     ],
     "math1.prob.stat.interval_estimation": [
       "\\left(\\bar{X}-\\frac{\\sigma}{\\sqrt{n}}z_{\\alpha/2},\\ \\bar{X}+\\frac{\\sigma}{\\sqrt{n}}z_{\\alpha/2}\\right)",
       "置信区间",
-      "置信度"
-    ],
-    "math1.prob.stat.interval_hypothesis": [
-      "置信区间",
+      "置信度",
       "H_0",
       "显著性水平"
     ],
@@ -1201,18 +982,15 @@
     "math2.calc.multiintegral.rect": [
       "\\iint_D f(x,y)\\,\\mathrm{d}x\\,\\mathrm{d}y",
       "\\int_a^b\\mathrm{d}x\\int_{y_1(x)}^{y_2(x)}f(x,y)\\mathrm{d}y",
-      "交换积分次序"
+      "交换积分次序",
+      "\\int_a^b\\mathrm{d}x\\int_{y_1}^{y_2}f\\,\\mathrm{d}y=\\int_c^d\\mathrm{d}y\\int_{x_1}^{x_2}f\\,\\mathrm{d}x",
+      "累次积分"
     ],
     "math2.calc.multiintegral.polar": [
       "\\iint_D f(r\\cos\\theta,r\\sin\\theta)r\\,\\mathrm{d}r\\,\\mathrm{d}\\theta",
       "x=r\\cos\\theta",
       "\\mathrm{d}\\sigma=r\\,\\mathrm{d}r\\,\\mathrm{d}\\theta",
       "x^2+y^2"
-    ],
-    "math2.calc.multiintegral.swap": [
-      "\\int_a^b\\mathrm{d}x\\int_{y_1}^{y_2}f\\,\\mathrm{d}y=\\int_c^d\\mathrm{d}y\\int_{x_1}^{x_2}f\\,\\mathrm{d}x",
-      "交换积分次序",
-      "累次积分"
     ],
     "math2.calc.ode.separable": [
       "y'=f(x)g(y)",
@@ -1290,9 +1068,7 @@
     "math2.linalg.eigen.similarity": [
       "A\\sim\\Lambda",
       "P^{-1}AP=\\Lambda",
-      "可对角化"
-    ],
-    "math2.linalg.eigen.diagonalization": [
+      "可对角化",
       "A^n=P\\Lambda^nP^{-1}",
       "\\sum\\lambda_i=\\mathrm{tr}(A)",
       "\\prod\\lambda_i=|A|"

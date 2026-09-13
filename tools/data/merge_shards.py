@@ -54,12 +54,19 @@ dedupe = _import_sibling("dedupe_knowledge")
 # AI 分片文件里（分片是历史产物，不回收）。而本脚本是**并集**合并，
 # 于是"按文档顺序跑一遍管线"会把那些重复叶子原样搬回权威文件：
 #
-#     权威文件 198 叶子  --merge_shards-->  226 叶子（重复全部复活）
+#     权威文件 142 叶子  --merge_shards-->  170 叶子（重复全部复活）
 #
 # 后果很隐蔽：不报错，但 LLM 又要在两个同名选项间掷硬币，标注准确率下降。
 #
-# 修法：把去重白名单当作**永久删除标记**，合并时直接跳过。
-DROPPED_IDS: set[str] = {d for _, drops in dedupe.KNOWN_DUPLICATES for d in drops}
+# 修法：维护一份**永久删除标记**，合并时直接跳过。它由两部分组成：
+#
+#   1. `merge_map.json` 的 `drops`     —— 本次合并映射删掉的
+#   2. `merge_map.json` 的 `suppressed_drops` —— 早期白名单删掉的补集
+#      （只从 drops 取会漏掉早期那批，实测漏 28 个）
+DROPPED_IDS: set[str] = (
+    {d for _, drops in dedupe.KNOWN_DUPLICATES for d in drops}
+    | dedupe.load_suppressed_drops()
+)
 
 # ⚠️ 章节清单**不再硬编码**。
 #
@@ -353,7 +360,7 @@ def main() -> int:
         out = KP_DIR / f"{subject}.json"
         out.write_text(
             json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
+        , newline="")
         tag = "（部分覆盖）" if missing else ""
         print(f"\n  [OK] 已写入 {out.name}：{len(nodes)} 个节点 / "
               f"{len(leaves)} 叶子 / {len(done)} 章{tag}")

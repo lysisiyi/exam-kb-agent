@@ -3130,7 +3130,9 @@
         "scope_exclusions": "不含曲线积分与曲面积分、三重积分、空间解析几何、傅里叶级数、欧拉方程；概率部分不含参数估计（矩估计、最大似然估计）、假设检验与区间估计单元。上述内容或在数学（三）考纲之外，或要求显著低于数学（一）。",
         "cross_file_consistency": "20 个「章」级节点 id（如 math3.calc.limit、math3.linalg.eigen、math3.prob.stats）不是本文件的单元；如需章级汇总，可对本文件的 4 段 id 做前缀聚合（去掉最后一段）后合并。",
         "qtype_note": "qtype_frequency 的 choice + fill + solve 之和恒等于该单元的 total_appearances；由于 2023 年起解答题由 9 题减为 6 题，2023–2024 年的 solve 计数偏低、choice 偏高，属结构变化而非考频变化。",
-        "hotspot_overlap_note": "同一单元的多个 hotspot 可由同一道题命中，因此 hotspot 层 appearances 之和允许大于该单元 total_appearances；反之，热点层计数之和也不应被当作单元总次数使用。"
+        "hotspot_overlap_note": "同一单元的多个 hotspot 可由同一道题命中，因此 hotspot 层 appearances 之和允许大于该单元 total_appearances；反之，热点层计数之和也不应被当作单元总次数使用。",
+        "merged_from": "容器内已有、exam_frequency_math3.json",
+        "exam_weight_renormalized": "本文档由 2 份分片按章节 id 合并而成，exam_weight 已在合并后的 42 个单元上重新归一化（基准 raw = 127.5）。"
       },
       "chapters": [
         {

@@ -81,7 +81,7 @@ def load_json(path: Path):
 def save_json(path: Path, obj) -> None:
     """写 JSON：保持 UTF-8、缩进 2、不转义中文、末尾换行。"""
     text = json.dumps(obj, ensure_ascii=False, indent=2)
-    path.write_text(text + "\n", encoding="utf-8")
+    path.write_text(text + "\n", encoding="utf-8", newline="")
 
 
 def normalize(s: str) -> str:

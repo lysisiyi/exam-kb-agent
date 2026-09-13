@@ -47,12 +47,18 @@ flutter analyze → 0 error / 0 warning
 
 | 科目 | 可考查单元 | 叶子节点 | 状态 |
 |---|---|---|---|
-| 数学一 | 19 | 198 | 🟢 覆盖完整（含 28 组已去重冗余） |
-| 数学二 | 12 | 60 | 🟢 完成 |
+| 数学一 | 19 | 142 | 🟢 覆盖完整（T19 清理后，原 198） |
+| 数学二 | 12 | 58 | 🟢 完成（原 60） |
 | 数学三 | 42 | 71 | 🟢 完成 |
 
-> ⚠️ 本体仍有约 25% 近义/重复叶子（技术债 T19）。它**不影响召回率**
-> 但会拉低 LLM 的 Top-1 准确率 —— 详见 `docs/PROGRESS.md`。
+> **T19 已解决**：本体曾有约 25% 近义/重复叶子，同概念出现两个选项时
+> LLM 只能掷硬币。现已合并到 **271 个叶子**（删除 58 个；内容按并集并入
+> 保留项，零丢失）。
+>
+> 合并映射是**数据文件** `data/knowledge_points/merge_map.json`（每组都写了
+> 为什么留这个删那个）；执行前必须跑 `python tools/data/verify_merges.py`
+> —— 它会校验映射自洽性、算出内容搬运量、找出评测集 primary 冲突，
+> 并检查**跑一遍管线会不会把删掉的节点搬回来**。
 
 ### 代码规模
 
@@ -158,8 +164,9 @@ flutter run -d windows   # 需先开开发者模式
 │       └── recall_lab.dart           召回实验台（快速看每题失败细节）
 │
 ├── data/                             ★ 知识资产（单一事实源）
-│   ├── knowledge_points/             知识点本体（math1/2/3）
-│   │   └── alias_overrides.json      人工维护的符号别名
+│   ├── knowledge_points/             知识点本体（math1/2/3，271 叶子）
+│   │   ├── alias_overrides.json      人工维护的符号别名（T15）
+│   │   └── merge_map.json            知识点合并映射（T19，49 组带理由）
 │   ├── error_causes.json             错因受控词表（6 类 + 处方）
 │   ├── exam_frequency.json           考频数据（三科 72 单元 / 282 热点）
 │   ├── exam_templates.json           组卷模板
@@ -169,9 +176,11 @@ flutter run -d windows   # 需先开开发者模式
 │   ├── data/
 │   │   ├── sync_assets.py            资产同步到 app/assets/
 │   │   ├── merge_shards.py           多分片合并 + 覆盖缺口报告
-│   │   ├── merge_knowledge.py        合并分片 + 派生 exam_weight
+│   │   ├── merge_knowledge.py        派生 exam_weight
 │   │   ├── merge_frequency.py        考频分片合并 + 重新归一化
-│   │   ├── dedupe_knowledge.py       冗余知识点去重（白名单制）
+│   │   ├── dedupe_knowledge.py       按映射合并（数据驱动）+ 引用改挂
+│   │   ├── verify_merges.py          ★ 合并执行前验证（含管线复活风险检查）
+│   │   ├── refresh_suppressed.py     重算永久删除标记
 │   │   ├── gen_aliases.py            生成召回别名（幂等）
 │   │   ├── kp_probe.py               知识点条目速查
 │   │   └── knowledge_tree.py         从树结构推导章节清单
@@ -322,6 +331,11 @@ python tools/data/gen_aliases.py --all --check    # 自检：应为 0 处待更�
 # 找冗余知识点（只提示，不删除）
 python tools/data/dedupe_knowledge.py --suggest
 python tools/data/dedupe_knowledge.py --review    # 打印候选对的完整内容
+
+# 知识点合并（T19）：**改映射后先验证，再执行**
+python tools/data/verify_merges.py                # 自洽性/内容搬运量/评测集主考点冲突/管线复活风险
+python tools/data/dedupe_knowledge.py --all       # 改挂引用 + 按映射合并（不可逆）
+python tools/data/refresh_suppressed.py           # 重算"永久删除标记"
 
 # 查某个知识点的名称/定义/公式/陷阱（补别名时用）
 python tools/data/kp_probe.py math1.prob.rv1.normal_distribution

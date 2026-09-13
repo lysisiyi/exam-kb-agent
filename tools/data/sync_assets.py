@@ -45,12 +45,14 @@ INCLUDE = [
 #
 # 1. `alias_overrides.json` 是**别名的源数据**：内容已在构建期被
 #    `gen_aliases.py` 合并进 `math*.json` 的 `aliases` 字段。
-# 2. `math{1,2,3}_*.json` 是 AI 分片（`math1_calc` / `math1_rest` …），
+# 2. `merge_map.json` 是**知识点合并映射**：只在跑
+#    `dedupe_knowledge.py` / `verify_merges.py` 时用，App 从不读它。
+# 3. `math{1,2,3}_*.json` 是 AI 分片（`math1_calc` / `math1_rest` …），
 #    只是 `merge_shards.py` 的**输入**；App 只读权威文件 `math{1,2,3}.json`。
 #
-# 两者都不该进 assets：白占约 480 KB 包体，还会制造"改哪个才生效"的困惑。
+# 都不该进 assets：白占包体，还会制造"改哪个才生效"的困惑。
 # 实测踩到过：打包产物里连 `math1_rest.json.bak` 都被打进去了。
-EXCLUDE_NAMES = {"alias_overrides.json"}
+EXCLUDE_NAMES = {"alias_overrides.json", "merge_map.json"}
 EXCLUDE_SUFFIXES = (".merged", ".bak", ".partial", ".tmp")
 
 

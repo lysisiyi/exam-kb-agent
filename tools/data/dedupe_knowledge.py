@@ -32,10 +32,22 @@ Top-1 准确率会被人为拉低，而这**不是模型的问题**。
 误删更严重。所以采用**白名单**：只删人工确认过、内容确实冗余的对。
 新增白名单项时必须先 `--dry-run` 对比两份内容。
 
+## 合并映射在哪
+映射（哪些 id 合并到哪个）**不写在本文件里**，而在
+`data/knowledge_points/merge_map.json` —— 数据是数据，脚本是脚本。
+执行前必须先验证：
+
+    python tools/data/verify_merges.py
+
+它会检查映射自洽性、算出内容搬运量、并找出**评测集 primary 引用冲突**
+（那种情况必须人工重新判定基准答案，不能自动映射）。
+
 ## 用法
-    python tools/data/dedupe_knowledge.py --dry-run      # 报告 + 提示相似候选
-    python tools/data/dedupe_knowledge.py --all          # 按白名单删除
-    python tools/data/dedupe_knowledge.py --suggest      # 只列相似候选供人工判断
+    python tools/data/verify_merges.py                    # 执行前验证（必跑）
+    python tools/data/dedupe_knowledge.py --dry-run       # 报告 + 提示相似候选
+    python tools/data/dedupe_knowledge.py --all           # 改挂引用 + 按映射删除
+    python tools/data/dedupe_knowledge.py --remap-refs    # 只改挂引用，不删节点
+    python tools/data/dedupe_knowledge.py --suggest       # 只列相似候选供人工判断
 """
 
 from __future__ import annotations
@@ -52,6 +64,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 ROOT = Path(__file__).resolve().parents[2]
 KP_DIR = ROOT / "data" / "knowledge_points"
+ALIAS_OVERRIDES = KP_DIR / "alias_overrides.json"
 
 
 def score(node: dict) -> tuple:
@@ -348,64 +361,172 @@ def duplicate_candidate(a: dict, b: dict) -> tuple[bool, str]:
 SIMILARITY_THRESHOLD = 0.72
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 显式去重白名单
+# 合并映射（数据文件驱动）
 # ─────────────────────────────────────────────────────────────────────────────
 #
-# 每项是 (保留的 id, [要删除的 id])。保留侧的选取依据：definition 更长、
-# formulas/traps 更多（即信息更全的那份）。
+# ⚠️ 映射**不再硬编码在本文件里**，而是放在
+# `data/knowledge_points/merge_map.json`。理由：
 #
-# ⚠️ 新增前必须：
-#   1. 用 --dry-run 打印两份内容对比
-#   2. 确认它们说的是**同一个知识点**，而不是共享前缀的不同概念
-#      （反例：「二阶常系数齐次方程」vs「二阶常系数非齐次方程」是两回事）
+#   1. 几十组决策、每组都要写清"为什么留这个删那个"。写在 Python 里没人愿意读，
+#      而后人无法判断某个 id 为什么被删 —— 删除是**不可逆**的。
+#   2. 它是**领域判断的产物**，应当与脚本逻辑分开演进。
+#   3. 执行前可以用 `tools/data/verify_merges.py` 独立验证
+#      （自洽性 / 内容搬运量 / 评测集影响 / 别名影响）。
 #
-KNOWN_DUPLICATES: list[tuple[str, list[str]]] = [
-    # ── 高数 · 一元积分学 ──
-    ("math1.calc.integral.byparts", ["math1.calc.integral.by_parts"]),
-    ("math1.calc.integral.variable_limit", ["math1.calc.integral.varlimit"]),
-    ("math1.calc.integral.geometry", ["math1.calc.integral.applications"]),
-    # ── 高数 · 多元微分 ──
-    ("math1.calc.multidiff.partial_derivative",
-     ["math1.calc.multidiff.partial_deriv"]),
-    ("math1.calc.multidiff.directional_gradient",
-     ["math1.calc.multidiff.direction_gradient"]),
-    # ── 高数 · 级数 ──
-    ("math1.calc.series.power_sum", ["math1.calc.series.sum_function"]),
-    ("math1.calc.series.positive_series", ["math1.calc.series.positive"]),
-    # ── 高数 · 曲线曲面积分 ──
-    ("math1.calc.curvesurface.surface_int_first",
-     ["math1.calc.curvesurface.surface_first"]),
-    ("math1.calc.curvesurface.stokes_rot_div",
-     ["math1.calc.curvesurface.stokes"]),
-    # ── 高数 · 微分方程 ──
-    ("math1.calc.ode.first_order_separable", ["math1.calc.ode.separable"]),
-    ("math1.calc.ode.reducible_order", ["math1.calc.ode.reducible"]),
-    # ⚠️ 注意：math1.calc.ode.linear2_homo（齐次）与 linear2_nonhomo（非齐次）
-    #    是**两个不同知识点**，绝不能合并 —— 这里刻意不列入白名单。
-    # ── 线代 ──
-    ("math1.linalg.det.definition_properties", ["math1.linalg.det.definition"]),
-    ("math1.linalg.eigen.eigenvalue", ["math1.linalg.eigen.eigen_calc"]),
-    ("math1.linalg.eigen.similarity", ["math1.linalg.eigen.similar"]),
-    # ── 概率 · 数字特征 ──
-    ("math1.prob.numchar.covariance", ["math1.prob.numchar.cov_corr"]),
-    ("math1.prob.numchar.common_numchar", ["math1.prob.numchar.common_char"]),
-    # ── 概率 · 大数定律 ──
-    ("math1.prob.lln.chebyshev", ["math1.prob.lln.chebyshev_inequality"]),
-    ("math1.prob.lln.clt_levy", ["math1.prob.lln.clt_iid"]),
-    # ── 概率 · 一维随机变量 ──
-    ("math1.prob.rv1.distribution_function", ["math1.prob.rv1.dist_func"]),
-    ("math1.prob.rv1.discrete_distribution", ["math1.prob.rv1.discrete_law"]),
-    ("math1.prob.rv1.continuous_density", ["math1.prob.rv1.density"]),
-    ("math1.prob.rv1.function_of_rv", ["math1.prob.rv1.func_dist"]),
-    ("math1.prob.rv1.normal_distribution", ["math1.prob.rv1.normal"]),
-    ("math1.prob.rv1.mixed_type", ["math1.prob.rv1.mixed_dist"]),
-    # ── 概率 · 二维随机变量 ──
-    ("math1.prob.rv2.uniform_2d", ["math1.prob.rv2.uniform2d"]),
-    ("math1.prob.rv2.normal_2d", ["math1.prob.rv2.normal2d"]),
-    # ── 概率 · 数理统计 ──
-    ("math1.prob.stat.population_sample", ["math1.prob.stat.sample_statistics"]),
-    ("math1.prob.stat.moment_estimation", ["math1.prob.stat.moment_est"]),
-]
+# 早期版本在这里手写 (keep, drops) 二元组，上面那些信息全丢了。
+MERGE_MAP_FILE = KP_DIR / "merge_map.json"
+
+
+def load_merge_map() -> list[tuple[str, list[str]]]:
+    """读取合并映射。
+
+    ⚠️ 文件缺失时**抛错**，而不是静默返回空列表 ——
+    静默返回空会让"去重根本没生效"看起来像"本体里没有重复"，极难发现。
+    """
+    if not MERGE_MAP_FILE.exists():
+        raise FileNotFoundError(
+            f"找不到合并映射 {MERGE_MAP_FILE}。"
+            f"它是数据文件（见其中的 note / selection_rule 字段），"
+            f"不能用空映射继续。"
+        )
+    doc = json.loads(MERGE_MAP_FILE.read_text(encoding="utf-8"))
+    out: list[tuple[str, list[str]]] = []
+    for g in doc.get("groups", []):
+        keep = g.get("keep")
+        drops = [d for d in (g.get("drops") or []) if d]
+        if keep:
+            out.append((keep, drops))
+    return out
+
+
+KNOWN_DUPLICATES: list[tuple[str, list[str]]] = load_merge_map()
+
+
+def _drop_to_keep() -> dict[str, str]:
+    """被删 id → 保留 id 的索引。用于改挂外部引用（别名、评测集）。"""
+    out: dict[str, str] = {}
+    for keep, drops in KNOWN_DUPLICATES:
+        for d in drops:
+            out[d] = keep
+    return out
+
+
+def load_suppressed_drops() -> set[str]:
+    """永久删除标记：**不要再回到权威文件里**的叶子 id。
+
+    ## 为什么需要单独一份列表
+
+    `merge_shards.py` 是**并集**合并，而 AI 分片文件从未回收 ——
+    每次去重删掉的节点，副本都还留在分片里。不显式跳过，
+    按文档跑一遍管线就会把去重成果原样搬回权威文件：
+
+        实测：math1 的 142 个叶子会变回 170
+
+    `KNOWN_DUPLICATES` 的 drops 只覆盖**本次**合并映射删除的；
+    早期白名单删掉的那批不在里面，所以需要这份补集。
+    它由「分片叶子 − 权威叶子」算出（`refresh_suppressed.py`）。
+
+    ⚠️ 刻意**不**做成"自动跳过分片里所有未知 id"——那样会让将来
+    新增的分片永远合并不进来。落成显式列表才能既防复活又允许新增。
+    """
+    if not MERGE_MAP_FILE.exists():
+        return set()
+    doc = json.loads(MERGE_MAP_FILE.read_text(encoding="utf-8"))
+    return {s for s in (doc.get("suppressed_drops") or []) if s}
+
+
+def remap_alias_overrides(dry_run: bool = False) -> int:
+    """把被删 id 上的人工别名**改挂**到保留 id 上。
+
+    别名（技术债 T15）是按知识点 id 存在 `alias_overrides.json` 里的。
+    id 被删，写在它身上的符号别名就成了孤儿 —— 而 `gen_aliases.py` 会把
+    "人工别名指向不存在的知识点"报成错误，于是整条管线卡住；
+    即使不卡，那些人工写出来的符号签名也白费了，召回率会悄悄掉回去。
+
+    所以合并必须同步改挂，并且是**并集**：keep 原有的别名一条不动。
+    """
+    if not ALIAS_OVERRIDES.exists():
+        return 0
+
+    doc = json.loads(ALIAS_OVERRIDES.read_text(encoding="utf-8"))
+    aliases: dict[str, list[str]] = doc.setdefault("aliases", {})
+    moved_total = 0
+
+    for src, dst in sorted(_drop_to_keep().items()):
+        src_aliases = aliases.pop(src, None)
+        if not src_aliases:
+            continue
+        keep_list = aliases.setdefault(dst, [])
+        added = 0
+        for a in src_aliases:
+            if a not in keep_list:
+                keep_list.append(a)
+                added += 1
+        moved_total += added
+        print(f"    别名改挂 {src} → {dst}（{len(src_aliases)} 条，新增 {added}）")
+
+    if moved_total and not dry_run:
+        ALIAS_OVERRIDES.write_text(
+            json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        , newline="")
+    return moved_total
+
+
+def remap_eval_secondaries(dry_run: bool = False) -> int:
+    """评测集里的 **secondary** 引用被删 id 时改为保留 id。
+
+    ⚠️ **只改 secondary，绝不自动改 primary。**
+
+    primary 是人工标注的"命题人最想考的那个知识点"，是判断标注质量的唯一依据。
+    它指向的 id 若被删除，必须**人工重新判定**该题主考点 ——
+    自动映射等于篡改基准，会让之后的准确率数字失去意义。
+
+    `tools/data/verify_merges.py` 会在执行前把这种情况报成**阻断性错误**，
+    所以正常流程下这里遇到 primary 冲突就说明有人跳过了验证，直接抛错。
+    """
+    eval_dir = ROOT / "data" / "eval"
+    if not eval_dir.exists():
+        return 0
+
+    d2k = _drop_to_keep()
+    total = 0
+    for f in sorted(eval_dir.glob("*.json")):
+        doc = json.loads(f.read_text(encoding="utf-8"))
+        problems = doc.get("problems")
+        if not isinstance(problems, list):
+            continue
+
+        changed = 0
+        for p in problems:
+            if p.get("primary_kp_id") in d2k:
+                raise ValueError(
+                    f"{f.name} 的 {p.get('id')} 的 primary 指向将被删除的 "
+                    f"{p.get('primary_kp_id')} —— primary 必须人工重新判定，"
+                    f"不能自动映射。请先跑 verify_merges.py 看报告。"
+                )
+            secs = p.get("secondary_kp_ids")
+            if not isinstance(secs, list):
+                continue
+            new: list[str] = []
+            for s in secs:
+                t = d2k.get(s, s)
+                if t not in new:
+                    new.append(t)
+                if t != s:
+                    changed += 1
+            if new != secs:
+                p["secondary_kp_ids"] = new
+
+        if changed:
+            total += changed
+            print(f"    {f.name}: secondary 改挂 {changed} 处")
+            if not dry_run:
+                f.write_text(
+                    json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8",
+                    newline="",
+                )
+    return total
 
 
 def _candidates(nodes: list[dict]):
@@ -539,7 +660,7 @@ def dedupe_subject(
 
     path.write_text(
         json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    , newline="")
     print(f"\n  [OK] 已写入 {path.name}：移除 {len(remove_ids)} 个冗余节点")
     return groups, len(remove_ids)
 
@@ -549,6 +670,16 @@ def main() -> int:
     ap.add_argument("--subject", help="只处理指定科目")
     ap.add_argument("--all", action="store_true", help="处理全部科目")
     ap.add_argument("--dry-run", action="store_true", help="只报告，不写文件")
+    ap.add_argument(
+        "--remap-refs",
+        action="store_true",
+        help="只做引用改挂（人工别名 + 评测集 secondary），不删节点",
+    )
+    ap.add_argument(
+        "--no-remap-refs",
+        action="store_true",
+        help="删节点但**不**改挂引用（仅用于调试；正常流程不要用）",
+    )
     ap.add_argument(
         "--suggest",
         action="store_true",
@@ -566,6 +697,22 @@ def main() -> int:
         else ["math1", "math2", "math3"] if args.all
         else ["math1"]
     )
+
+    # ── 引用改挂 ──────────────────────────────────────────────────────────
+    #
+    # ⚠️ 顺序很重要：**先改挂引用，再删节点**。
+    # 反过来的话，中途失败会留下"引用指向已删 id"的坏状态，
+    # 而 `gen_aliases.py` 会因此报错、整条管线卡住。
+    if not args.no_remap_refs:
+        print(f"\n{'=' * 70}\n引用改挂（人工别名 + 评测集 secondary）\n{'=' * 70}")
+        n_alias = remap_alias_overrides(args.dry_run)
+        n_eval = remap_eval_secondaries(args.dry_run)
+        tail = "（dry-run，未写入）" if args.dry_run else ""
+        print(f"  别名改挂 {n_alias} 条｜评测集 secondary 改挂 {n_eval} 处{tail}")
+
+    if args.remap_refs:
+        print("\n[--remap-refs] 只改挂引用，不删节点。完成。")
+        return 0
 
     total_groups = total_removed = 0
     for s in subjects:

@@ -69,7 +69,7 @@
       "qtype": "solve",
       "primary_kp_id": "math1.calc.diff.monotonic_extremum",
       "secondary_kp_ids": [
-        "math1.calc.diff.rules_derivative"
+        "math1.calc.diff.rules"
       ],
       "difficulty": 1,
       "source": "教材习题",

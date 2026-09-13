@@ -263,6 +263,21 @@ cd app
 Remove-Item -Recurse -Force build     # 只删 build/，不要用 flutter clean
 ```
 
+**同一个坑的第二种触发方式：把项目目录挪到别处。**
+
+`CMakeCache.txt` 里存的是**绝对路径**，移动项目后 CMake 会直接拒绝：
+
+```
+CMake Error: The current CMakeCache.txt directory .../kaoyan-math-agent/app/build/windows/x64/CMakeCache.txt
+  is different than the directory d:/agent/deepseekharness/Project/app/build/windows/x64
+  where CMakeCache.txt was created.
+CMake Error: The source ".../kaoyan-math-agent/app/windows/CMakeLists.txt" does not match
+  the source ".../Project/app/windows/CMakeLists.txt" used to generate cache.
+Unable to generate build files
+```
+
+处理办法完全相同：删 `app/build/` 重新构建。
+
 > ⚠️ **不要用 `flutter clean`** —— 它会连带删掉
 > `windows/flutter/ephemeral/.plugin_symlinks`，而重建那些符号链接
 > **又需要开发者模式**（见 §5）。只删 `app/build/` 就够了，

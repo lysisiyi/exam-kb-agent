@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """把单科目考频文件注入多科目容器 `data/exam_frequency.json`。
 
 ## 背景
@@ -80,7 +80,7 @@ def load_json(p: Path):
 def save_json(p: Path, obj) -> None:
     p.write_text(
         json.dumps(obj, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+    , newline="")
 
 
 def chapter_ids_of(subject: str) -> list[str]:

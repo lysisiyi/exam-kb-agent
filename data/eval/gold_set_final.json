@@ -56,7 +56,7 @@
       "qtype": "proof",
       "primary_kp_id": "math1.calc.diff.mvt",
       "secondary_kp_ids": [
-        "math1.calc.diff.proof_application"
+        "math1.calc.diff.root_inequality"
       ],
       "difficulty": 1,
       "source": "教材习题",
@@ -140,7 +140,7 @@
       "qtype": "solve",
       "primary_kp_id": "math1.prob.rv2.joint_marginal",
       "secondary_kp_ids": [
-        "math1.prob.rv2.joint_distribution"
+        "math1.prob.rv2.joint_marginal"
       ],
       "difficulty": 1,
       "source": "教材习题",

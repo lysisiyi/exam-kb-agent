@@ -72,7 +72,7 @@
       "qtype": "solve",
       "primary_kp_id": "math1.calc.multiintegral.triple_integral",
       "secondary_kp_ids": [
-        "math1.calc.multiintegral.triple"
+        "math1.calc.multiintegral.triple_integral"
       ],
       "difficulty": 3,
       "source": "2020 年数学（一）真题",
@@ -84,7 +84,7 @@
       "qtype": "solve",
       "primary_kp_id": "math1.calc.curvesurface.line_int_first",
       "secondary_kp_ids": [
-        "math1.calc.curvesurface.line_first"
+        "math1.calc.curvesurface.line_int_first"
       ],
       "difficulty": 2,
       "source": "教材习题",

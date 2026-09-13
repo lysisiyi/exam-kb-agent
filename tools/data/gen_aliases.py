@@ -308,7 +308,7 @@ def process_subject(subject: str, overrides: dict, check: bool, show: bool) -> i
     if changed:
         path.write_text(
             json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-        )
+        , newline="")
         print(f"  [OK] 已写入 {path.name}：更新 {changed} 个叶子的别名")
     else:
         print("  [OK] 别名已是最新，无需写入")
