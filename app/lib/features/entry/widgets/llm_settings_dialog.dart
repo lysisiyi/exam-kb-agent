@@ -264,15 +264,41 @@ class _LlmSettingsDialogState extends State<_LlmSettingsDialog> {
 ///
 /// 用户第一次配 Key 时会犹豫"会不会很贵"。把"上次花了多少"直接放在
 /// 配置旁边，比写在文档里有说服力 —— 而且这个数字是他自己的真实数据。
-class _UsagePanel extends ConsumerWidget {
+///
+/// ## 为什么 future 存在 state 里而不是每次 build 现算
+///
+/// 对话框里每敲一个字符都会 `setState` 重建，而这是个 `FutureBuilder`。
+/// 若 `future:` 写成 `_load(...)`，每次重建都会**重新开一次数据库查询**：
+/// Key 输入框打 40 个字符就是 40 次查询 + 40 次重建面板。
+/// 所以在 `initState` 里取一次并缓存。
+class _UsagePanel extends ConsumerStatefulWidget {
   const _UsagePanel();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_UsagePanel> createState() => _UsagePanelState();
+}
+
+class _UsagePanelState extends ConsumerState<_UsagePanel> {
+  late final Future<AppUsageView> _future = _load();
+
+  Future<AppUsageView> _load() async {
+    try {
+      final db = await ref.read(databaseProvider.future);
+      final usage = await UsageLedger(db).summary();
+      final cacheCount = await SqliteTagCache(db: db).count();
+      return AppUsageView(usage: usage, cacheCount: cacheCount);
+    } catch (_) {
+      // 读不到就说"没有记录"，不要让配置对话框因此报错
+      return const AppUsageView(usage: UsageSummary(), cacheCount: 0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return FutureBuilder<AppUsageView>(
-      future: _load(ref),
+      future: _future,
       builder: (context, snap) {
         final v = snap.data;
         return Container(
@@ -325,18 +351,6 @@ class _UsagePanel extends ConsumerWidget {
         );
       },
     );
-  }
-
-  Future<AppUsageView> _load(WidgetRef ref) async {
-    try {
-      final db = await ref.read(databaseProvider.future);
-      final usage = await UsageLedger(db).summary();
-      final cacheCount = await SqliteTagCache(db: db).count();
-      return AppUsageView(usage: usage, cacheCount: cacheCount);
-    } catch (_) {
-      // 读不到就说"没有记录"，不要让配置对话框因此报错
-      return const AppUsageView(usage: UsageSummary(), cacheCount: 0);
-    }
   }
 }
 

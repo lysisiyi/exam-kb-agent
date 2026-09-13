@@ -72,10 +72,15 @@ class SqliteTagCache implements TagCache {
   }
 
   /// 当前缓存条数。
+  ///
+  /// 用 `COUNT(*)` 而不是"取回全部行再数长度"：缓存上限没有限制，
+  /// 而每次打开 AI 配置对话框都会调它一次。
   Future<int> count() async {
     try {
-      final rows = await db.select(db.tagCacheEntries).get();
-      return rows.length;
+      final row = await db
+          .customSelect('SELECT COUNT(*) AS c FROM tag_cache_entries')
+          .getSingle();
+      return row.read<int>('c');
     } catch (_) {
       return 0;
     }

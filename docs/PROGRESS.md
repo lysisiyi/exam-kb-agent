@@ -793,7 +793,7 @@ FTS5 内置的 `unicode61` 分词器按**空白与标点**切词。中文句子�
 |---|---|---|---|
 | T1 | FSRS 权重用 FSRS-5 默认值，实现按 FSRS-6 结构 | 权重语义可能有偏移 | V2 用 `ReviewLog` 跑优化器校准；V1 用单元测试锁行为 |
 | T2 | 分片文件残留（`math1_rest.json` 等） | 无实际影响（内容已并入权威文件） | 可清理；`lint_dart.py` 已降级为提示 |
-| T3 | 公式渲染库最终选型未定 | 列表渲染性能风险 | N7；已有 `MathRenderer` 抽象兜底 |
+| T3 | 公式渲染库最终选型未定 | 列表渲染性能风险 | **实测进行中**（`katex` 候选，见下方"渲染器选型"）。已有 `MathRenderer` 抽象 + 缓存层兜底，替换不影响调用方 |
 | T4 | ~~数学二/三考频数据缺失~~ | ✅ **已解决** | 三科考频齐备，270/270 权重派生成功 |
 | T5 | `exam_frequency.json` 自述 `data_confidence = medium-low` | 权重仅可作相对参考 | 生产前用真实真题逐题标注替换；**UI 上必须标注「估算值」** |
 | T6 | ~~数学一章节粒度不均~~ | ✅ **已解决** | T19 合并后 math1 从 198 收敛到 141 个叶子，落在原计划的 130–150 区间内 |
@@ -822,6 +822,10 @@ FTS5 内置的 `unicode61` 分词器按**空白与标点**切词。中文句子�
 | T21 | ~~`flutter analyze` 有 2 个 error~~ | ✅ 已修复（`lib/main.dart` 缺 import、`dio_http_adapter` switch 不穷尽） | 已验证 0 error / 0 warning |
 | T22 | 31 条 `prefer_const_constructors` 等 info 级提示 | 无功能影响 | 交付前统一 `dart fix --apply` |
 | **T36** | 🔴 **本机 shell 是 Windows PowerShell 5.1，`Get-Content`/`Set-Content` 默认按 GBK 读写** | **含中文的文件会被静默毁掉** | 本项目已因此损坏文件两次（`app_theme.dart`、`docs/PROGRESS.md`）。**规矩：凡含非 ASCII 的读写，一律走 Python 显式 `encoding='utf-8'`，或走 read / write / edit 工具；绝不用 Get-Content / Set-Content** |
+| T37 | `mastery` 存的是**打分那一刻**算出的可提取性 | 它会随时间衰减，但界面显示的是快照，会偏高 | V1 保留（它只用于"掌握 X%"的粗略展示）；V2 改为读时按 `now` 重算。注释里已写明这是快照 |
+| T38 | `problem_knowledge.problem_id` 等查找列没有索引 | 单次删除/查关联是全表扫（几千行 = 几毫秒） | 现在不值得为此加一次 schema 迁移。到万题量级再连同 FTS 一起评估，届时要实测而不是凭感觉 |
+| T39 | 复习会话不持久化，中途退出要重来 | `grade()` 写库了所以进度不丢，丢的只是"抽到一半的那一轮" | 队列本来就是 `dueQueue` 的临时快照，重开即重建；暂不改 |
+| T40 | `_openDetail` 每次都重新读盘 + 重新解析 Markdown | 点开一道题约 1–5 ms，体感无差 | 等有真实数据量后再看是否值得加 LRU；现在加是过早优化 |
 
 ### 🔴 T19：本体冗余是当前**最大的质量风险**（比召回率更严重）
 
@@ -912,3 +916,9 @@ math1.linalg.vector.linear_combo      「线性组合与线性表示」      ←
 | 2026-03-16 | 🐛 **`testWidgets` 的假异步时钟把真实文件 IO 卡死**：`Directory.createTemp`、读写 `.md` 的 Future 在假时钟里永远不会完成，测试会在第一行 `await` 上静静挂住，10 分钟后报超时 —— 看起来像"页面崩了"。修法是交替 `tester.runAsync`（让真实事件循环跑）与 `pump`（重建界面），并停用 `pumpAndSettle`（载入期的进度指示器是无限动画，它永远等不到）。已把这条写进 `test/support/test_env.dart` 与 PROGRESS 的测试说明 |
 | 2026-03-16 | ✅ **AI 标注接上本地缓存与用量台账**（schema v2→v3，新增 `tag_cache_entries` / `llm_usage_entries`，纯增量不动已有数据）。缓存按**题干指纹**（不是题目 id —— 同一道题换设备录入 id 会变、指纹不变）并**按模型区分**（T17 实测不同模型 Top-1 差 3–5 个百分点，不记模型的话用户换模型后会一直拿到旧结果且毫无察觉）；台账只记真实调用，命中缓存不记（没花钱）。配置对话框新增「本机 AI 用量」面板。两者的读写**全部吞掉异常** —— 它们不影响标注能否跑通，也正因如此它们的 bug 没有症状，只能靠测试盯住：新增 `test/tag_cache_test.dart`（14 例） |
 | 2026-03-16 | 🔬 新增 schema 迁移测试：把一个库**退回 v2 形状**（删掉 v3 的两张表 + 写回 `user_version = 2`）再用当前代码打开，验证升级会补出表且用户数据不丢。`flutter analyze` 0 error / 0 warning；**353 测试全绿** |
+| 2026-03-16 | 🧹 **技术债清理**：`dart fix --apply` 清掉 55 处 info 级提示（T10/T22 关闭），并修掉一处 lint error（`entry_ai_button` 在 await 之后直接用 `context`）。`flutter analyze` 从此是 **No issues found**（不再是"0 error / 0 warning"，而是零输出） |
+| 2026-03-16 | 🐛 **每日提醒此前是死代码**：`ReminderScheduler` 早就写好（含序列化设计）却**从未被实例化** —— 提醒功能实际上不存在。新增 `services/review/reminder_service.dart` 把它接到 `meta_entries` 上，并在复习页顶部给一条**可关闭的横幅**（不是弹窗：会打断用户的提醒最后都会被关掉）。接线过程中撞出三处静默缺陷：① 编码写 `last=`、解码回 `last`、而 `restoreFromJson` 找 `lastNotified`，键名不一致 → **每次重启都重复提醒**且无任何报错；② `hour = j['hour'] as num?` 遇缺键会写成 null，**静默关掉提醒**；③ 内容损坏解析出空 map 时照样 restore，等于清空设置。三处都已修 + 加测试 |
+| 2026-03-16 | ✅ **T14 关闭**：`window_manager` 自 M1 起就在依赖里却没有一行代码用它。处理方式是**用起来**而不是移除 —— 没有最小尺寸约束时 Windows 窗口能被拖到比录入表单还窄。新增 `core/platform/window_setup.dart`（起手 1280×840、锁最小 420×600），三步各自独立失败（合在一个 try 里的话"设最小尺寸"失败会连"显示窗口"一起跳过，结果正是尺寸不受约束的窗口）。**这段代码只在 `main()` 里跑一次、测试覆盖不到**（T21 就是这么漏掉两个编译错误的），所以策略抽成可注入函数并加 `test/window_setup_test.dart` |
+| 2026-03-16 | 🐛 **审查发现：`describeDue` 把分钟级间隔说成"今天"。** FSRS 第一次评「忘了」和重学都会给出**分钟级**间隔（`intervalDays = 0` → 10 分钟后），而原实现一律按"距今天零点几天"算 → 显示"今天"，等于告诉用户今天不用再看了，正好把刚安排的学习步抹掉；同一天 23:50 做完、下次 00:00 的卡也显示"今天"，那其实是明天。已改为先分钟、再小时、最后才按天。写测试时还纠正了自己两处想当然的断言（`06-12` 相对 `06-10` 是"2 天后"而不是"明天"）—— 测试错、实现对 |
+| 2026-03-16 | 🐛 **审查发现：公式渲染缓存是死代码。** 为「5000 题滚动不掉帧」而写的 `MathRenderCache` **两条路径都没生效**：① `main()` 注入的是未包装的 `PlainTextMathRenderer`，缓存类从未被构造；② 即使包上 `CachedMathRenderer`，它的 `renderMarkdown()` 也直接透传，而列表/复习/详情页走的**全部**是 `renderMarkdown()`（`render()` 在生产代码里一次都没被调用过）。已让 `renderMarkdown` 也走缓存（用前缀隔离 key 空间）、`main()` 改为注入包装后的实例，并新增 `test/math_renderer_test.dart`（10 例）用"数内层被调几次"把契约钉死 —— 其中一条会在 `renderMarkdown` 退回透传时失败。顺带修掉配置对话框里"每敲一个字符就重开一次用量查询"（future 从 build 里挪进 state） |
+| 2026-03-16 | 🧪 **给"用户数据不会被索引重建毁掉"加了防回归断言**。审查时发现多处注释称 `problem_knowledge.problem_id` 是外键、"所以必须先删关联行" —— 实际 schema 里**没有任何外键声明**。已如实改写注释，同时把"要不要真加外键"的决定写下来：给 `problems_index` 与 `user_problem_state` 之间加 `ON DELETE CASCADE` 会让 `rebuildFromScratch()`（先删索引行）**级联删掉用户的复习进度**，而且在正常操作路径上静默发生。新增两条测试：schema 里没有外键声明、全量重建不碰用户状态。**386 测试全绿** |
