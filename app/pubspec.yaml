@@ -11,10 +11,17 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # ── 状态管理与路由 ──────────────────────────────────────────────
+  # ── 状态管理 ────────────────────────────────────────────────────
+  # ⚠️ 刻意**不**依赖 `go_router`（原为 ^14.2.0）。
+  #
+  # 它是 V1_PLAN 的技术栈里列的，但实测导航根本没用它：外壳是
+  # `AdaptiveShell` 里的 `IndexedStack` + 索引下标，页面之间只有
+  # `Navigator.push` 一种跳转（错题本 → 编辑录入页）。
+  # 声明了却零引用，只会拖长构建时间、并让人以为存在一套没在用的路由约定。
+  #
+  # 将来真需要深链接（比如"从通知点进来直接开复习页"）时再加回来 ——
+  # 那时 `AdaptiveShell` 要改成路由驱动，是一件事而不是两件。
   flutter_riverpod: ^2.5.1
-  go_router: ^14.2.0
-
   # ── 数据层：SQLite + FTS5 全文检索 ──────────────────────────────
   drift: ^2.20.0
   path_provider: ^2.1.4
@@ -76,8 +83,15 @@ dependencies:
   # ── 桌面系统集成 ────────────────────────────────────────────────
   file_selector: ^1.0.3
   window_manager: ^0.4.2
-  share_plus: ^10.0.2
-
+  # ⚠️ 刻意**不**依赖 `share_plus`（原为 ^10.0.2）。
+  #
+  # V1_PLAN 把它列为"导出分享"，但桌面端根本没有"分享到"这个动作 ——
+  # Windows 上用户要的是"导出到某个文件夹"，那是 `file_selector` 的
+  # `getDirectoryPath()`（已在 `ImageSourceService` 里实现）。声明了却零引用，
+  # 白白多一个插件 DLL 和一条 `url_launcher` 传递依赖链。
+  #
+  # 移动端（V2）确实需要系统分享面板，到那时再加回来。
+  #
   # ⚠️ 已移除 flutter_local_notifications。
   #    17.x 版本**不支持 Windows**（编译期报 No named parameter 'windows'），
   #    而即使升级到支持的版本，未 MSIX 打包时 cancel() 也无效、
