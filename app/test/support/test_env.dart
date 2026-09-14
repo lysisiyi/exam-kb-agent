@@ -88,6 +88,9 @@ class SeedProblem {
   final String? source;
   final DateTime? createdAt;
 
+  /// 题目引用的图片（相对路径，如 `images/p-1-1.png`）。
+  final List<String> images;
+
   /// 初始错误次数。null 表示**不建状态行**（用于测 `ensureCards` 的对账）。
   final int? wrongCount;
 
@@ -105,6 +108,7 @@ class SeedProblem {
     this.difficulty = 2,
     this.source,
     this.createdAt,
+    this.images = const [],
     this.wrongCount = 1,
     this.card,
   });
@@ -139,6 +143,7 @@ Future<IndexReport> seedProblems(
       answer: s.answer,
       solution: s.solution,
       note: s.note,
+      images: s.images,
       createdAt: s.createdAt ?? DateTime(2024, 1, 1),
     );
     await env.store.save(p);

@@ -13,6 +13,7 @@ import 'features/entry/entry_page.dart';
 import 'features/knowledge/knowledge_page.dart';
 import 'features/problems/problems_page.dart';
 import 'features/review/review_page.dart';
+import 'features/settings/settings_page.dart';
 
 class DevShell extends ConsumerWidget {
   /// 启动时停在第几个 Tab。
@@ -75,13 +76,21 @@ class DevShell extends ConsumerWidget {
             plan: '贪心组卷 + 真题结构模板 + 三版式 PDF 导出',
             done: [
               '考频数据已就绪（19 章 / 86 个热点）',
+              '数据导出（Markdown + 图片包）已在「设置」页可用',
             ],
             todo: [
               '组卷引擎（贪心 + 回溯）',
-              'PDF 导出（pdf + printing）',
+              'PDF 导出（pdf 包已就绪；预览需引回 printing 并预置 pdfium）',
               '试卷预览页',
             ],
           ),
+        ),
+        NavDestination(
+          label: '设置',
+          icon: Icons.settings_outlined,
+          selectedIcon: Icons.settings,
+          shortcutHint: 'Ctrl+6',
+          builder: () => const SettingsPage(),
         ),
       ],
       sidebarFooter: const _SidebarFooter(),
