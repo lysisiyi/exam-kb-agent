@@ -104,6 +104,41 @@ tags: [真题, 证明题]
       expect(r.problem!.fingerprint.length, 16);
     });
 
+    test('自动指纹与 domain 层是同一个实现（中文全角标点不会算出两个值）', () {
+      // ⚠️ 这条守着一个真实存在过的缺陷。
+      //
+      // `problem_markdown.dart` 里曾经有一份"看起来一样"的指纹算法副本，
+      // 注释还写着"与 domain/fingerprint.dart 保持一致"，但它漏掉了那边的
+      // `clean()` —— 全角标点归一、HTML 实体解码、不可见字符清除。
+      //
+      // 于是同一个题干经两条路径算出**不同**指纹：
+      //   - 用户在录入页打字 → ProblemDraft.fingerprint() → domain 版本
+      //   - 手工写 / 批量导入的 .md 没有 fingerprint 字段 → 副本版本
+      //
+      // 一旦不一致，`ProblemService.findByFingerprint` 永远查不到重复：
+      // 同一道题被存成两条，错题次数与 FSRS 进度分成两份，
+      // AI 标注缓存也会各花一次钱。而中文用全角标点是粘贴场景的常态。
+      const md = '''
+---
+id: manual-01
+subject: math1
+qtype: solve
+---
+
+## 题干
+
+求极限，当 \$x\\to0\$ 时 \$\\dfrac{\\sin x}{x}\$ 的值（重要）。
+''';
+      final r = parser.parse(md, fallbackId: 'manual-01');
+      expect(r.isOk, isTrue);
+      expect(r.problem!.fingerprint, isNotEmpty);
+      expect(
+        r.problem!.fingerprint,
+        ProblemFingerprint.compute(r.problem!.stem),
+        reason: '解析器算出的指纹必须与 domain 层一致，否则查重会失效',
+      );
+    });
+
     test('YAML 语法损坏 → 逐行抢救标量字段', () {
       // yaml 库会在这种缩进下抛错；抢救逻辑应把标量读出来
       const md = '''

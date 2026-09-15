@@ -31,6 +31,7 @@ import 'package:flutter/foundation.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'capabilities.dart';
+import 'startup_log.dart';
 
 /// 最小窗口尺寸。
 ///
@@ -71,11 +72,20 @@ Future<void> initDesktopWindow({
 /// 跑一步窗口操作，失败只记日志。
 ///
 /// 见类文档：窗口尺寸是体验，不是功能，绝不能阻止 App 启动。
+///
+/// ## 两条通道都要走
+///
+/// `debugPrint` 只在挂了调试器时看得见 —— 而本项目的目标环境恰恰是
+/// **双击启动的 Windows Release 版**，那里连 stdout 都没有。
+/// 所以同时写进 [StartupLog]（`<题库>/startup.log`）：
+/// 否则"窗口没出来 / 窗口小得没法用"这类问题在用户机器上**零线索**，
+/// 而这段代码的全部意义就是处理这种情况。
 Future<void> _guard(String step, Future<void> Function() action) async {
   try {
     await action();
-  } catch (e) {
+  } catch (e, st) {
     debugPrint('[窗口] $step 失败，沿用系统默认：$e');
+    StartupLog.error('[窗口] $step 失败，沿用系统默认', e, st);
   }
 }
 
@@ -86,8 +96,25 @@ const WindowOptions _windowOptions = WindowOptions(
   title: '考研数学错题 Agent',
 );
 
-Future<void> _defaultReadyToShow(WindowOptions options) =>
-    windowManager.waitUntilReadyToShow(options, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
+/// 默认实现：等窗口就绪 → 显示 → 聚焦。
+///
+/// ## ⚠️ 不要把 show/focus 写进 `waitUntilReadyToShow` 的回调里
+///
+/// 那个回调的类型是 `void Function()`，`window_manager` 会**同步调用它
+/// 然后丢掉返回的 Future**。所以
+///
+/// ```dart
+/// // 错的：能编译，但失败永远捕获不到
+/// windowManager.waitUntilReadyToShow(o, () async {
+///   await windowManager.show();
+///   await windowManager.focus();
+/// });
+/// ```
+///
+/// 里的异步失败会变成"未处理的异步异常"：上面的 [_guard] 永远 catch 不到，
+/// 也就永远写不进 startup.log。按要求顺序 await 出来，这一步才真的被守住。
+Future<void> _defaultReadyToShow(WindowOptions options) async {
+  await windowManager.waitUntilReadyToShow(options);
+  await windowManager.show();
+  await windowManager.focus();
+}

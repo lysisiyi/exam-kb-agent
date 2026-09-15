@@ -262,13 +262,20 @@ class TagResult {
   /// 从模型输出的 JSON 构造，并**严格校验**。
   ///
   /// [candidateIds] 是召回层给出的合法 id 集合 —— 不在其中的一律拒绝。
+  ///
+  /// [priorWarnings] 用于**从缓存恢复**：缓存里存着上次校验留下的警告，
+  /// 而 [needsReview] 正是靠 `warnings.any(isBlockingWarning)` 判断
+  /// "必须人工确认"。若这里不把警告带回来，缓存命中时这个判据就只剩
+  /// 置信度一条 —— 于是同一个阻断性结果第一次会进人工确认队列、
+  /// 第二次却静默通过（见 `TagResultCodec.decode`）。
   factory TagResult.fromJson(
     Map<String, dynamic> j, {
     required Set<String> candidateIds,
     required double defaultConfidence,
     required String extractionStrategy,
+    Iterable<String> priorWarnings = const [],
   }) {
-    final warnings = <String>[];
+    final warnings = <String>[...priorWarnings];
 
     // ── primary ──
     var primaryId = '';

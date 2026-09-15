@@ -17,6 +17,8 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:yaml/yaml.dart';
 
+import '../../domain/fingerprint.dart';
+
 /// 知识点关联。
 class KnowledgeRef {
   /// 知识点 id，必须在知识点本体中存在。
@@ -617,30 +619,22 @@ class ProblemMarkdownParser {
     return 'self-${h.substring(0, 10)}';
   }
 
-  /// 指纹计算。与 `domain/fingerprint.dart` 保持一致的算法。
-  static String _computeFingerprint(String stem) {
-    final h = sha256.convert(utf8.encode(_canonicalForFingerprint(stem)));
-    return h.toString().substring(0, 16);
-  }
-
-  static String _canonicalForFingerprint(String input) {
-    var s = input;
-    s = s.replaceAll(RegExp(r'\$\$?'), '');
-    s = s.replaceAll(RegExp(r'\\(left|right|big|Big|bigg|Bigg)\b'), '');
-    s = s.replaceAll(RegExp(r'\\[dt]frac'), r'\frac');
-    // ⚠️ 同 fingerprint.dart：不能用 \b?（词边界断言不可加量词，会抛
-    //    FormatException: Nothing to repeat）。改用负向先行断言。
-    s = s.replaceAll(
-      RegExp(r'\\(?:displaystyle|textstyle|scriptstyle|limits|nolimits'
-          r'|quad|qquad|enspace|thinspace)(?![a-zA-Z])'
-          r'|\\[,;!:]'),
-      '',
-    );
-    s = s.replaceAll(RegExp(r'\\math(rm|it)\{d\}'), 'd');
-    s = s.replaceAll(RegExp(r'\\text\{d\}'), 'd');
-    s = s.replaceAll(RegExp(r'\s+'), '');
-    // 去掉全部标点。用 r'''...''' 三引号原始字符串以便安全包含 ' 和 "。
-    s = s.replaceAll(RegExp(r'''[,.!?;:()\[\]{}<>~\-—_/\\|"'`]'''), '');
-    return s.toLowerCase();
-  }
+  /// 指纹计算。
+  ///
+  /// ⚠️ **必须**转发到 [ProblemFingerprint.compute]，不能在这里再写一份。
+  ///
+  /// 这里曾经有一份"看起来一样"的副本，注释还写着"与 domain/fingerprint.dart
+  /// 保持一致的算法" —— 但它漏掉了那边的 `clean()` 步骤（全角标点归一、
+  /// HTML 实体解码、不可见字符清除）。于是同一个题干经两条路径算出**不同**指纹：
+  ///
+  /// - 用户在录入页打字 → `ProblemDraft.fingerprint()` → domain 版本
+  /// - 手工写/导入的 `.md` 没有 `fingerprint:` 字段 → 这里 → 副本版本
+  ///
+  /// 一旦不一致，`ProblemService.findByFingerprint` 就查不到重复：
+  /// 同一道题会被存成两条，`user_problem_state` 里的错题次数与 FSRS 进度
+  /// 分成两份，AI 标注缓存也会各花一次钱。
+  ///
+  /// 而"中文用全角标点"恰恰是最常见的情况（Word / 网页粘贴）。
+  static String _computeFingerprint(String stem) =>
+      ProblemFingerprint.compute(stem);
 }

@@ -100,19 +100,28 @@ class ReminderService {
 
 /// 极小的设置序列化。
 ///
-/// 只存三个标量。这里**刻意不用 `dart:convert`** 也不引 codegen——
-/// 一个三字段的设置引入一套 JSON 依赖不划算，而手写映射在这里是可读的。
+/// 只存几个标量。这里**刻意不用 `dart:convert`** 也不引 codegen——
+/// 一个四字段的设置引入一套 JSON 依赖不划算，而手写映射在这里是可读的。
 ///
 /// ⚠️ **键名必须与 `ReminderScheduler.restoreFromJson` 读的键完全一致。**
 /// 这里踩过一次：编码写成 `last=`，解码回的是 `last`，
 /// 而 `restoreFromJson` 找的是 `lastNotified` —— 于是"今天提醒过了"
 /// 永远恢复不出来。表现是每次重启都重复提醒，且**没有任何报错**。
 /// 所以键名一律用 `toJson()` 里的名字，不做缩写。
+///
+/// ⚠️ **`enabled` 必须显式写出。** `hour` 为 null 有两种读法：
+/// "用户关掉了提醒" 与 "这个键没写进去/写坏了"。只存 `hour=` 的话
+/// 解码端分不清，于是关掉的提醒会在重启后自己回到默认的 20:00。
 String _encode(Map<String, dynamic> m) {
   final hour = m['hour'];
   final minute = m['minute'];
   final last = m['lastNotified'];
-  return 'hour=$hour;minute=$minute;lastNotified=${last ?? ''}';
+  // hour 为 null 即关闭（`ReminderScheduler.enabled` 的定义）
+  final enabled = hour == null ? 'off' : 'on';
+  return 'enabled=$enabled;'
+      'hour=${hour ?? ''};'
+      'minute=${minute ?? ''};'
+      'lastNotified=${last ?? ''}';
 }
 
 Map<String, dynamic> _decode(String s) {
@@ -122,10 +131,18 @@ Map<String, dynamic> _decode(String s) {
     if (i <= 0) continue;
     final k = part.substring(0, i);
     final v = part.substring(i + 1);
-    if (k == 'hour' || k == 'minute') {
-      out[k] = int.tryParse(v);
-    } else if (k == 'lastNotified') {
-      out[k] = v.isEmpty ? null : v;
+    switch (k) {
+      case 'enabled':
+        out['enabled'] = v != 'off';
+      case 'hour':
+      case 'minute':
+        // 解析不出数字（空串、垃圾、或是关闭时写的空值）时
+        // **不放这个键** —— 让 restoreFromJson 保持默认，
+        // "关闭"这件事由上面的 enabled 负责表达。
+        final n = int.tryParse(v);
+        if (n != null) out[k] = n;
+      case 'lastNotified':
+        out[k] = v.isEmpty ? null : v;
     }
   }
   return out;

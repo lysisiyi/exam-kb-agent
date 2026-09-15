@@ -75,6 +75,16 @@ class _EntryPageState extends ConsumerState<EntryPage> {
   /// 而不是当成"编辑同一道题"。
   String? _editingId;
 
+  /// 题目所属科目。
+  ///
+  /// 表单里没有科目选择器（V1 固定数学一），但这个值**必须**从被编辑的题目
+  /// 原样带回去。早先 `_draft()` 没传 subject，于是它总是回落到
+  /// `ProblemDraft` 的默认值 `math1` —— 编辑一道数二/数三的题会把
+  /// frontmatter 里的 `subject: math2` 悄悄改写成 `math1`，
+  /// 那道题随即从组卷的同科目候选池里消失（`PaperRepository.candidates`
+  /// 按 subject 过滤），而用户看不到任何提示。
+  String _subject = 'math1';
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +95,7 @@ class _EntryPageState extends ConsumerState<EntryPage> {
   /// 把草稿填进表单（编辑已有题目）。
   void _loadDraft(ProblemDraft d) {
     _editingId = d.id;
+    _subject = d.subject;
     _stem.text = d.stem;
     _answer.text = d.answer ?? '';
     _solution.text = d.solution ?? '';
@@ -131,6 +142,7 @@ class _EntryPageState extends ConsumerState<EntryPage> {
 
   ProblemDraft _draft() => ProblemDraft(
         id: _editingId,
+        subject: _subject,
         qtype: _qtype,
         difficulty: _difficulty,
         stem: _stem.text,
@@ -178,14 +190,43 @@ class _EntryPageState extends ConsumerState<EntryPage> {
     _stemFocus.requestFocus();
   }
 
+  /// 保存入口。**唯一**持有 [_saving] 闸门的地方。
+  ///
+  /// 两道防线：
+  ///
+  /// 1. **重入**：保存要写 Markdown、重建索引、补建复习卡，全程可见地慢。
+  ///    [_saving] 必须等到这一整套动作都结束才复位 —— 早先是 Markdown
+  ///    一落盘就复位，于是按钮在"索引还没刷完"时重新可用，
+  ///    第二次点击会与第一次并发：查重会看到自己刚写的那一行，
+  ///    于是给用户弹一个"这道题已经录过了"的对话框 —— 而那正是他刚存成功的题。
+  ///
+  /// 2. **异常**：这里是全应用唯一一处没有 try/catch 的保存路径（导出的两处都有）。
+  ///    `ProblemService.save` 只在写文件那一段兜了 `FileSystemException`，
+  ///    取 provider、`fileFor`、`draft.build`、drift 调用都在它之外 ——
+  ///    任何一处抛出来，`_saving` 就永远停在 true：按钮变灰、转圈不停、
+  ///    没有任何报错，用户只能重启应用，而且题干全丢。
   Future<void> _save({bool overwrite = false}) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await _runSave(overwrite: overwrite);
+    } catch (e) {
+      if (mounted) _snack('保存失败：$e', error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// 真正的保存流程。
+  ///
+  /// 与 [_save] 分开是因为"确认覆盖"要再走一遍同样的流程，
+  /// 而 [_save] 的重入闸门会挡住这种自调用。
+  Future<void> _runSave({required bool overwrite}) async {
     final service = await ref.read(problemServiceProvider.future);
     if (!mounted) return;
-    setState(() => _saving = true);
 
     final outcome = await service.save(_draft(), overwriteExisting: overwrite);
     if (!mounted) return;
-    setState(() => _saving = false);
 
     if (!outcome.ok) {
       if (outcome.duplicates.isNotEmpty) {
@@ -225,16 +266,28 @@ class _EntryPageState extends ConsumerState<EntryPage> {
             ],
           ),
         );
-        if (again == true) {
-          await _save(overwrite: true);
-        }
+        if (again == true) await _runSave(overwrite: true);
       } else {
         _snack(outcome.error ?? '保存失败', error: true);
       }
       return;
     }
 
-    _snack('已保存：${outcome.problem!.id}');
+    final id = outcome.problem!.id;
+
+    // 编辑时指纹可能撞上**别的**题目。服务层刻意不阻断（保存仍然算成功），
+    // 但它是一条真正的警告：题库里会留下两道指纹相同的题，
+    // 查重从此对它们失效，复习进度也会分成两份。
+    // 早先这里只读 `!outcome.ok` 分支里的 duplicates，成功路径上的提示被丢掉了。
+    if (outcome.duplicates.isNotEmpty) {
+      _snack(
+        '已保存：$id，但题库里还有题干相同的题'
+        '（${outcome.duplicates.map((d) => d.id).join('、')}）',
+        error: true,
+      );
+    } else {
+      _snack('已保存：$id');
+    }
 
     // 给新题建一张复习卡（幂等：已有的不动）。
     // 放在这里而不是"打开复习页时才补"，是为了让保存后立刻统计得到。
@@ -307,17 +360,37 @@ class _EntryPageState extends ConsumerState<EntryPage> {
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: _stem,
-          focusNode: _stemFocus,
-          autofocus: true,
-          minLines: 4,
-          maxLines: 12,
-          onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-            hintText: r'例：求 $\displaystyle\lim_{x\to0}\frac{\sin x-x\cos x}{x^{3}}$。',
-            border: OutlineInputBorder(),
-            alignLabelWithHint: true,
+        // Ctrl+M = 把选中文字包进 $...$。
+        //
+        // 这一处**必须**真的装上：提示文案（上面的 _SectionTitle）明确告诉了
+        // 用户按 Ctrl+M。早先 InlineMathIntent / InlineMathAction /
+        // kInlineMathShortcut 三者都定义好了，却没有任何地方把它们接上去 ——
+        // 于是用户按了没反应，也没有报错，只是静默失效。
+        //
+        // 嵌套顺序不能反：`Shortcuts` 派发时会从**当前焦点**往上找 Actions，
+        // 所以 Actions 必须在 TextField 与 Shortcuts 之间。
+        Shortcuts(
+          shortcuts: const <ShortcutActivator, Intent>{
+            kInlineMathShortcut: InlineMathIntent(),
+          },
+          child: Actions(
+            actions: <Type, Action<Intent>>{
+              InlineMathIntent: InlineMathAction(_stem),
+            },
+            child: TextField(
+              controller: _stem,
+              focusNode: _stemFocus,
+              autofocus: true,
+              minLines: 4,
+              maxLines: 12,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                hintText:
+                    r'例：求 $\displaystyle\lim_{x\to0}\frac{\sin x-x\cos x}{x^{3}}$。',
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 8),

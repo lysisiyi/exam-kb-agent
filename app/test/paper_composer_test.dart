@@ -550,11 +550,21 @@ void main() {
       expect(real.countsByQtype['choice'], 10);
       expect(real.countsByQtype['fill'], 6);
       expect(real.countsByQtype['solve'], 6);
-      // 满分要对得上：10*5 + 6*5 + 6*12 = 50+30+72 = 152
-      // 数据里 total_score 写 150（真题实际分值），解答题那节有说明
+      // 分值必须与 total_score 对得上 —— 这条不变量比具体数字更重要。
+      //
+      // 这里原先断言解答题合计 72，并注明"10*5 + 6*5 + 6*12 = 152，而
+      // 数据里 total_score 写 150" —— 也就是说测试**记录了**数据的不一致
+      // 却没有要求修好它。后果是模板列表写着"满分 150"、
+      // 预览与 PDF 印的是 152。
+      // 现在解答题用 score_pattern 表达真题实际的 10 + 12×5 = 70 分。
       expect(real.scoresByQtype['choice'], 50);
       expect(real.scoresByQtype['fill'], 30);
-      expect(real.scoresByQtype['solve'], 72);
+      expect(real.scoresByQtype['solve'], 70);
+      expect(
+        real.scoresByQtype.values.reduce((a, b) => a + b),
+        real.totalScore,
+        reason: '各题型分值之和必须等于模板声明的满分',
+      );
     });
 
     test('真实模板的难度是递增的（真题手感）', () async {

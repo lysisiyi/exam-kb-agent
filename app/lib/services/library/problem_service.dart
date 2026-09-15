@@ -271,9 +271,15 @@ class ProblemService {
   }
 
   /// 题库总量。
+  ///
+  /// 用 `COUNT(*)` 而不是取回全部行再数长度：`problems_index` 每行都带着
+  /// `stem_text` 与 `search_tokens`（分词后的全文），5000 道题那是几 MB 的
+  /// 字符串被反序列化出来，只为得到一个整数。
   Future<int> count() async {
-    final rows = await db.select(db.problemsIndex).get();
-    return rows.length;
+    final row = await db
+        .customSelect('SELECT COUNT(*) AS c FROM problems_index')
+        .getSingle();
+    return row.read<int>('c');
   }
 
   static String _preview(String s) {

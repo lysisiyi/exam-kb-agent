@@ -162,7 +162,14 @@ class PaperRepository {
   /// 保存一份组卷结果。
   Future<String> save(PaperResult result, {String? title, DateTime? now}) async {
     final ts = now ?? DateTime.now();
-    final id = 'paper-${ts.millisecondsSinceEpoch}';
+    // ⚠️ 用**微秒**而不是毫秒。
+    //
+    // `papers.id` 是主键，而这里用的是一个普通 `insert`（不是 upsert）。
+    // 毫秒精度下，同一毫秒内的两次保存会算出同一个 id，
+    // 第二次直接撞主键抛 `SqliteException: UNIQUE constraint failed` ——
+    // 用户看到的是一条看不懂的红色报错，而那次保存其实**成功了**。
+    // 微秒级撞车在实践中不会发生。
+    final id = 'paper-${ts.microsecondsSinceEpoch}';
 
     await db.into(db.papers).insert(
           PapersCompanion.insert(

@@ -103,18 +103,43 @@ class _ProblemsPageState extends ConsumerState<ProblemsPage> {
             builder: (_) => EntryPage(initial: ProblemDraft.fromProblem(read.problem!)),
           ),
         );
-        if (mounted) setState(() {}); // 回来后刷新列表
+        _refresh(); // 回来后刷新列表（题干可能已经改了）
       case 'wrong':
-        final repo = await ref.read(reviewRepositoryProvider.future);
-        await repo.recordWrong(problemId);
+        try {
+          final repo = await ref.read(reviewRepositoryProvider.future);
+          await repo.recordWrong(problemId);
+        } catch (e) {
+          if (mounted) _snack('记错失败：$e', error: true);
+          return;
+        }
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已记一次错')),
-        );
-        setState(() {});
+        _snack('已记一次错');
+        _refresh();
       case 'delete':
         await _confirmDelete(problemId, read.problem!);
     }
+  }
+
+  /// 让列表与侧边栏角标重新取数。
+  ///
+  /// ⚠️ 只调 `setState` 是**不够**的。列表内容来自 `problemListProvider`
+  /// （FutureProvider），Riverpod 会缓存它的结果 —— 重建 widget 只会拿到
+  /// 同一份旧快照。后果是删掉一道题之后它仍留在列表里，
+  /// 用户会以为删除失败了，于是再删一次。
+  void _refresh() {
+    ref.invalidate(problemListProvider);
+    ref.invalidate(reviewStatsProvider);
+    if (mounted) setState(() {});
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: error ? Theme.of(context).colorScheme.error : null,
+      ),
+    );
   }
 
   Future<void> _confirmDelete(String problemId, Problem p) async {
@@ -153,13 +178,19 @@ class _ProblemsPageState extends ConsumerState<ProblemsPage> {
     );
     if (ok != true || !mounted) return;
 
-    final service = await ref.read(problemServiceProvider.future);
-    final removed = await service.delete(problemId);
+    final bool removed;
+    try {
+      final service = await ref.read(problemServiceProvider.future);
+      removed = await service.delete(problemId);
+    } catch (e) {
+      // 删除要动四张表再删文件，中途抛异常时早先没有任何提示 ——
+      // 异常直接进 FlutterError，用户看到的是一个什么都没发生的界面。
+      if (mounted) _snack('删除失败：$e', error: true);
+      return;
+    }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(removed ? '已删除' : '删除失败（文件可能已不在）')),
-    );
-    setState(() {});
+    _snack(removed ? '已删除' : '删除失败（文件可能已不在）', error: !removed);
+    _refresh();
   }
 }
 

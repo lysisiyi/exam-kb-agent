@@ -24,6 +24,8 @@ library;
 
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 /// 启动日志。所有方法都不抛异常。
 class StartupLog {
   const StartupLog._();
@@ -38,8 +40,24 @@ class StartupLog {
 
   /// 绑定到某个目录下的 `startup.log`。
   ///
-  /// 目录不存在时会尝试创建；失败则日志静默降级为"内存里攒着"。
+  /// 目录不存在时会尝试创建；**创建失败则回退到系统临时目录**。
+  ///
+  /// ## 为什么必须有回退
+  ///
+  /// 类的文档说失败时"静默降级为内存里攒着"，但 `_pending` 只在 [bindTo]
+  /// 里被清空，而 `main()` 只调用它一次 —— 没有重试、也没有第二个刷盘点。
+  /// 于是"题库目录建不出来"（这个仓库真实记录过的 errno 5 场景）发生时，
+  /// **包括那句解释它为什么建不出来在内的所有诊断信息，全都留在一个
+  /// 没人读的列表里**。诊断通道恰好在最需要它的故障下失效。
+  ///
+  /// 临时目录几乎总是可写的，把它当第二选择比什么都不留强得多。
   static void bindTo(Directory dir) {
+    if (_tryBind(dir)) return;
+    _tryBind(Directory(p.join(Directory.systemTemp.path, 'kaoyan_math_agent_log')));
+  }
+
+  /// 尝试绑定到 [dir]。成功返回 true。
+  static bool _tryBind(Directory dir) {
     try {
       if (!dir.existsSync()) dir.createSync(recursive: true);
       final f = File('${dir.path}${Platform.pathSeparator}startup.log');
@@ -55,8 +73,10 @@ class StartupLog {
       for (final msg in queued) {
         _write(msg);
       }
+      return true;
     } catch (_) {
-      // 日志不可用不影响启动
+      // 日志不可用不影响启动；交给调用方决定是否换一个目录再试
+      return false;
     }
   }
 

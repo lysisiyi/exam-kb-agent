@@ -8,12 +8,19 @@
 /// - 软偏好按优先级：① 用户的薄弱考点 ② 做错过的题 ③ 考频高的考点
 ///   ④ 考点多样性（同一考点别在一份卷里刷屏）
 ///
-/// ## 为什么是贪心 + 回溯，而不是精确求解
+/// ## 为什么用贪心，而不是精确求解
 ///
 /// 这是**指派问题**，理论上可以用匈牙利算法或整数规划求最优。
 /// 但个人题库是几百到几千条量级，而 V1_PLAN 明确写了「够用就好」：
-/// 贪心（每题位选当前得分最高的题）+ 少量回溯（选不出时退一步换掉）
-/// 在毫秒级出结果，质量差距用户感知不到。
+/// 贪心（按优先级给每个题位选当前得分最高的题）在毫秒级出结果，
+/// 质量差距用户感知不到。
+///
+/// ⚠️ **没有回溯。** 这里的注释曾经写着"贪心 + 少量回溯（选不出时退一步换掉）"，
+/// 但代码里从来没有回溯：某个题位挑不出题时**直接**进 `emptySeats`
+/// （见 `compose` 的主循环），不会回头换掉前面已经放好的题。
+/// 所以"题位填不满"是**必然**会发生的结果，而不是兜底 ——
+/// 这也正是所有空位都必须记进 `emptySeats`、所有放宽都必须记进
+/// `warnings` 的原因：用户得能从界面上一眼看出来。
 ///
 /// 真到 V2 要换 OR-Tools CP-SAT 时，**只需要换本文件** ——
 /// 协议在 `paper_models.dart`，与算法无关。
@@ -191,6 +198,7 @@ class PaperComposer {
     }
 
     _noteMissing(warnings, openSeats);
+    _noteTemplateScoreDrift(warnings, request.template);
     if (diversifiedSkips > 0) {
       warnings.add('为分散考点，$diversifiedSkips 个题位改用了其它考点的题');
     }
@@ -299,6 +307,23 @@ class PaperComposer {
     final msg = '第 ${seat.no} 题期望难度 ${seat.targetDifficulty}，'
         '实际抽到 ${pick.difficulty}';
     if (!w.contains(msg)) w.add(msg);
+  }
+
+  /// 模板自己声明的总分，与它各题位分值之和对不上时报出来。
+  ///
+  /// 这个检查不是多余的洁癖：`exam_templates.json` 的 `real_exam` 曾经
+  /// 声明 150 分，而三个大题加起来是 50 + 30 + 72 = **152** ——
+  /// 模板列表上写着"满分 150"，预览与 PDF 里印的却是 152。
+  /// 数据写错一次就会有第二次，所以让引擎自己盯着这个不变量：
+  /// 对不上时用户至少能从"组卷说明"里看到。
+  static void _noteTemplateScoreDrift(List<String> w, PaperTemplate t) {
+    final declared = t.totalScore;
+    if (declared == null) return; // 错题专练：总分本就由抽到的题决定
+    final sum = t.seats.fold<int>(
+        0, (s, seat) => s + (seat.score ?? kFallbackScorePerItem));
+    if (sum == declared) return;
+    w.add('模板「${t.name}」声明满分 $declared 分，但各题位分值合计为 $sum 分 —— '
+        '这是模板数据的问题，请以此处的 $sum 分为准');
   }
 
   static void _noteMissing(List<String> w, List<PaperSeat> empty) {

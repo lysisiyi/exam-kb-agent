@@ -119,6 +119,49 @@ void main() {
       expect(texts(tex), ['记为']);
       expect(chunks.length, 3, reason: '公式 / 文本 / 公式');
     });
+
+    // ── 嵌套在一层花括号参数里：一律不许切 ──────────────────────────────
+    //
+    // 这是一组回归用例，对应一个真实存在过的缺陷：早先 `_isTopLevel` 只看
+    // `\text` **紧挨着的前一个字符**，于是"第二个参数"和"跟在别的东西后面"
+    // 这些写法全被误判成顶层。摘出来之后外层分组被切成两半，每一段单独都
+    // 不能解析 —— katex 把整条公式降级成红色乱码。
+    //
+    // 也就是说：本该"让中文别显示成方框"的功能，把排版正常的公式弄坏了。
+    // 下面四条都取自真实语料（`math1.json` 的概率论公式）。
+    group('嵌在花括号参数里时一律不切（取自语料的回归用例）', () {
+      test(r'\frac 的第一个参数', () {
+        const tex = r'P(A)=\frac{A\ \text{包含的样本点数}}{\text{样本点总数}}';
+        expect(splitLatexText(tex).length, 1,
+            reason: r'切开会得到 "\frac{A\ " / "}{" / "}"，三段都不能单独解析');
+      });
+
+      test(r'\frac 的第二个参数（前一个字符是 }）', () {
+        const tex =
+            r'P(A)=\frac{A\ \text{包含的样本点数}}{\Omega\ \text{中样本点总数}}';
+        expect(splitLatexText(tex).length, 1);
+      });
+
+      test(r'\underbrace 的标注（在 _{...} 里面）', () {
+        const tex = r'y^{(n)}=\underbrace{\int\cdots\int}_{n\ \text{次}}f(x)\,dx';
+        expect(splitLatexText(tex).length, 1);
+      });
+
+      test(r'上下两层 \frac 的参数都含中文', () {
+        const tex =
+            r'P(A)=\frac{k}{n}=\frac{\text{有利于}\ A\ \text{的基本事件数}}{\text{基本事件总数}}';
+        expect(splitLatexText(tex).length, 1);
+      });
+
+      test('没有花括号的下标也不切', () {
+        const tex = r'S_\text{侧}';
+        expect(splitLatexText(tex).length, 1, reason: r'"S_" 单独一段无法解析');
+      });
+
+      test('顶层的仍然要切（别因为保守把这条也拦掉）', () {
+        expect(texts(r'\text{甲}\ \text{乙}'), ['甲', '乙']);
+      });
+    });
   });
 
   // ───────────────────────────────────────────────────────────────────────────

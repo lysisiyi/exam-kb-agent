@@ -155,5 +155,45 @@ void main() {
       );
       expect(d.at, '7:30');
     });
+
+    test('关掉提醒后重启，仍然是关着的', () async {
+      // ⚠️ 曾经的行为正好相反：`hour == null` 就是"关闭"（见 `enabled`），
+      // 但 `_encode` 把它写成 `hour=null`，读回来时被当成"解析不出数字"
+      // 而**回落到默认的 20:00** —— 用户关掉提醒、重启、它自己又开了。
+      //
+      // 所以编码里必须有一个显式的 `enabled` 标记：
+      // "用户关掉了" 与 "这个键没写进去/写坏了" 是两件事。
+      final off = ReminderService(
+        db: env.db,
+        scheduler: ReminderScheduler(hour: null, minute: null),
+      );
+      await off.markNotified(now: DateTime(2024, 6, 1, 20, 30));
+
+      final reloaded = ReminderService(
+        db: env.db,
+        // 故意给一个"开着的"初值，好让"没恢复出来"和"恢复成关闭"能区分
+        scheduler: ReminderScheduler(hour: 9, minute: 0),
+      );
+      await reloaded.load();
+
+      expect(reloaded.scheduler.enabled, isFalse);
+      expect(reloaded.scheduler.hour, isNull);
+      expect(reloaded.scheduler.minute, isNull);
+      expect(
+        (await reloaded.decide(dueCount: 5, now: DateTime(2024, 6, 2, 21)))
+            .notify,
+        isFalse,
+      );
+    });
+
+    test('关闭状态写进 meta 时带上 enabled=off', () async {
+      await ReminderService(
+        db: env.db,
+        scheduler: ReminderScheduler(hour: null, minute: null),
+      ).markNotified(now: DateTime(2024, 6, 1, 20, 30));
+
+      final raw = await env.db.readMeta(kReminderMetaKey);
+      expect(raw, contains('enabled=off'));
+    });
   });
 }

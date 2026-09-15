@@ -58,6 +58,24 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
   /// 累计已评分数（本次会话）。
   int _graded = 0;
 
+  /// 是否正在写入一次评分。
+  ///
+  /// ## 为什么必须有这道闸
+  ///
+  /// 评分要等一次 sqlite 写入（还要写 review_logs）。在 await 期间
+  /// [_revealed] 仍然是 true，于是"可以评分"这个前置条件对**同一张卡**
+  /// 依然成立 —— 而 `CallbackShortcuts` 对长按产生的 `KeyRepeatEvent`
+  /// 同样会触发回调。所以手指在 1/2/3 上多停一会儿就会对同一张卡并发评分：
+  ///
+  /// - 同一次复习写出多条 `review_logs`
+  /// - `wrong_count` 被重复累加（用户看到"错了 5 次"但只错了一次）
+  /// - 每次调用都会 `_index++`，把后面的卡**直接跳过** ——
+  ///   那张卡的 FSRS 状态永远不会被写入，等于凭空消失
+  ///
+  /// 因为 `user_problem_state` 有主键，重复写不会崩、也不会多出卡片行，
+  /// 所以手工点是测不出来的：症状只是调度慢慢变得不对。
+  bool _grading = false;
+
   /// 本题开始计时，用于 `review_logs.elapsed_ms`。
   DateTime _shownAt = DateTime.now();
 
@@ -127,51 +145,57 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
 
   Future<void> _grade(Rating rating) async {
     final card = _current;
-    if (card == null || !_revealed) return;
-
-    final elapsed = DateTime.now().difference(_shownAt).inMilliseconds;
-    final repo = await ref.read(reviewRepositoryProvider.future);
-    final GradeResult result;
+    if (card == null || !_revealed || _grading) return;
+    _grading = true;
     try {
-      result = await repo.grade(
-        problemId: card.problemId,
-        rating: rating,
-        elapsedMs: elapsed,
-      );
-    } catch (e) {
+      final elapsed = DateTime.now().difference(_shownAt).inMilliseconds;
+      final repo = await ref.read(reviewRepositoryProvider.future);
+      final GradeResult result;
+      try {
+        result = await repo.grade(
+          problemId: card.problemId,
+          rating: rating,
+          elapsedMs: elapsed,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('评分写入失败：$e')),
+        );
+        return;
+      }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('评分写入失败：$e')),
-      );
-      return;
-    }
-    if (!mounted) return;
 
-    final next = describeDue(result.nextDue);
-    setState(() {
-      _index++;
-      _revealed = false;
-      _graded++;
-      _shownAt = DateTime.now();
-    });
-    ref.invalidate(reviewStatsProvider);
+      final next = describeDue(result.nextDue);
+      setState(() {
+        _index++;
+        _revealed = false;
+        _graded++;
+        _shownAt = DateTime.now();
+      });
+      ref.invalidate(reviewStatsProvider);
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          duration: const Duration(milliseconds: 1400),
-          content: Text(
-            rating == Rating.forgot
-                ? '记下了 —— $next 再见'
-                : '${rating.label} · 下次 $next',
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            duration: const Duration(milliseconds: 1400),
+            content: Text(
+              rating == Rating.forgot
+                  ? '记下了 —— $next 再见'
+                  : '${rating.label} · 下次 $next',
+            ),
           ),
-        ),
-      );
+        );
+    } finally {
+      _grading = false;
+    }
   }
 
   /// 跳过：不改 FSRS 状态，本题留在队列里下次还会出现。
   void _skip() {
+    // 评分写入期间不允许跳过：否则 _index 会被推进两次，中间那张卡被吞掉
+    if (_grading) return;
     setState(() {
       _index++;
       _revealed = false;

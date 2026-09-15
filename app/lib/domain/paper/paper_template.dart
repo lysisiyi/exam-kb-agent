@@ -85,6 +85,16 @@ class PaperTemplateLoader {
       final diffs = (sec['difficulty'] as List? ?? const [])
           .map((e) => (e as num?)?.toInt())
           .toList();
+      // 逐个题位的分值。与 `difficulty` 同一套写法（按题号顺序），
+      // 为的是能表达"同一道大题里各题分值不同"—— 2023 年后的真题解答题
+      // 正是这样（一道 10 分 + 五道 12 分 = 70 分）。
+      //
+      // 只给 `score_per_item` 是不够的：全按 12 分算会得到 72 分，
+      // 于是整卷变成 152 分，而模板上写着"150 分"——
+      // 用户会看到预览里的总分与模板名不符，且没有任何解释。
+      final scorePattern = (sec['score_pattern'] as List? ?? const [])
+          .map((e) => (e as num?)?.toInt())
+          .toList();
 
       for (var i = 0; i < count; i++) {
         // 难度数组比题量短时按最后一档补齐，长时忽略多余项；
@@ -93,11 +103,16 @@ class PaperTemplateLoader {
             ? null
             : diffs[i < diffs.length ? i : diffs.length - 1];
 
+        // 分值同理：给了 score_pattern 就按题号取，否则全用 score_per_item
+        final score = scorePattern.isEmpty
+            ? scorePer
+            : scorePattern[i < scorePattern.length ? i : scorePattern.length - 1];
+
         seats.add(PaperSeat(
           no: no++,
           sectionName: name,
           qtype: qtype.isEmpty ? PaperSeat.anyQtype : qtype,
-          score: scorePer,
+          score: score,
           targetDifficulty: diff,
         ));
       }

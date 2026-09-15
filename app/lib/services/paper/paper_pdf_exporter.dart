@@ -59,13 +59,32 @@ class PdfExportResult {
   /// 因为非法 LaTeX 而降级成源码的公式数。
   ///
   /// 单独报出来而不是静默处理：用户看到某道题显示的是源码而不是公式时，
-  /// 要知道那是**数据的问题**（那条 LaTeX 不合法），不是 App 坏了。
+  /// 要知道那是**数据的问题**（那条 LaTeX 不合法或太长），不是 App 坏了。
   final int degradedFormulas;
+
+  /// 在题库里读不到、只能用摘要兜底的题目数。
+  ///
+  /// 这个必须报出来。读不到的题在**解析卷**里会连带丢掉答案、解析与选项 ——
+  /// 而解析卷的全部意义就是"做完对答案"。不提示的话，用户拿到的是一份
+  /// 缺答案的解析卷，还以为自己组的卷子没答案可给。
+  final int missingProblems;
+
+  /// 题干里引用了图片、但 PDF 里没有嵌入的题目数。
+  ///
+  /// 公式走位图，图片目前不走（`splitMarkdownPieces` 只切 `$...$`）。
+  /// 与其把 `![](images/x.png)` 原样印在卷子上，不如换成占位符并如实告知：
+  /// 要看原图请用 Markdown 包（`设置 → 导出题库`），那里图片是拷过去的。
+  final int omittedImages;
 
   /// 正文里含中文字符。
   ///
   /// `pdf` 包默认字体不含中日韩字形，所以这种情况要在结果里提示。
   /// 不提示的话用户会拿到一份满是空白的 PDF 而不知道为什么。
+  ///
+  /// ⚠️ 这个标志**恒为 true**：PDF 的页眉、页脚、页码、分区标题（"选择题
+  /// （共 10 题，50 分）"）、"答案"/"解析"标签全都是中文，由本文件自己写死。
+  /// 早先它只统计题目正文，于是"一道纯英文题"导出后会带着一堆乱码标签，
+  /// 而提示**不出现** —— 恰好是最需要提示的那种情况。
   final bool hasChinese;
 
   const PdfExportResult({
@@ -73,7 +92,9 @@ class PdfExportResult {
     required this.bytes,
     required this.problems,
     this.degradedFormulas = 0,
-    this.hasChinese = false,
+    this.missingProblems = 0,
+    this.omittedImages = 0,
+    this.hasChinese = true,
   });
 
   String get sizeText {
@@ -87,8 +108,12 @@ class PdfExportResult {
   /// 需要提醒用户的事（可能为空）。
   List<String> get caveats => [
         if (hasChinese) _chineseCaveat,
+        if (missingProblems > 0)
+          '$missingProblems 道题在题库里读不到（Markdown 文件缺失或损坏），这份卷子里它们只有题干摘要，没有答案与解析。可以先重建索引确认题库是否完整。',
+        if (omittedImages > 0)
+          '$omittedImages 道题的题干里有插图，PDF 里以「［图］」占位、未嵌入原图。需要带图的版本请用「设置 → 导出题库」导出 Markdown 包。',
         if (degradedFormulas > 0)
-          '$degradedFormulas 处公式的 LaTeX 不合法，已降级为等宽源码显示。',
+          '$degradedFormulas 处公式无法渲染（LaTeX 不合法或尺寸过大），已降级为等宽源码显示。',
       ];
 
   static const String _chineseCaveat =
@@ -109,7 +134,11 @@ class PaperPdfExporter {
   }) : rasterizer = rasterizer ?? FormulaRasterizer();
 
   int _degraded = 0;
-  bool _sawChinese = false;
+  int _missing = 0;
+  int _omittedImages = 0;
+
+  /// 题干里的图片引用。PDF 不嵌图，只记数并换成占位符。
+  static final RegExp _imageRef = RegExp(r'!\[([^\]]*)\]\(([^)]*)\)');
 
   /// 导出到 [target]。
   ///
@@ -124,8 +153,7 @@ class PaperPdfExporter {
     required File target,
     String? title,
   }) async {
-    _degraded = 0;
-    _sawChinese = false;
+    _resetCounters();
 
     final body = await _buildBody(paper, layout);
 
@@ -152,8 +180,16 @@ class PaperPdfExporter {
       bytes: bytes.length,
       problems: paper.items.length,
       degradedFormulas: _degraded,
-      hasChinese: _sawChinese,
+      missingProblems: _missing,
+      omittedImages: _omittedImages,
+      hasChinese: true,
     );
+  }
+
+  void _resetCounters() {
+    _degraded = 0;
+    _missing = 0;
+    _omittedImages = 0;
   }
 
   /// 只渲染第一页的字节，用于"导出前看一眼"而不落盘。
@@ -346,8 +382,11 @@ class PaperPdfExporter {
     // 题干
     if (problem == null) {
       // 读不到 Markdown 时用摘要兜底 —— 宁可显示得糙一点，
-      // 也不要让这道题在 PDF 里凭空消失
-      _note(item.stemText);
+      // 也不要让这道题在 PDF 里凭空消失。
+      //
+      // 但**必须计数**：解析卷版式下，这里会连带丢掉答案、解析与选项，
+      // 而解释卷的全部意义就是"做完对答案"。静默降级等于交付一份残卷。
+      _missing++;
       out.add(_indented(pw.Text(item.stemText, style: base)));
     } else {
       await _markdown(problem.stem, base, indent: 26, out: out);
@@ -421,9 +460,18 @@ class PaperPdfExporter {
     required double indent,
     required List<pw.Widget> out,
   }) async {
-    _note(src);
+    // 图片引用换成占位符。
+    //
+    // `splitMarkdownPieces` 只切 `$...$`，所以 `![图](images/x.png)` 会原样
+    // 落进 TextPiece —— 直接印出来就是一行 Markdown 源码，用户完全看不懂。
+    // 这里换成"［图］"并记数，导出结束后如实提示去看 Markdown 包。
+    final withPlaceholders = src.replaceAllMapped(_imageRef, (m) {
+      _omittedImages++;
+      final alt = (m.group(1) ?? '').trim();
+      return alt.isEmpty ? '［图］' : '［图：$alt］';
+    });
 
-    for (final p in splitMarkdownPieces(src)) {
+    for (final p in splitMarkdownPieces(withPlaceholders)) {
       switch (p) {
         case TextPiece(:final text):
           final t = text.trim();
@@ -454,8 +502,21 @@ class PaperPdfExporter {
             ));
             continue;
           }
+          // ⚠️ `dpi` 不能省。
+          //
+          // 一旦给 `pw.Image` 传了 width/height，`pdf` 包就走 **DPI 路径**：
+          // 它按 dpi（省略时默认 72）算出目标像素数，再 `copyResize` 缩放。
+          // 默认 72 的含义是"这张位图按 72 dpi 使用"，于是我们辛苦按 4 倍
+          // 光栅化出来的 56px 公式，会被**重新采样回 14px** 再嵌入 ——
+          // 打印出来就是糊的（`formula_rasterizer.dart` 承诺的 300 dpi 量级
+          // 完全没有兑现）。
+          // 把 dpi 按同样的倍数放大，`effectiveDpi` 才与位图实际密度一致，
+          // 包里的 `copyResize` 也就不会发生。
           final image = pw.Image(
-            pw.MemoryImage(img.png),
+            pw.MemoryImage(
+              img.png,
+              dpi: 72 * rasterizer.pixelRatio,
+            ),
             width: img.width,
             height: img.height,
           );
@@ -469,19 +530,6 @@ class PaperPdfExporter {
                 ? pw.Center(child: image)
                 : pw.Align(alignment: pw.Alignment.centerLeft, child: image),
           ));
-      }
-    }
-  }
-
-  /// 记下这段文本里有没有中文。
-  void _note(String s) {
-    if (_sawChinese) return;
-    for (final r in s.runes) {
-      if ((r >= 0x4E00 && r <= 0x9FFF) ||
-          (r >= 0x3000 && r <= 0x303F) ||
-          (r >= 0xFF00 && r <= 0xFFEF)) {
-        _sawChinese = true;
-        return;
       }
     }
   }

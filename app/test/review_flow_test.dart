@@ -34,6 +34,55 @@ void main() {
   tearDown(() => env.dispose());
 
   // ───────────────────────────────────────────────────────────────────────────
+  group('随手记错（recordWrong）', () {
+    // 错题次数是这套产品的核心信号：组卷加权、掌握度画像、列表排序都吃它。
+    // 它又只能靠用户手点，所以"少记一次"这种错非常难被发现 ——
+    // 用户不会去数自己点了几下，只会觉得"我明明错了好几次"。
+
+    test('第一次记错从 1 开始，之后逐次累加', () async {
+      await seedProblems(env, [
+        const SeedProblem(id: 'p-1', stem: '第一题', wrongCount: null),
+      ]);
+
+      await repo.recordWrong('p-1');
+      var state = (await env.db.select(env.db.userProblemState).get()).single;
+      expect(state.wrongCount, 1);
+      expect(state.lastWrong, isNotNull);
+
+      await repo.recordWrong('p-1');
+      state = (await env.db.select(env.db.userProblemState).get()).single;
+      expect(state.wrongCount, 2);
+    });
+
+    test('连点多次一次都不能少（读-改-写会丢增量）', () async {
+      await seedProblems(env, [
+        const SeedProblem(id: 'p-1', stem: '第一题', wrongCount: null),
+      ]);
+
+      // 早先是"先查出来 +1 再写回去"。这些调用会交错执行，
+      // 于是多次调用读到同一个 wrong_count，各写回 n+1 ——
+      // 点五次只记下三次，而且不报任何错。
+      // 现在是一条 `UPDATE ... SET wrong_count = wrong_count + 1`，
+      // 自增由 SQLite 完成，不存在读到旧值的窗口。
+      await Future.wait([
+        for (var i = 0; i < 5; i++) repo.recordWrong('p-1'),
+      ]);
+
+      final state =
+          (await env.db.select(env.db.userProblemState).get()).single;
+      expect(state.wrongCount, 5);
+    });
+
+    test('题目没有状态行时也会先把行建出来', () async {
+      await seedProblems(env, [
+        const SeedProblem(id: 'p-9', stem: '第九题', wrongCount: null),
+      ]);
+      await repo.recordWrong('p-9');
+      expect((await env.db.select(env.db.userProblemState).get()).length, 1);
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
   group('卡片对账（ensureCards）', () {
     test('索引里有、状态表里没有的题会被补建成新卡', () async {
       final report = await seedProblems(env, [
@@ -331,7 +380,18 @@ void main() {
       // 用户会以为今天不用再看了，正好把刚安排的学习步抹掉。
       final now = DateTime(2024, 6, 10, 12, 0);
       expect(describeDue(DateTime(2024, 6, 10, 12, 10), now: now), '10 分钟后');
-      expect(describeDue(DateTime(2024, 6, 10, 12, 0), now: now), '0 分钟后');
+      // 恰好到点 = 已到期，不是"0 分钟后"。
+      //
+      // 这里原先断言的是 '0 分钟后'，而那正是要修的那类文案：
+      // `Duration.inMinutes` 会截断，于是**已经过期**的卡（哪怕只过了 30 秒）
+      // 算出 minutes == 0，落进 `minutes < 0` 的否分支，显示成"0 分钟后"。
+      // 与 `FsrsScheduler.isDue`（`!due.isAfter(now)`）保持一致才对。
+      expect(describeDue(DateTime(2024, 6, 10, 12, 0), now: now), '已到期');
+      // 刚过期几秒也是"已到期"，不能因为不足一分钟就说"0 分钟后"
+      expect(
+        describeDue(DateTime(2024, 6, 10, 11, 59, 30), now: now),
+        '已到期',
+      );
     });
 
     test('小时级间隔说小时，并说清是"今天"还是"明天"', () {

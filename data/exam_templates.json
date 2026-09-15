@@ -36,9 +36,10 @@
             "start_no": 17,
             "count": 6,
             "score_per_item": 12,
-            "subtotal": 72,
+            "subtotal": 70,
+            "score_pattern": [10, 12, 12, 12, 12, 12],
             "difficulty": [2, 2, 2, 3, 3, 3],
-            "score_override_note": "实际真题解答题分值为 10-12 分不等（含一道 10 分、五道 12 分共 70 分）。此处统一按 12 分给足 72 分以凑满 150 分，导出时可按最后一题 -2 分调整。"
+            "score_override_note": "实际真题解答题为一题 10 分 + 五题 12 分 = 70 分。用 score_pattern 按题号给出，配合选择题 50 + 填空题 30，整卷正好 150 分。"
           }
         ]
       },
@@ -131,7 +132,8 @@
             "start_no": 17,
             "count": 6,
             "score_per_item": 12,
-            "subtotal": 72,
+            "subtotal": 70,
+            "score_pattern": [10, 12, 12, 12, 12, 12],
             "difficulty": [2, 2, 2, 3, 3, 3]
           }
         ]
@@ -224,7 +226,8 @@
             "start_no": 17,
             "count": 6,
             "score_per_item": 12,
-            "subtotal": 72,
+            "subtotal": 70,
+            "score_pattern": [10, 12, 12, 12, 12, 12],
             "difficulty": [2, 2, 2, 3, 3, 3]
           }
         ]

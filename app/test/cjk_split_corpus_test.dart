@@ -16,6 +16,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/core/math/latex_text_split.dart';
+import 'package:katex_dart/katex_dart.dart' show KatexOptions, renderToBox;
 
 /// 从本体 JSON 里递归取全部公式。
 List<String> _loadCorpus() {
@@ -86,6 +87,39 @@ void main() {
         }
       }
     }
+  });
+
+  test('每一个 LatexChunk 都能被 katex 单独解析', () {
+    // ⚠️ 这是本文件里**最重要**的一条断言，也是最容易被漏掉的一条。
+    //
+    // 只检查"片段非空"是不够的。曾经有一个真实缺陷长期潜伏：
+    // `_isTopLevel` 靠"`\text` 紧挨着的前一个字符是什么"来判断它能不能
+    // 被摘出来，于是对"第二个参数"这类写法全部误判 ——
+    //
+    //   \frac{A\ \text{包含的样本点数}}{\text{样本点总数}}
+    //                          ↑ 前面是 `}`，判定返回"可以摘"
+    //
+    // 切出来的是 `\frac{A\ ` / `}{` / `}`，**每一段单独都不能解析**，
+    // katex 于是把整条公式降级成红色的原始 LaTeX。
+    // 也就是说：这个功能本意是"让中文别显示成方框"，实际效果却是把
+    // 排版完全正常的公式变成乱码 —— 而"摘分率 96%"这个指标毫无异常。
+    //
+    // 唯一能抓住它的问题是："每一段自己能不能解析"。
+    var checked = 0;
+    for (final tex in corpus) {
+      if (!canSplit(tex)) continue;
+      for (final c in splitLatexText(tex)) {
+        if (c is! LatexChunk) continue;
+        checked++;
+        expect(
+          () => renderToBox(c.tex, options: const KatexOptions()),
+          returnsNormally,
+          reason: '公式「$tex」切出的 LaTeX 片段「${c.tex}」不能单独解析 —— '
+              '这会让整条公式在界面上变成红色乱码',
+        );
+      }
+    }
+    expect(checked, greaterThan(100), reason: '没有检查到足够多的 LaTeX 片段');
   });
 
   test('中文摘分不会把公式切成"只剩中文"（除非公式本来就只有中文）', () {

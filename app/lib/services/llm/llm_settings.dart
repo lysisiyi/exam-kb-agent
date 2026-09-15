@@ -39,7 +39,21 @@ class LlmSettings {
 
   static const LlmSettings none = LlmSettings(providerId: '', apiKey: '');
 
-  bool get isConfigured => providerId.isNotEmpty && apiKey.trim().isNotEmpty;
+  /// 是否已经到了"可以发起调用"的程度。
+  ///
+  /// ⚠️ **不能一律要求 Key 非空。** `ollama` 这类本地服务商
+  /// `requiresApiKey == false`，`LlmConfig.validate()` 也刻意接受空 Key
+  /// （见 `provider_registry.dart` 第 321 行与 tagger_test 里
+  /// "ollama 无 Key 也能通过校验"）。早先这里硬要 Key，后果是本地模型
+  /// **永远走不到调用**：`buildTagger` 返回 null，界面反复提示
+  /// "配置不完整，请检查服务商与 Key" —— 而用户刚刚被告知"该服务商无需 Key"。
+  /// 那条"完全离线、零成本"的路径因此形同虚设。
+  bool get isConfigured {
+    if (providerId.isEmpty) return false;
+    final s = spec;
+    if (s != null && !s.requiresApiKey) return true;
+    return apiKey.trim().isNotEmpty;
+  }
 
   LlmConfig toConfig() => LlmConfig(
         providerId: providerId,

@@ -107,10 +107,18 @@ class KnowledgeTagger {
   /// 标注一道题。
   Future<TagOutcome> tag(Problem problem) async {
     // ── 阶段 0：缓存 ──
+    //
+    // ⚠️ 缓存键只有 (fingerprint, model)，**不含科目**。而 fingerprint 只看题干，
+    // 数一/数三共用大量高数内容的题干 → 同一个 fingerprint 在两个科目下
+    // 可能指向不同的知识点 id 命名空间（`math1.*` / `math3.*`）。
+    // 所以命中缓存后必须回到**当前本体**再校验一次：
+    // 否则用户会拿到另一个科目的考点 id，保存时被 `validate()` 挡下来
+    // （"主考点不在知识点本体里"），而反复点「AI 标注」只会一直拿到同一个
+    // 缓存结果 —— 零成本、零提示、死循环。
     final fingerprint = problem.fingerprint;
     if (cache != null && fingerprint.isNotEmpty) {
       final hit = await cache!.get(fingerprint);
-      if (hit != null) {
+      if (hit != null && knowledge.byId.containsKey(hit.primaryKpId)) {
         return TagOutcome(
           result: hit,
           usage: LlmUsage.cached,
@@ -137,6 +145,11 @@ class KnowledgeTagger {
     final candidateIds = {for (final c in recall.candidates) c.point.id};
     final builder = TagPromptBuilder(knowledge: knowledge);
     var (system, user) = builder.build(problem: problem, recall: recall);
+
+    // 原始 prompt 留一份。重试时以**它**为基准拼接，而不是在上一次的结果上
+    // 继续追加 —— 否则第 3 次尝试的 prompt 里会带着两份过时的模型输出，
+    // 既白烧 token，又让模型分不清该改哪一份。
+    final baseUser = user;
 
     var usage = const LlmUsage();
     TagResult? lastResult;
@@ -169,7 +182,7 @@ class KnowledgeTagger {
       if (!extracted.ok) {
         allWarnings.addAll(extracted.warnings);
         if (attempt < maxAttempts) {
-          user = _retryPrompt(user, resp.text, extracted.warnings);
+          user = _retryPrompt(baseUser, resp.text, extracted.warnings);
           continue;
         }
         return TagOutcome(
@@ -208,16 +221,18 @@ class KnowledgeTagger {
 
       // 有阻断性问题 → 带错误信息重试
       if (attempt < maxAttempts) {
-        user = _retryPrompt(user, resp.text, blocking);
+        user = _retryPrompt(baseUser, resp.text, blocking);
         continue;
       }
     }
 
-    // 用尽重试次数：返回最后的结果（标记警告），让上层决定是否进人工队列
+    // 用尽重试次数：返回最后的结果（标记警告），让上层决定是否进人工队列。
+    //
+    // ⚠️ **刻意不写缓存**。这个结果的 `warnings` 里有阻断性问题
+    // （primary 不在候选集、primary 缺失等），也就是"这次标注没成功"。
+    // 把它缓存起来等于把一次失败固化：用户再点一次「AI 标注」会秒回同一个
+    // 坏结果、不花 token、也不再重试 —— 而正确的期待恰恰是"重试一次"。
     if (lastResult != null) {
-      if (cache != null && fingerprint.isNotEmpty) {
-        await cache!.put(fingerprint, lastResult);
-      }
       return TagOutcome(
         result: lastResult,
         usage: usage,
@@ -267,12 +282,29 @@ class KnowledgeTagger {
 /// 之所以独立成函数而不是写在 tagger 里：题目的知识点字段是
 /// **内容**（要写进 Markdown 文件），而用户状态是另一回事。
 /// 这个函数只负责把标注结果转成题目字段。
-Problem applyTagResult(Problem problem, TagResult tag) {
+///
+/// [confidenceThreshold] **必须由调用方给出**。这里曾经用一个硬编码的
+/// 0.70，注释还写着"用与 tagger 一致的规则判断门槛" —— 而实际生效的门槛是
+/// 校准出来的 0.90 / 0.92 / 0.95（见 `provider_registry.dart`）。
+/// 0.70 会把几乎所有低置信结果都标成"不用复核"，而这是一个**要写进
+/// Markdown frontmatter** 的字段：一旦写错，将来没有任何地方能发现它错了。
+/// 与其留一个能静默出错的默认值，不如要求调用方显式传。
+Problem applyTagResult(
+  Problem problem,
+  TagResult tag, {
+  required double confidenceThreshold,
+}) {
   final refs = <KnowledgeRef>[
     KnowledgeRef(id: tag.primaryKpId, role: 'primary', relevance: 1.0),
-    for (final s in tag.secondary)
-      KnowledgeRef(id: s.kpId, role: 'secondary', relevance: s.relevance),
   ];
+  // 次考点去重：主考点本身、以及次考点之间都可能重复。
+  // 重复项会变成 frontmatter 里两条一模一样的 knowledge 项，
+  // 并在派生表 `problem_knowledge` 里留下两行重复关联。
+  final seen = <String>{tag.primaryKpId};
+  for (final s in tag.secondary) {
+    if (s.kpId.isEmpty || !seen.add(s.kpId)) continue;
+    refs.add(KnowledgeRef(id: s.kpId, role: 'secondary', relevance: s.relevance));
+  }
 
   return problem.copyWith(
     knowledge: refs,
@@ -283,17 +315,8 @@ Problem applyTagResult(Problem problem, TagResult tag) {
     errorCauses: tag.errorCauses,
     aiTagged: true,
     aiConfidence: tag.confidence,
-    needsReview: tag.needsReview(_thresholdFor(tag)),
+    needsReview: tag.needsReview(confidenceThreshold),
   );
-}
-
-/// 用与 tagger 一致的规则判断门槛。
-///
-/// 抽成函数是为了让 [applyTagResult] 不依赖 client 实例。
-double _thresholdFor(TagResult tag) {
-  // 无法拿到 tier 时就按推荐档的 0.7；调用方通常会用
-  // KnowledgeTagger 的返回值直接判断，这个函数只服务于纯转换场景。
-  return 0.70;
 }
 
 /// 序列化/反序列化标注结果（用于写 `ai_cache` 表或日志）。
@@ -318,6 +341,7 @@ abstract final class TagResultCodec {
       final j = jsonDecode(s);
       if (j is! Map) return null;
       final m = j.cast<String, dynamic>();
+      final primary = m['primary']?.toString() ?? '';
       return TagResult.fromJson(
         {
           'primary': {
@@ -331,12 +355,20 @@ abstract final class TagResultCodec {
         },
         // 反序列化时不校验候选集（缓存里的结果已经校验过了）
         candidateIds: {
-          m['primary']?.toString() ?? '',
+          primary,
           for (final s in (m['secondary'] as List? ?? []))
             if (s is Map) s['kp_id']?.toString() ?? '',
         },
         defaultConfidence: 0.5,
         extractionStrategy: m['strategy']?.toString() ?? 'cache',
+        // ⚠️ 必须把警告带回来。早先 encode 写了 `warnings` 而 decode 从不读它，
+        // 于是缓存命中时 `needsReview` 只剩置信度一条判据：
+        // 一个"primary 不在候选集里"的阻断性结果，第一次会要求人工确认，
+        // 第二次（命中缓存）却静默通过 —— 而且用户看到的还是
+        // "命中本地缓存，未消耗 token"，完全没有察觉。
+        priorWarnings: (m['warnings'] as List? ?? const [])
+            .map((w) => w.toString())
+            .toList(),
       );
     } catch (_) {
       return null;

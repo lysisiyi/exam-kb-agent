@@ -131,7 +131,11 @@ enum LlmErrorKind {
         LlmErrorKind.serverError => '服务商暂时故障，稍后重试',
         LlmErrorKind.network => '无法连接该服务。国内使用 OpenAI / Claude / Gemini 通常需要代理',
         LlmErrorKind.timeout => '请求超时，可能是网络慢或题目过长',
-        LlmErrorKind.badResponse => '模型返回的内容无法解析，已记入待人工确认',
+        // ⚠️ 不要说"已记入待人工确认" —— 这条路径上**什么都没记**。
+        // 标注失败时 `KnowledgeTagger` 返回的是 failure，既没写 Markdown，
+        // 也没往 `needs_review` 或任何队列里放东西。
+        // 承诺一个不存在的队列，用户就会一直等一个永远不会出现的复核入口。
+        LlmErrorKind.badResponse => '模型返回的内容无法解析，请再点一次重试；若反复失败可换模型',
         LlmErrorKind.unknown => '未知错误',
       };
 }
@@ -376,8 +380,16 @@ class LlmClient {
       attempt++;
       try {
         final resp = await http.send(_buildRequest(request));
+        // ⚠️ 先记账，再校验内容。
+        //
+        // 一次 200 但"没有文本内容/JSON 不可解析"的响应**同样是要付费的** ——
+        // 服务商按 token 计费，不会因为我们解析失败就免单。
+        // 早先 `onUsage` 只在 `_parseResponse` 成功返回后才调用，
+        // 于是这条路径上的钱凭空消失，而 `tables.dart` 明确写着
+        // "这张表的行数就是真实调用次数" —— 用户在用量面板看到的数字是错的，
+        // 而且错得**偏低**（以为省钱，实际花了）。
+        _reportUsage(resp);
         final parsed = _parseResponse(resp, attempt);
-        if (onUsage != null) onUsage!(parsed.usage);
         return parsed;
       } on LlmException catch (e) {
         lastError = e;
@@ -505,6 +517,26 @@ class LlmClient {
   // ───────────────────────────────────────────────────────────────────────
   // 响应解析
   // ───────────────────────────────────────────────────────────────────────
+
+  /// 只要响应是 2xx 就把这次调用的用量报上去。
+  ///
+  /// 与 [_parseResponse] 分开的原因见 [chat] 里的调用点：
+  /// 记账不能等到内容校验通过 —— 内容不可用也一样计费。
+  ///
+  /// 非 2xx（鉴权失败、限流、参数错）通常不计费，因此直接跳过；
+  /// 重试的每一次尝试各记一次，因为每一次都真的发出去了。
+  ///
+  /// 内部吞掉所有异常：记不上账绝不能影响请求本身的成败。
+  void _reportUsage(HttpResponse resp) {
+    if (onUsage == null || !resp.isSuccess) return;
+    try {
+      final decoded = resp.json;
+      if (decoded is! Map) return;
+      onUsage!(_extractUsage(decoded));
+    } catch (_) {
+      // 见上：记账是旁路，不是请求的一部分
+    }
+  }
 
   ChatResponse _parseResponse(HttpResponse resp, int attempt) {
     if (!resp.isSuccess) {

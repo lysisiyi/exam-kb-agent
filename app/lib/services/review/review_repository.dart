@@ -197,24 +197,31 @@ class ReviewRepository {
   /// 这**不等于**复习评分 —— 复习评分走 [grade]，会更新 FSRS 间隔。
   Future<void> recordWrong(String problemId, {DateTime? now}) async {
     final ts = now ?? DateTime.now();
-    final existing = await _stateOf(problemId);
-    if (existing == null) {
+    await db.transaction(() async {
+      // 先确保有一行。wrongCount 显式给 0 —— 下面那条 UPDATE 会把它加到 1，
+      // 于是"第一次记错"和"第 N 次记错"走的是同一条路径。
       await db.into(db.userProblemState).insert(
             UserProblemStateCompanion.insert(
               problemId: problemId,
+              wrongCount: const Value(0),
               firstSeen: Value(ts),
-              lastWrong: Value(ts),
             ),
             mode: InsertMode.insertOrIgnore,
           );
-    } else {
-      await (db.update(db.userProblemState)
-            ..where((t) => t.problemId.equals(problemId)))
-          .write(UserProblemStateCompanion(
-        wrongCount: Value(existing.wrongCount + 1),
-        lastWrong: Value(ts),
-      ));
-    }
+      // ⚠️ 用 SQL 自增，不要"读出来 +1 再写回去"。
+      //
+      // 后者是**非原子**的读-改-写：连着点两次"再记一次错"会读到同一个
+      // `wrong_count`，两次都写 n+1 —— 用户点了四次却只看到 3 次，
+      // 而且不报任何错。错题次数是这套产品的核心信号（组卷加权、
+      // 掌握度画像都吃它），静默少记比报错更难发现。
+      await db.customUpdate(
+        'UPDATE user_problem_state '
+        'SET wrong_count = wrong_count + 1, last_wrong = ? '
+        'WHERE problem_id = ?',
+        variables: [Variable.withDateTime(ts), Variable.withString(problemId)],
+        updates: {db.userProblemState},
+      );
+    });
   }
 
   /// 删除一道题的状态行（题目被删时调用）。
@@ -303,9 +310,17 @@ class ReviewRepository {
     }
 
     final todayStart = DateTime(ts.year, ts.month, ts.day);
-    final logs = await db.select(db.reviewLogs).get();
-    final reviewedToday =
-        logs.where((l) => !l.reviewedAt.isBefore(todayStart)).length;
+    // ⚠️ 用 `COUNT(*)` 而不是"取回全部复习记录再在 Dart 里过滤"。
+    //
+    // `review_logs` 每评一次分长一行，长期使用后是几千到几万行；
+    // 而 `stats()` 每次打开复习页都会跑，侧边栏角标也读它。
+    // 把整张日志表读进内存只为数今天几条，是这条路径上最没必要的一次 IO。
+    final todayRow = await db.customSelect(
+      'SELECT COUNT(*) AS c FROM review_logs WHERE reviewed_at >= ?',
+      variables: [Variable.withDateTime(todayStart)],
+      readsFrom: {db.reviewLogs},
+    ).getSingle();
+    final reviewedToday = todayRow.read<int>('c');
 
     return ReviewStats(
       totalCards: states.length,
@@ -426,12 +441,19 @@ String describeDue(DateTime? due, {DateTime? now}) {
   if (due == null) return '未安排';
   final ts = now ?? DateTime.now();
 
-  final minutes = due.difference(ts).inMinutes;
-  if (minutes < 0) {
-    // 逾期文案按天给：不足一天时说"刚过期"比"已逾期 0 天"诚实
-    final overdueDays = -minutes ~/ (24 * 60);
+  // ⚠️ 先判断"是否已经过期"，**不能**用 `minutes < 0`。
+  //
+  // `Duration.inMinutes` 是截断的：刚过期 30 秒算出来是 0，
+  // 于是 `minutes < 0` 不成立、代码掉进 `minutes < 60` 分支，
+  // 显示成「0 分钟后」—— 一张**已经到期**的卡被说成还要再等 0 分钟。
+  // 这句话本身也不通顺，用户看到会以为界面坏了。
+  if (!due.isAfter(ts)) {
+    // 不足一天时说"已到期"比"已逾期 0 天"诚实
+    final overdueDays = ts.difference(due).inDays;
     return overdueDays == 0 ? '已到期' : '已逾期 $overdueDays 天';
   }
+
+  final minutes = due.difference(ts).inMinutes;
   if (minutes < 60) return '$minutes 分钟后';
   if (minutes < 24 * 60) return '${minutes ~/ 60} 小时后';
 

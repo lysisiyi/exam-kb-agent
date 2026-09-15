@@ -1322,7 +1322,7 @@ void main() {
         errorCauses: ['idea'],
       );
 
-      final applied = applyTagResult(problem, tag);
+      final applied = applyTagResult(problem, tag, confidenceThreshold: 0.9);
 
       expect(applied.knowledge.length, 2);
       expect(applied.primaryKnowledge!.id, 'math1.calc.limit.taylor');
@@ -1340,6 +1340,7 @@ void main() {
           primaryKpId: 'math1.calc.limit.taylor',
           confidence: 0.3,
         ),
+        confidenceThreshold: 0.9,
       );
       expect(applied.needsReview, isTrue);
     });

@@ -211,14 +211,28 @@ final problemListProvider =
       });
     case ProblemView.due:
       final now = DateTime.now();
-      // 新卡（没有 fsrs_state）永远算"待复习"，排在已安排的前面
-      final due = out.where((r) {
-        final at = dueOfState(r.state);
-        return at == null || !at.isAfter(now);
-      }).toList()
+      // ⚠️ 先把每道题的到期时间**算一次**存下来，再排序。
+      //
+      // 不要在比较器里直接调 `dueOfState`：那会对同一行反复做 JSON 解码，
+      // 总次数是 O(n log n) 量级 —— 5000 道题约 25 万次解码，
+      // 而这个排序要的只是一个整数的大小关系。由于 `dueQueueProvider`
+      // 之外没人做去抖，这段代码就卡在"点一下待复习"那一下。
+      final dueAt = <String, int>{
+        for (final r in out)
+          r.problemId: dueOfState(r.state)?.millisecondsSinceEpoch ?? 0,
+      };
+
+      // 新卡（没有 fsrs_state，记 0）永远算"待复习"，排在已安排的前面
+      final cutoff = now.millisecondsSinceEpoch;
+      final due = out
+          .where((r) {
+            final at = dueAt[r.problemId]!;
+            return at == 0 || at <= cutoff;
+          })
+          .toList()
         ..sort((a, b) {
-          final da = dueOfState(a.state)?.millisecondsSinceEpoch ?? 0;
-          final dbb = dueOfState(b.state)?.millisecondsSinceEpoch ?? 0;
+          final da = dueAt[a.problemId]!;
+          final dbb = dueAt[b.problemId]!;
           if (da == 0 && dbb != 0) return -1;
           if (da != 0 && dbb == 0) return 1;
           final byDue = da.compareTo(dbb);

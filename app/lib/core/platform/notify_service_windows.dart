@@ -144,7 +144,12 @@ class ReminderScheduler {
   /// 序列化（交给 `meta_entries` 表持久化）。
   ///
   /// 必须持久化：否则每次重启 App 都会重复提醒一次。
+  ///
+  /// ⚠️ 同时带上 `enabled`。`hour` 为 null 表示"用户把提醒关掉了"，
+  /// 而这件事必须能被读回来 —— 光靠 `hour` 这一列做不到，见
+  /// [restoreFromJson] 关于"显式 null"与"键缺失"的说明。
   Map<String, dynamic> toJson() => {
+        'enabled': enabled,
         'hour': hour,
         'minute': minute,
         'lastNotified': _lastNotifiedDate?.toIso8601String(),
@@ -152,22 +157,39 @@ class ReminderScheduler {
 
   /// 从持久化的 JSON 恢复。
   ///
-  /// ## 缺失的键不能覆盖成 null
+  /// ## 「键缺失」与「显式 null」是两件事
   ///
-  /// 这里**只覆盖出现的键**。早先的写法是 `hour = j['hour'] as num?` ——
-  /// 一旦持久化的内容缺 `hour`（或整段是垃圾被解析成空 map），
-  /// `hour` 就变成 null，也就是**静默地把提醒关掉了**。
-  /// 用户会看到提醒再也没出现过，而没有任何地方报错。
+  /// - **键缺失**（或值无法解析）→ 保持当前值。早先的写法是
+  ///   `hour = j['hour'] as num?` —— 一旦存档缺 `hour`，`hour` 就变成 null，
+  ///   也就是**静默地把提醒关掉了**，而且没有任何地方报错。
+  /// - **显式的 null** → 用户主动关闭。这时必须真的关掉。
   ///
-  /// 所以缺键 = 保持当前值；无法解析的值才退回默认时间。
+  /// 两者混淆过一次，代价是提醒永远消失；反过来混淆的代价对称：
+  /// 曾经把"关掉"存成 `hour=null`，读回时被当成"解析不出数字"而
+  /// **回落到默认的 20:00** —— 用户关掉提醒、重启、它又回来了。
+  /// 所以这里既认 `enabled: false`，也认显式 null。
   void restoreFromJson(Map<String, dynamic> j) {
+    if (j.containsKey('enabled') && j['enabled'] == false) {
+      hour = null;
+      minute = null;
+    }
     if (j.containsKey('hour')) {
-      final h = (j['hour'] as num?)?.toInt();
-      hour = (h != null && h >= 0 && h <= 23) ? h : 20;
+      final raw = j['hour'];
+      if (raw == null) {
+        hour = null;
+      } else {
+        final h = (raw as num?)?.toInt();
+        hour = (h != null && h >= 0 && h <= 23) ? h : 20;
+      }
     }
     if (j.containsKey('minute')) {
-      final m = (j['minute'] as num?)?.toInt();
-      minute = (m != null && m >= 0 && m <= 59) ? m : 0;
+      final raw = j['minute'];
+      if (raw == null) {
+        minute = null;
+      } else {
+        final m = (raw as num?)?.toInt();
+        minute = (m != null && m >= 0 && m <= 59) ? m : 0;
+      }
     }
     if (j.containsKey('lastNotified')) {
       final last = j['lastNotified']?.toString();

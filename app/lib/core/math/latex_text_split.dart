@@ -25,9 +25,14 @@
 /// | 上下标 | `S_{\text{侧}}=...` | 下标内容丢失 |
 /// | `\underbrace` 标注 | `\underbrace{\int\cdots}_{n\ \text{次}}` | 标注内容丢失 |
 ///
-/// 实测这三类判定能把中文公式的 **665 / 692（96.1%）** 安全切开。
-/// 剩下的 24 条原样交给 katex —— 最坏情况是中文显示成方框，
-/// 但那 24 条本来也只是"偏窄"，不会破坏公式结构。
+/// 判据收敛成一句：**`\text` 只要在任何一个未闭合的 `{...}` 里，就不摘**。
+/// 这比逐一识别"这是谁的参数"更保守，但保守的方向是对的 ——
+/// 摘错的后果不是"中文变成方框"，而是**整条公式变成红色乱码**
+/// （切出来的 LaTeX 片段各自都不完整，katex 直接抛 ParseError）。
+///
+/// 这条不变量由 `test/cjk_split_corpus_test.dart` 守着：
+/// 它不只看"切开了多少条"，还要求**每一个 LatexChunk 自己都能被 katex 解析**。
+/// 少了后一条，切坏公式这件事可以长期潜伏 —— 切分率看起来还很漂亮。
 library;
 
 /// 切出来的一段。
@@ -205,81 +210,80 @@ bool _hasCjkOrFullWidth(String s) {
 
 /// [pos] 处的 `\text{}` 是否处在"可以安全替换"的位置。
 ///
-/// 判据：不能是某个命令的参数、不能是上下标，且不能处在未闭合的
-/// `\left..\right` 或 `\begin{}...\end{}` 之内。
+/// 判据只有三条，但第一条就把绝大多数情况覆盖了。
 ///
-/// ⚠️ 前两条必须一起判：`S_{\text{侧}}` 里 `\text` 前面是 `{`（看起来像
-/// 命令参数），而那个 `{` 其实是 `_` 的下标组。分开判会把下标当成参数，
-/// 于是漏判成"可切"，摘掉之后下标内容就丢了。
+/// ## ⚠️ 为什么不能用"紧邻的字符是什么"来判断
+///
+/// 早先这里靠 `_isCommandArgument` / `_isSubOrSuperscript` 两个函数，
+/// 它们都只看 `\text` **紧挨着的前一个字符**。这对"第二个参数"和
+/// "跟在前一组后面"的写法全部失效：
+///
+/// ```
+/// \frac{A\ \text{包含的样本点数}}{\text{样本点总数}}
+///                        ↑ 前面是 `}`，两个判定都返回 false
+/// \underbrace{\int\cdots\int}_{n\ \text{次}}
+///                               ↑ 在 _{...} 里面，但前面是 `\ `
+/// ```
+///
+/// 判成"顶层"就会被摘出来，于是外层的 `\frac{...}{...}` 被切成
+/// `\frac{A\ ` / `}{` / `}` 三段，**每一段单独都不能解析** ——
+/// `renderToBox` 抛 ParseError，katex 把整条公式降级成红色的原始 LaTeX。
+/// 也就是说：这个函数本意是"让中文别显示成方框"，实际效果却是
+/// 把**原本排版正常**的公式变成一串红色乱码。全语料实测有 4 条命中了
+/// 这条路径（都是概率论里的核心公式）。
+///
+/// ## 正确的判据
+///
+/// `\text` 只要处在**任何一个未闭合的 `{...}` 里**，它就不是顶层 ——
+/// 不需要知道那个 `{` 属于谁。这一条同时覆盖了：
+/// - 命令参数：`\xrightarrow{\text{…}}`、`\frac{x}{\text{…}}`
+/// - 上下标组：`S_{\text{侧}}`
+/// - 任意嵌套分组
+///
+/// 再加上"无边括号的上下标"（`S_\text{侧}`）与 `\left..\right` /
+/// `\begin..\end` 两条，就完整了。
+///
+/// 代价是比原来保守一点：少数嵌套很深的公式不再被切开，
+/// 中文退回"显示成方框"。**这恰恰是设计上可接受的降级** ——
+/// 方框只是不好看，红色乱码是坏掉。
 bool _isTopLevel(String tex, int pos) {
-  if (_isCommandArgument(tex, pos)) return false;
-  if (_isSubOrSuperscript(tex, pos)) return false;
+  if (_braceDepth(tex, pos) > 0) return false;
+
+  // 无边括号的上下标：`S_\text{侧}`。前一个非空白字符是 `_` / `^`。
+  final prev = _prevNonSpace(tex, pos);
+  if (prev == '_' || prev == '^') return false;
+
   if (_insidePairing(tex, pos)) return false;
   return true;
 }
 
-/// 是否是**别的命令**的花括号参数。
+/// `tex[0..pos)` 里未闭合的 `{` 数量。跳过被转义的 `\{` `\}`。
 ///
-/// 判据三步：
-/// 1. 前面紧邻一个 `{`（跳过空白）；
-/// 2. 那个 `{` 前面是命令名（`\xrightarrow` 之类）；
-/// 3. 从那个 `{` 到 `\text` 之间**没有未配对的 `}`** —— 否则这个 `{`
-///    其实已经被前面的内容闭合了，它与 `\text` 无关。
-///
-/// 第 3 条是关键。实测踩过：
-///
-/// ```
-/// \text{甲}\text{乙}
-///          ^ 第二个 \text 前面确实是 '{'、前面也确实是命令名 \text，
-///            但那个 '{' 属于**第一个** \text。少了第 3 条就会误判成
-///            "它是 \text 的参数" → 不切 → 中文显示成方框。
-/// ```
-///
-/// 而 `\text{无关};\ \text{相关}` 这种写法在真实语料里非常常见。
-bool _isCommandArgument(String tex, int pos) {
-  var j = pos - 1;
-  while (j >= 0 && (tex[j] == ' ' || tex[j] == '\t')) {
-    j--;
-  }
-  if (j < 0 || tex[j] != '{') return false;
-
-  // 第 3 条：这个 `{` 与 `\text` 之间不能有未配对的 `}`
+/// 只看花括号，不看 `\left(`/`\right)` —— 后者由 [_insidePairing] 负责。
+int _braceDepth(String tex, int pos) {
   var depth = 0;
-  for (var k = j + 1; k < pos; k++) {
-    if (tex[k] == '}') depth++;
+  for (var i = 0; i < pos && i < tex.length; i++) {
+    final c = tex[i];
+    if (c == r'\' && i + 1 < tex.length) {
+      i++; // 跳过转义对，`\{` 不算花括号
+      continue;
+    }
+    if (c == '{') {
+      depth++;
+    } else if (c == '}') {
+      depth--;
+    }
   }
-  if (depth != 0) return false;
-
-  // 第 2 条：`{` 前面是命令名
-  final k = j - 1;
-  if (k < 0 || tex[k] == r'\') return false;
-  var m = k;
-  while (m >= 0 && _isCommandNameChar(tex.codeUnitAt(m))) {
-    m--;
-  }
-  return m >= 0 && m < k && tex[m] == r'\';
+  return depth;
 }
 
-/// 是否是 `_{...}` / `^{...}` 的下标/上标组。
-///
-/// 与 `_isCommandArgument` 同理需要第 3 条判据：`x_{\text{甲}}^{\text{乙}}`
-/// 里第二个 `\text` 前面的 `{` 属于上标组，而它前面是 `}`，
-/// 说明那个 `{` 已经被闭合了。
-bool _isSubOrSuperscript(String tex, int pos) {
+/// [pos] 之前第一个非空白字符。没有则返回 `''`。
+String _prevNonSpace(String tex, int pos) {
   var j = pos - 1;
   while (j >= 0 && (tex[j] == ' ' || tex[j] == '\t')) {
     j--;
   }
-  if (j < 0 || tex[j] != '{') return false;
-
-  // 那个 `{` 与 `\text` 之间不能有未配对的 `}`
-  for (var k = j + 1; k < pos; k++) {
-    if (tex[k] == '}') return false;
-  }
-
-  final k = j - 1;
-  if (k < 0) return false;
-  return tex[k] == '_' || tex[k] == '^';
+  return j < 0 ? '' : tex[j];
 }
 
 /// 是否处在未闭合的 `\left...\right` 或 `\begin{}...\end{}` 之内。
@@ -313,7 +317,3 @@ bool _insidePairing(String tex, int pos) {
   return leftDepth > 0 || envDepth > 0;
 }
 
-bool _isCommandNameChar(int c) {
-  // a-z A-Z @
-  return (c >= 0x61 && c <= 0x7A) || (c >= 0x41 && c <= 0x5A) || c == 0x40;
-}

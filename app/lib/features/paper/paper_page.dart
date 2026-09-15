@@ -69,6 +69,9 @@ class _PaperPageState extends ConsumerState<PaperPage> {
   Future<void> _compose() async {
     final kind = _kind;
     if (kind == null) return;
+    // 重入闸门：组卷要读整个题库并算分，期间按钮虽然会变灰，
+    // 但变灰靠的是下一帧的重建 —— 同一帧里连点两次仍会进两次。
+    if (_busy) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -116,6 +119,9 @@ class _PaperPageState extends ConsumerState<PaperPage> {
   Future<void> _save() async {
     final result = _result;
     if (result == null) return;
+    // 见 _compose：没有这道闸，连点两次会用同一个卷子 id 保存，
+    // 第二次撞 `papers.id` 主键，弹出看不懂的 SQL 报错
+    if (_busy) return;
     setState(() {
       _busy = true;
       _status = null;
@@ -135,6 +141,8 @@ class _PaperPageState extends ConsumerState<PaperPage> {
   Future<void> _export(PaperLayout layout) async {
     final result = _result;
     if (result == null) return;
+    // 见 _compose。导出最慢（逐条光栅化公式），并发两次会白烧两倍 CPU
+    if (_busy) return;
 
     final dir = await fs.getDirectoryPath(confirmButtonText: '导出到这里');
     if (dir == null || !mounted) return;
