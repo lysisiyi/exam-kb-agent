@@ -8,7 +8,7 @@
 /// 5. 启动
 library;
 
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, File, FileMode, Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,27 +22,59 @@ import 'core/platform/platform_services.dart';
 // 少了这一行会编译失败（lib/main.dart 报 undefined_function），
 // 而 `flutter test` 不会发现 —— 测试不经过 main()。
 import 'core/platform/platform_services_mock.dart';
+import 'core/platform/startup_log.dart';
 import 'core/platform/window_setup.dart';
 import 'core/theme/app_theme.dart';
+import 'data/db/database.dart' show LibraryPaths;
 import 'dev_shell.dart';
 
 Future<void> main() async {
+  // 启动进度探针。见 `_launchProbe` 的说明 —— 它是"应用走到哪一步死了"
+  // 这个问题的唯一可靠答案。
+  _launchProbe('main() 进入');
+
   WidgetsFlutterBinding.ensureInitialized();
+  _launchProbe('engine 绑定完成');
+  StartupLog.log('engine 绑定完成，开始启动');
 
   // ── 窗口 ──────────────────────────────────────────────────────────────
   // 给一个合理的起手尺寸并锁住最小尺寸，否则窗口能被拖到比表单还窄。
   // 非桌面平台或插件不可用时静默返回，此时用系统默认尺寸。
-  await initDesktopWindow();
+  //
+  // ⚠️ 这一步**必须是"尽力而为"**：窗口尺寸是体验，不是功能。
+  // `initDesktopWindow` 内部已经把每步都包了 try，这里再兜一层，
+  // 防止将来有人在里面加出会抛的代码。
+  try {
+    await initDesktopWindow();
+    _launchProbe('窗口初始化完成');
+    StartupLog.log('窗口初始化完成');
+  } catch (e, st) {
+    _launchProbe('窗口初始化失败: $e');
+    StartupLog.error('窗口初始化抛异常（不阻断启动）', e, st);
+  }
+
+  // ── 数据目录（拿到之后立刻把日志落到文件）───────────────────────────
+  try {
+    final paths = await LibraryPaths.resolve();
+    _launchProbe('数据目录: ${paths.root.path}');
+    StartupLog.bindTo(paths.root);
+    StartupLog.log('数据目录：${paths.root.path}');
+  } catch (e, st) {
+    _launchProbe('数据目录失败: $e');
+    StartupLog.error('数据目录解析失败（日志暂时只在内存里）', e, st);
+  }
 
   // ── 平台服务 ──────────────────────────────────────────────────────────
   // 失败不能阻止启动：最低限度是"知识库能看、公式能渲染"。
   try {
     await installPlatformServices();
-    debugPrint('[启动] 平台服务已装配\n${describePlatformCapabilities()}');
+    _launchProbe('平台服务已装配');
+    StartupLog.log('平台服务已装配\n${describePlatformCapabilities()}');
   } catch (e, st) {
     // 退回 Mock，保证 App 能起来
     PlatformServices.install(mockPlatformServices());
-    debugPrint('[启动] 平台服务装配失败，已退回 Mock：$e\n$st');
+    _launchProbe('平台服务退回 Mock: $e');
+    StartupLog.error('平台服务装配失败，已退回 Mock', e, st);
   }
 
   // ── 公式渲染 ──────────────────────────────────────────────────────────
@@ -53,8 +85,49 @@ Future<void> main() async {
   // 每一项题干有 3–5 个公式；不缓存就等于滚动时反复解析 LaTeX，
   // 而"5000 题滚动不掉帧"是 V1 的验收项之一。
   MathRendering.install(CachedMathRenderer(const KatexRenderer()));
+  _launchProbe('渲染器已注入');
 
+  _launchProbe('准备 runApp');
   runApp(ProviderScope(child: KaoyanApp(initialTab: _initialTabFromEnv())));
+  _launchProbe('runApp 已返回');
+}
+
+/// 启动进度探针：把 [stage] 追加到一行文件里。
+///
+/// ## 为什么需要它
+///
+/// Windows 的 release 版 GUI 应用没有 stdout，而**异常退出时也不一定留下
+/// 事件日志**（实测：应用程序日志里什么都没有）。于是"应用走到哪一步死了"
+/// 从外面完全看不出来 —— 只能靠猜。
+///
+/// 这个探针只依赖 `dart:io`，不需要任何平台通道，所以它能在启动链条的最前面
+/// 和最后面都跑通。**最后写下的那一行就是死点。**
+/// 实测靠它定位到 `LibraryPaths.resolve()` 建目录被拒（errno 5）。
+///
+/// ## 默认关闭
+///
+/// 随手往系统临时目录写文件不是好习惯，所以默认不开。排查启动问题时设：
+///
+/// ```powershell
+/// $env:DSH_STARTUP_PROBE = "1"; .\kaoyan_math_agent.exe
+/// ```
+///
+/// 输出在 `%TEMP%\dsh_kaoyan_probe\stages.txt`。
+void _launchProbe(String stage) {
+  if (Platform.environment['DSH_STARTUP_PROBE'] != '1') return;
+  try {
+    final dir = Directory(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}dsh_kaoyan_probe',
+    );
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    File('${dir.path}${Platform.pathSeparator}stages.txt').writeAsStringSync(
+      '${DateTime.now().toIso8601String()}  $stage\n',
+      mode: FileMode.append,
+      flush: true,
+    );
+  } catch (_) {
+    // 探针写不进去不影响启动
+  }
 }
 
 /// 开发期开关：`DSH_INITIAL_TAB=3` 让 App 直接开在「录入」页。

@@ -188,11 +188,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ),
                   const SizedBox(height: 4),
                   _PathLine(path: p.indexFile.path),
+                  const SizedBox(height: 10),
+                  const Text('启动日志：', style: TextStyle(fontSize: 12)),
+                  const SizedBox(height: 4),
+                  _PathLine(
+                    path: '${p.root.path}${Platform.pathSeparator}startup.log',
+                  ),
                   const SizedBox(height: 12),
                   const Text(
                     'Markdown 文件是你的数据，用记事本或 VS Code 直接改都行 —— '
                     '改完回 App 会重建索引。\n'
-                    '索引库删掉只会丢复习进度；想保住进度，请连它一起备份。',
+                    '索引库删掉只会丢复习进度；想保住进度，请连它一起备份。\n'
+                    'App 起不来时，把启动日志发给开发者 —— 它记录了启动的每一步。',
                     style: TextStyle(fontSize: 11.5, height: 1.8),
                   ),
                 ],
