@@ -468,8 +468,11 @@ void main() {
           containsAll(['choice', 'solve']));
 
       final missing = r.warnings.firstWhere((w) => w.contains('题库不足'));
-      expect(missing, contains('choice 2 题'));
-      expect(missing, contains('solve 2 题'));
+      // 提示语是给用户看的，不该出现 choice / solve 这种内部标识
+      expect(missing, contains('选择题 2 题'));
+      expect(missing, contains('解答题 2 题'));
+      expect(missing, isNot(contains('choice')));
+      expect(missing, isNot(contains('solve')));
     });
 
     test('难度不够时记账，而不是悄悄抽个别的难度', () {
@@ -559,13 +562,43 @@ void main() {
       if (!f.existsSync()) return;
       final all = await PaperTemplateLoader.loadFromFile(f, subject: 'math1');
       final seats = all['real_exam']!.seats;
-      // 前半段不该出现难度 3，后半段不该出现难度 1
-      final first5 = seats.take(5).map((s) => s.targetDifficulty);
-      final last5 = seats.reversed.take(5).map((s) => s.targetDifficulty);
+      // 真题全卷每个题位都指定了难度，所以这里可以安全地取非空值
+      final first5 = seats.take(5).map((s) => s.targetDifficulty!);
+      final last5 = seats.reversed.take(5).map((s) => s.targetDifficulty!);
       expect(first5.every((d) => d <= 2), isTrue,
           reason: '卷子开头就出现拓展题，不符合由易到难');
       expect(last5.every((d) => d >= 2), isTrue,
           reason: '卷子结尾出现基础题，不符合由易到难');
+    });
+
+    test('错题专练：题型不限、分值不限，不会被当成具体题型', () async {
+      final f = File('../data/exam_templates.json');
+      if (!f.existsSync()) return;
+      final all = await PaperTemplateLoader.loadFromFile(f, subject: 'math1');
+      final wrongOnly = all['wrong_only']!;
+
+      expect(wrongOnly.seats.length, 15);
+      // 这三条盯的是一个具体 bug：把 `any` 当成具体题型，
+      // 会让候选集永远为空 —— 那道大题一个题位都填不上
+      expect(wrongOnly.seats.every((s) => s.isAnyQtype), isTrue);
+      expect(wrongOnly.seats.every((s) => s.score == null), isTrue,
+          reason: 'score_per_item 在数据里就是 null');
+      expect(wrongOnly.seats.every((s) => s.targetDifficulty == null), isTrue,
+          reason: 'difficulty 在数据里就是 null，不该被填成默认难度 2');
+    });
+
+    test('标签表能载入，且不硬编码在 UI 里', () async {
+      final f = File('../data/exam_templates.json');
+      if (!f.existsSync()) return;
+      final labels = PaperTemplateLoader.parseLabels(await f.readAsString());
+      expect(labels.difficultyName(1), isNotEmpty);
+      expect(labels.difficultyName(3), isNotEmpty);
+      expect(labels.qtypeName('choice'), isNotEmpty);
+      expect(labels.qtypeName('solve'), isNotEmpty);
+      // 未知值时给出可读的退路，不抛、不编造
+      expect(labels.difficultyName(9), contains('9'));
+      expect(labels.difficultyName(null), '不限');
+      expect(labels.qtypeName(PaperSeat.anyQtype), '不限题型');
     });
   });
 }

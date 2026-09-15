@@ -125,6 +125,14 @@ dependencies:
   # 换底层包不影响任何调用方（MathRenderer 的存在就是为了这个）。
   katex: ^1.0.0
 
+  # `katex_dart` 是 `katex` 的传递依赖，但**我们直接用了它的 API**
+  # （`renderToBox` / `boxSizePx` / `boxSizePxPadded` / `KatexOptions`），
+  # 用来把公式渲成 PNG 嵌进 PDF（见 services/paper/formula_rasterizer.dart）。
+  #
+  # 所以必须显式声明：靠传递依赖拿 API，会在上游换实现或改依赖树时
+  # 突然编译不过，而那时你根本不知道是自己用了个没声明的包。
+  katex_dart: ^0.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -132,6 +140,7 @@ dev_dependencies:
   drift_dev: ^2.20.0
   build_runner: ^2.4.11
 
+  archive: any
 flutter:
   uses-material-design: true
 

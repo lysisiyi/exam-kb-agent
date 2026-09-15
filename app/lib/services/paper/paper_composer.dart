@@ -64,7 +64,13 @@ class Candidate {
 
 /// 组卷引擎。
 class PaperComposer {
-  const PaperComposer();
+  /// 是否允许把某个题位换成**其它题型**的题。
+  ///
+  /// 默认 false。理由见 `compose` 里关于"题型是硬约束"的说明 ——
+  /// 把填空题换成解答题会让整份卷子的结构失真（分值、时长全变）。
+  final bool allowTypeMismatch;
+
+  const PaperComposer({this.allowTypeMismatch = false});
 
   /// 同一个考点在本卷里已被用过时，每次降低多少分。
   ///
@@ -103,10 +109,25 @@ class PaperComposer {
 
     // 按题号顺序填 —— 难度是"从易到难"给的，顺序填才能保住那个递进感
     for (final seat in request.template.seats) {
-      // 候选：题型一致、未被本卷用过、未在排除集中、科目一致
+      // 候选筛选。三层，按"能不能妥协"排序：
+      //
+      // 1. 题型匹配（或题位不限题型）—— **硬约束**
+      // 2. 未被本卷用过、未在排除集中、科目一致 —— 硬约束
+      // 3. 难度在宽容度内 —— 软约束，不满足时放宽并记账
+      //
+      // ⚠️ 第 1 条为什么是硬的（实测踩过）：`wrong_only` 的题位 qtype 是
+      // `any`（不限题型）。如果把它当成"匹配任何题型"，那么当题库里没有
+      // 选择题时，一个 `any` 题位的题会被填进**选择题**的空位 ——
+      // 填空题的位置上出现解答题，而分值仍是填空的 5 分。
+      // 那份卷子的结构就是假的，而用户看不出来。
+      // 宁可留空并提示"题库里没有足够的填空题"。
+      final typeOk = allowTypeMismatch
+          ? (Candidate c) => true
+          : (Candidate c) => seat.isAnyQtype || c.qtype == seat.qtype;
+
       final candidates = pool
           .where((c) =>
-              c.qtype == seat.qtype &&
+              typeOk(c) &&
               c.subject == request.subject &&
               !usedIds.contains(c.problemId) &&
               !request.excludeProblemIds.contains(c.problemId))
@@ -117,12 +138,14 @@ class PaperComposer {
         continue;
       }
 
-      // 第一轮：在难度宽容度内挑
-      var tier = candidates
-          .where((c) =>
-              (c.difficulty - seat.targetDifficulty).abs() <=
-              request.difficultyTolerance)
-          .toList();
+      // 第一轮：在难度宽容度内挑。题位不限难度（错题专练）时这一轮不过滤。
+      final target = seat.targetDifficulty;
+      var tier = target == null
+          ? candidates
+          : candidates
+              .where((c) =>
+                  (c.difficulty - target).abs() <= request.difficultyTolerance)
+              .toList();
 
       if (tier.isEmpty) {
         // 第二轮：放宽到"整卷任意难度"，但要记账
@@ -142,15 +165,18 @@ class PaperComposer {
       }
 
       // 打分排序，取最优
-      tier.sort((a, b) => _score(b, request, usedKps, seat.targetDifficulty)
-          .compareTo(_score(a, request, usedKps, seat.targetDifficulty)));
+      tier.sort((a, b) =>
+          _score(b, request, usedKps, target).compareTo(_score(a, request, usedKps, target)));
 
       final pick = tier.first;
       usedIds.add(pick.problemId);
       if (pick.primaryKpId != null) {
         usedKps[pick.primaryKpId!] = (usedKps[pick.primaryKpId!] ?? 0) + 1;
       }
-      if (pick.difficulty != seat.targetDifficulty) {
+      // 只在题位**指定了**难度、而抽到的题不符时才记账。
+      // 题位不限难度时（target == null）不存在"不符"这回事 ——
+      // 早先这里直接和 null 比，会给每个题位都刷一条无意义的警告。
+      if (target != null && pick.difficulty != target) {
         _noteDifficultyMismatch(warnings, seat, pick);
       }
 
@@ -201,7 +227,7 @@ class PaperComposer {
     Candidate c,
     PaperRequest req,
     Map<String, int> usedKps,
-    int targetDifficulty,
+    int? targetDifficulty,
   ) {
     var s = 0.0;
 
@@ -225,12 +251,15 @@ class PaperComposer {
     }
 
     // ④ 难度贴合：正好命中题位目标给满分，每差一档扣 1.0。
+    //    题位不限难度时给一个中性值 1.0（不奖不罚）。
     //
     //    这一项与 `difficultyTolerance` 是**两件事**：宽容度决定
     //    "哪些题有资格进候选"，这一项决定"进了候选之后谁更靠前"。
     //    少了它，一档之内的候选就变成随机挑 —— 而"由易到难递进"正是
     //    真题手感的一部分（模板的 difficulty 数组就是为此按题号给的）。
-    s += 2.0 - (c.difficulty - targetDifficulty).abs() * 1.0;
+    s += targetDifficulty == null
+        ? 1.0
+        : 2.0 - (c.difficulty - targetDifficulty).abs() * 1.0;
 
     // ⑤ 考点多样性：本卷里已经出现过的考点降权。
     //
@@ -265,7 +294,6 @@ class PaperComposer {
         '${seat.targetDifficulty} 的题可抽，已放宽到任意难度';
     if (!w.contains(msg)) w.add(msg);
   }
-
   static void _noteDifficultyMismatch(
       List<String> w, PaperSeat seat, Candidate pick) {
     final msg = '第 ${seat.no} 题期望难度 ${seat.targetDifficulty}，'
@@ -277,10 +305,23 @@ class PaperComposer {
     if (empty.isEmpty) return;
     final byType = <String, int>{};
     for (final s in empty) {
-      byType[s.qtype] = (byType[s.qtype] ?? 0) + 1;
+      // 不限题型的题位单独归类，否则会显示成"any 3 题"这种内部术语
+      byType[s.isAnyQtype ? '不限题型' : _qtypeName(s.qtype)] =
+          (byType[s.isAnyQtype ? '不限题型' : _qtypeName(s.qtype)] ?? 0) + 1;
     }
     final detail = byType.entries.map((e) => '${e.key} ${e.value} 题').join('、');
     w.add('题库不足：还有 ${empty.length} 个题位没填上（$detail）—— '
         '多选题库里的题，或换用更短的模板');
   }
+
+  /// 内部题型 id → 用户看得懂的中文。
+  ///
+  /// 提示语是给用户看的，不该出现 `choice` / `solve` 这种内部标识。
+  static String _qtypeName(String id) => switch (id) {
+        'choice' => '选择题',
+        'fill' => '填空题',
+        'solve' => '解答题',
+        'proof' => '证明题',
+        _ => id,
+      };
 }

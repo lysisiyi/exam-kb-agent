@@ -18,7 +18,7 @@ packages:
     source: hosted
     version: "14.4.0"
   archive:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: archive
       sha256: a96e8b390886ee8abb49b7bd3ac8df6f451c621619f52a26e815fdcf568959ff
@@ -545,7 +545,7 @@ packages:
     source: hosted
     version: "1.0.0"
   katex_dart:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: katex_dart
       sha256: "9ffb18e394a3817f4cdfa04fd497ca30d3e3b45661e3e17f7705b8ae68dd5be9"

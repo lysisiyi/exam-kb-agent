@@ -11,6 +11,7 @@ import 'core/providers.dart';
 import 'core/widgets/adaptive_shell.dart';
 import 'features/entry/entry_page.dart';
 import 'features/knowledge/knowledge_page.dart';
+import 'features/paper/paper_page.dart';
 import 'features/problems/problems_page.dart';
 import 'features/review/review_page.dart';
 import 'features/settings/settings_page.dart';
@@ -70,20 +71,7 @@ class DevShell extends ConsumerWidget {
           icon: Icons.description_outlined,
           selectedIcon: Icons.description,
           shortcutHint: 'Ctrl+5',
-          builder: () => const _Placeholder(
-            title: '智能组卷',
-            milestone: 'M6',
-            plan: '贪心组卷 + 真题结构模板 + 三版式 PDF 导出',
-            done: [
-              '考频数据已就绪（19 章 / 86 个热点）',
-              '数据导出（Markdown + 图片包）已在「设置」页可用',
-            ],
-            todo: [
-              '组卷引擎（贪心 + 回溯）',
-              'PDF 导出（pdf 包已就绪；预览需引回 printing 并预置 pdfium）',
-              '试卷预览页',
-            ],
-          ),
+          builder: () => const PaperPage(),
         ),
         NavDestination(
           label: '设置',
@@ -98,6 +86,14 @@ class DevShell extends ConsumerWidget {
   }
 }
 
+/// 占位页与检查清单组件已移除。
+///
+/// 它们曾用来在导航里展示"这个功能做到哪了"（比"敬请期待"有用）。
+/// 随着 M6 完成，**六个导航目的地全部指向真实页面**，已经没有占位页，
+/// 所以这两个组件（以及 import 的 `AppColors`）一并删掉 ——
+/// 留着就是永远不会被执行、但每次读代码都要跳过的死代码。
+///
+/// 进度看板搬到 `docs/PROGRESS.md`（它本来就是唯一可信的进度来源）。
 class _SidebarFooter extends StatelessWidget {
   const _SidebarFooter();
 
@@ -146,123 +142,3 @@ class _SidebarFooter extends StatelessWidget {
   }
 }
 
-/// 占位页：显示该功能的里程碑、已完成项、待办项。
-///
-/// 这比"敬请期待"有用得多 —— 它同时是**开发进度看板**。
-class _Placeholder extends StatelessWidget {
-  final String title;
-  final String milestone;
-  final String plan;
-  final List<String> done;
-  final List<String> todo;
-
-  const _Placeholder({
-    required this.title,
-    required this.milestone,
-    required this.plan,
-    required this.done,
-    required this.todo,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 620),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEDF0FF),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      milestone,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF2F49AF),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(plan, style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 24),
-              _Checklist(title: '已完成', items: done, checked: true),
-              const SizedBox(height: 18),
-              _Checklist(title: '待办', items: todo, checked: false),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Checklist extends StatelessWidget {
-  final String title;
-  final List<String> items;
-  final bool checked;
-
-  const _Checklist({
-    required this.title,
-    required this.items,
-    required this.checked,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-            color: Color(0xFF8A909E),
-          ),
-        ),
-        const SizedBox(height: 10),
-        for (final it in items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  checked
-                      ? Icons.check_circle_outline
-                      : Icons.radio_button_unchecked,
-                  size: 16,
-                  color: checked
-                      ? const Color(0xFF0CA678)
-                      : const Color(0xFFB4BAC6),
-                ),
-                const SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    it,
-                    style: const TextStyle(fontSize: 13, height: 1.6),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}

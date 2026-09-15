@@ -23,23 +23,37 @@ class PaperSeat {
   /// 所属大题名，如「选择题」。
   final String sectionName;
 
-  /// 题型 id：`choice` / `fill` / `solve` / `proof`。
+  /// 题型 id：`choice` / `fill` / `solve` / `proof`，
+  /// 或通配符 [anyQtype]（「错题专练」用它 —— 那道大题不限题型）。
   final String qtype;
 
-  /// 本题分值。
-  final int score;
+  /// 本题分值。null 表示"由抽到的题决定"（错题专练的 `score_per_item` 就是 null）。
+  final int? score;
 
-  /// 期望难度（1 基础 / 2 综合 / 3 拓展）。
-  final int targetDifficulty;
+  /// 期望难度（1 基础 / 2 综合 / 3 拓展）。null 表示不限
+  /// （错题专练的 `difficulty` 也是 null）。
+  final int? targetDifficulty;
 
   const PaperSeat({
     required this.no,
     required this.sectionName,
     required this.qtype,
-    required this.score,
-    required this.targetDifficulty,
+    this.score,
+    this.targetDifficulty,
   });
+
+  /// 不限定题型。
+  static const String anyQtype = 'any';
+
+  bool get isAnyQtype => qtype == anyQtype;
 }
+
+/// 分值为 null 的题位（错题专练）按这个数估分。
+///
+/// 为什么不给真实分值：那道大题的说明里写了"难度与分值不固定，由抽到的
+/// 题目决定"。组卷时还没抽题，所以给不出真实值 —— 用一个明确标注为
+/// 「估算」的默认分，并在结果里说明，比编一个看起来精确的假分值诚实。
+const int kFallbackScorePerItem = 5;
 
 /// 一个组卷模板。
 class PaperTemplate {
@@ -76,11 +90,11 @@ class PaperTemplate {
     return m;
   }
 
-  /// 题型 → 分值合计。
+  /// 题型 → 分值合计。分值为 null 的题位按 [kFallbackScorePerItem] 估。
   Map<String, int> get scoresByQtype {
     final m = <String, int>{};
     for (final s in seats) {
-      m[s.qtype] = (m[s.qtype] ?? 0) + s.score;
+      m[s.qtype] = (m[s.qtype] ?? 0) + (s.score ?? kFallbackScorePerItem);
     }
     return m;
   }
@@ -143,6 +157,10 @@ class PaperItem {
   /// 用户在这道题上的历史（用于"错题加权"的说明）。
   final int wrongCount;
 
+  /// 本题分值。题位没给分值时（错题专练）为 null，展示时按
+  /// [kFallbackScorePerItem] 估并标注。
+  int? get score => seat.score;
+
   const PaperItem({
     required this.seat,
     required this.problemId,
@@ -178,9 +196,12 @@ class PaperResult {
     this.warnings = const [],
   });
 
-  /// 实际总分。
+  /// 实际总分。分值为 null 的题位按 [kFallbackScorePerItem] 估。
   int get totalScore =>
-      items.fold(0, (sum, it) => sum + it.seat.score);
+      items.fold(0, (sum, it) => sum + (it.seat.score ?? kFallbackScorePerItem));
+
+  /// 分值里是否含估算（错题专练这类模板）。UI 上要标注出来。
+  bool get hasEstimatedScores => items.any((it) => it.seat.score == null);
 
   /// 是否完整（所有题位都填上了）。
   bool get isComplete => emptySeats.isEmpty;

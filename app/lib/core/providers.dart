@@ -9,8 +9,11 @@ import '../data/index/index_builder.dart';
 import '../data/knowledge/knowledge_repository.dart';
 import '../data/markdown/problem_store.dart';
 import '../domain/knowledge/knowledge_point.dart';
+import '../domain/paper/paper_models.dart';
+import '../domain/paper/paper_template.dart';
 import '../features/problems/problems_page.dart' show ProblemView;
 import '../services/library/problem_service.dart';
+import '../services/paper/paper_repository.dart';
 import '../services/review/reminder_service.dart';
 import '../services/review/review_repository.dart';
 
@@ -95,6 +98,36 @@ final problemServiceProvider = FutureProvider<ProblemService>((ref) async {
 final errorCauseCatalogProvider = FutureProvider<ErrorCauseCatalog>(
   (ref) => ErrorCauseRepository.instance.load(),
 );
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 组卷
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 组卷数据层：模板载入、候选池、卷子持久化。
+final paperRepositoryProvider = FutureProvider<PaperRepository>((ref) async {
+  final db = await ref.watch(databaseProvider.future);
+  return PaperRepository(db: db);
+});
+
+/// 当前科目的组卷模板（键是 kind：`real_exam` / `quick_mock` / `wrong_only`）。
+final paperTemplatesProvider =
+    FutureProvider.family<Map<String, PaperTemplate>, String>(
+        (ref, subject) async {
+  final repo = await ref.watch(paperRepositoryProvider.future);
+  return repo.templates(subject: subject);
+});
+
+/// 模板文件里的展示标签（难度/题型的中文名）。
+final paperLabelsProvider = FutureProvider<PaperLabels>((ref) async {
+  final repo = await ref.watch(paperRepositoryProvider.future);
+  return repo.labels();
+});
+
+/// 已保存的卷子历史。
+final paperHistoryProvider = FutureProvider<List<PaperRow>>((ref) async {
+  final repo = await ref.watch(paperRepositoryProvider.future);
+  return repo.history();
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 复习（FSRS）
