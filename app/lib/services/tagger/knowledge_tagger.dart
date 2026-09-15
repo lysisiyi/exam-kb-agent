@@ -96,7 +96,24 @@ class KnowledgeTagger {
   /// 校验失败后的最大重试次数（含首次尝试）。
   final int maxAttempts;
 
-  const KnowledgeTagger({
+  /// 召回器。**按本体建一次**，不是每题重建。
+  ///
+  /// ## 这里是 M7 之前必须修的一处性能问题
+  ///
+  /// `KnowledgeRecall` 的构造函数要遍历全部叶子预计算 IDF、公式分词与
+  /// 别名索引 —— 那是刻意的，它自己的注释写着"召回是热点路径，
+  /// 不预计算会明显变慢"。但早先这个对象是在 `tag()` **里面** new 的，
+  /// 于是"预计算"退化成"每题算一遍"：141 个叶子 × 若干次正则，
+  /// 单题约 7000 次正则；批量导入 100 题就是 70 万次，5000 题是 3500 万次。
+  ///
+  /// 本体的生命周期与 tagger 一致（一次标注会话里不会换本体），
+  /// 所以缓存在这里既正确又简单。
+  late final KnowledgeRecall _recall = KnowledgeRecall(
+    knowledge: knowledge,
+    config: recallConfig,
+  );
+
+  KnowledgeTagger({
     required this.knowledge,
     required this.client,
     this.cache,
@@ -129,10 +146,7 @@ class KnowledgeTagger {
     }
 
     // ── 阶段 1：召回 ──
-    final recall = KnowledgeRecall(
-      knowledge: knowledge,
-      config: recallConfig,
-    ).recall(problem);
+    final recall = _recall.recall(problem);
 
     if (recall.isEmpty) {
       return TagOutcome(

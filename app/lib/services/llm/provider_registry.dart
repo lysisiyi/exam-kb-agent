@@ -40,6 +40,72 @@ enum LlmAuthStyle {
   none,
 }
 
+/// 某个能力"有没有"。
+///
+/// 三态而不是布尔，是因为**"我们不知道"和"没有"必须分开**：
+/// - [no]：确定不支持 → 直接拦住，别让用户白花 100 次调用的钱
+/// - [unknown]：无法确认（自建代理、我们不认识的模型名）→ 允许继续但要提示
+/// - [yes]：确定支持
+///
+/// 把 [unknown] 当成 [no] 会把自建网关的用户挡在门外；
+/// 把 [unknown] 当成 [yes] 会让选了纯文本模型的用户白花钱。
+enum VisionSupport {
+  yes,
+  no,
+  unknown;
+
+  String get label => switch (this) {
+        VisionSupport.yes => '支持',
+        VisionSupport.no => '不支持',
+        VisionSupport.unknown => '无法确认',
+      };
+}
+
+/// 视觉能力判定表。
+///
+/// ## 为什么按"模型名片段"匹配而不是维护一张完整模型清单
+///
+/// 服务商上新模型的速度远快于我们发版的速度。用**片段匹配**（小写包含）
+/// 的代价是可能漏判，收益是不会因为一个没听过的新模型就判定"不支持" ——
+/// 漏判的后果是提示"无法确认"，误判的后果是让用户白花钱。
+/// 两害相权，宁可漏判。
+abstract final class LlmVision {
+  const LlmVision._();
+
+  /// 各服务商下**已知**支持图片输入的模型名片段。
+  ///
+  /// ⚠️ 不在这里出现的模型一律是 [VisionSupport.unknown]，不是 [no]。
+  static const Map<String, List<String>> modelPatterns = {
+    'openai': ['gpt-4o', 'gpt-4.1', 'gpt-4-turbo', 'gpt-4-vision'],
+    'anthropic': ['claude-3', 'claude-4', 'claude-sonnet', 'claude-opus'],
+    'gemini': ['gemini-1.5', 'gemini-2', 'gemini-pro-vision'],
+    'qwen': ['-vl'],
+    'zhipu': ['glm-4v'],
+    'moonshot': ['vision', 'kimi-latest'],
+    'ollama': ['llava', 'vision', 'minicpm-v', 'bakllava', 'moondream'],
+  };
+
+  /// 每个服务商里"要换成哪个模型才能做批量导入"的建议。
+  ///
+  /// 用途：用户在 DeepSeek 上点批量导入时，提示不能只说"不行"，
+  /// 要告诉他具体改什么。
+  static const Map<String, List<String>> suggestedVisionModels = {
+    'openai': ['gpt-4o-mini', 'gpt-4o'],
+    'anthropic': ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'],
+    'gemini': ['gemini-1.5-flash', 'gemini-2.0-flash'],
+    'qwen': ['qwen-vl-max', 'qwen-vl-plus'],
+    'zhipu': ['glm-4v-flash', 'glm-4v-plus'],
+    'moonshot': ['moonshot-v1-8k-vision-preview', 'kimi-latest'],
+    'ollama': ['llava', 'qwen2.5vl'],
+  };
+
+  /// 整个服务商**都没有**视觉模型。
+  ///
+  /// 这一条比逐模型匹配更可靠：DeepSeek 的公开模型（deepseek-chat /
+  /// deepseek-reasoner）都是纯文本的，逐个去猜模型名没有意义。
+  static const Set<String> providersWithoutVision = {'deepseek'};
+}
+
 /// 一个服务商的静态规格。
 class ProviderSpec {
   /// 内部 id，用于存储与展示。
@@ -75,6 +141,13 @@ class ProviderSpec {
   /// 一句话说明，帮用户选。
   final String note;
 
+  /// 该服务商是否**能**直接接收 PDF（不用先转成图片）。
+  ///
+  /// 只有 Anthropic（`document` block）与 Gemini（`inline_data` +
+  /// `application/pdf`）可以。OpenAI 的 `/chat/completions` 不行 ——
+  /// 那需要走 Files + Responses API，V1 不做。
+  final bool acceptsPdf;
+
   const ProviderSpec({
     required this.id,
     required this.label,
@@ -87,6 +160,7 @@ class ProviderSpec {
     this.requiresApiKey = true,
     this.helpUrl,
     this.note = '',
+    this.acceptsPdf = false,
   });
 
   bool get isOpenAiCompatible => protocol == LlmProtocol.openAiCompatible;
@@ -158,7 +232,8 @@ abstract final class LlmProviders {
       auth: LlmAuthStyle.bearer,
       defaultModel: 'deepseek-chat',
       suggestedModels: ['deepseek-chat', 'deepseek-reasoner'],
-      note: '国内直连，中文与数学推理表现好，价格低',
+      note: '国内直连，中文与数学推理表现好，价格低。⚠️ 纯文本模型，'
+          '不能做批量导入（需要视觉模型）',
       helpUrl: 'https://platform.deepseek.com/api_keys',
     ),
     ProviderSpec(
@@ -168,8 +243,12 @@ abstract final class LlmProviders {
       protocol: LlmProtocol.openAiCompatible,
       auth: LlmAuthStyle.bearer,
       defaultModel: 'qwen-plus',
-      suggestedModels: ['qwen-plus', 'qwen-max', 'qwen-turbo'],
-      note: '国内直连，阿里云百炼平台',
+      suggestedModels: [
+        'qwen-plus', 'qwen-max', 'qwen-turbo',
+        // 视觉模型：批量导入要用这几个（模型名里带 vl）
+        'qwen-vl-max', 'qwen-vl-plus',
+      ],
+      note: '国内直连，阿里云百炼平台。批量导入请选带 vl 的视觉模型',
       helpUrl: 'https://bailian.console.aliyun.com/',
     ),
     ProviderSpec(
@@ -179,8 +258,12 @@ abstract final class LlmProviders {
       protocol: LlmProtocol.openAiCompatible,
       auth: LlmAuthStyle.bearer,
       defaultModel: 'glm-4-flash',
-      suggestedModels: ['glm-4-flash', 'glm-4-air', 'glm-4-plus'],
-      note: '国内直连，glm-4-flash 有免费额度',
+      suggestedModels: [
+        'glm-4-flash', 'glm-4-air', 'glm-4-plus',
+        // 视觉模型：批量导入要用这几个（模型名里带 4v）
+        'glm-4v-flash', 'glm-4v-plus',
+      ],
+      note: '国内直连，glm-4-flash 有免费额度。批量导入请选带 4v 的视觉模型',
       helpUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
     ),
     ProviderSpec(
@@ -205,8 +288,9 @@ abstract final class LlmProviders {
         'claude-3-5-haiku-20241022',
         'claude-3-5-sonnet-20241022',
       ],
-      note: '需要海外网络环境；长文本理解强',
+      note: '需要海外网络环境；长文本理解强。**批量导入推荐**（支持图片与 PDF）',
       helpUrl: 'https://console.anthropic.com/settings/keys',
+      acceptsPdf: true,
     ),
     ProviderSpec(
       id: 'gemini',
@@ -216,8 +300,9 @@ abstract final class LlmProviders {
       auth: LlmAuthStyle.queryParam,
       defaultModel: 'gemini-1.5-flash',
       suggestedModels: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'],
-      note: '需要海外网络环境；有免费额度',
+      note: '需要海外网络环境；有免费额度。**批量导入性价比高**（支持图片与 PDF）',
       helpUrl: 'https://aistudio.google.com/app/apikey',
+      acceptsPdf: true,
     ),
     ProviderSpec(
       id: 'moonshot',
@@ -226,8 +311,11 @@ abstract final class LlmProviders {
       protocol: LlmProtocol.openAiCompatible,
       auth: LlmAuthStyle.bearer,
       defaultModel: 'moonshot-v1-8k',
-      suggestedModels: ['moonshot-v1-8k', 'moonshot-v1-32k'],
-      note: '国内直连，长上下文',
+      suggestedModels: [
+        'moonshot-v1-8k', 'moonshot-v1-32k',
+        'moonshot-v1-8k-vision-preview', 'kimi-latest',
+      ],
+      note: '国内直连，长上下文。批量导入请选带 vision 的模型',
       helpUrl: 'https://platform.moonshot.cn/console/api-keys',
     ),
     ProviderSpec(
@@ -324,6 +412,93 @@ class LlmConfig {
     if (model.isEmpty) return (false, '缺少模型名称');
     return (true, null);
   }
+
+  // ───────────────────────────────────────────────────────────────────────
+  // 视觉 / PDF 能力
+  // ───────────────────────────────────────────────────────────────────────
+
+  /// 当前"服务商 + 模型"能不能接收图片。
+  ///
+  /// 判据顺序（先粗后细，因为粗判据更可靠）：
+  /// 1. 整个服务商没有视觉模型 → [VisionSupport.no]
+  /// 2. 模型名命中已知视觉模型片段 → [VisionSupport.yes]
+  /// 3. 其余 → [VisionSupport.unknown]（自建代理、我们不认识的新模型）
+  VisionSupport get visionSupport {
+    final s = spec;
+    if (s == null) return VisionSupport.no;
+    if (LlmVision.providersWithoutVision.contains(s.id)) {
+      return VisionSupport.no;
+    }
+    final m = model.toLowerCase();
+    if (m.isEmpty) return VisionSupport.unknown;
+    final patterns = LlmVision.modelPatterns[s.id];
+    if (patterns != null && patterns.any(m.contains)) {
+      return VisionSupport.yes;
+    }
+    return VisionSupport.unknown;
+  }
+
+  /// 能不能把 PDF 原样发过去（而不是先转成图片）。
+  ///
+  /// PDF 支持是"协议级"的，所以先看服务商，再看模型是否至少能读图 ——
+  /// 一个连图片都不认的模型，服务商支持 PDF 也没用。
+  VisionSupport get pdfSupport {
+    final s = spec;
+    if (s == null) return VisionSupport.no;
+    if (!s.acceptsPdf) return VisionSupport.no;
+    if (visionSupport == VisionSupport.no) return VisionSupport.no;
+    return VisionSupport.yes;
+  }
+
+  /// 能不能跑批量导入。返回 null 表示可以。
+  ///
+  /// [needPdf] 为 true 时，来源里包含 PDF，于是还要 PDF 能力。
+  ///
+  /// ## 为什么要把这件事**提前**判掉
+  ///
+  /// 批量导入一次可能有 100+ 个来源。如果配置不对却放它跑，
+  /// 结果是 100 次调用全部失败 —— 用户等服务商报错等几分钟，
+  /// 还可能为其中的成功部分付了钱。提前拦下来的成本是一次方法调用。
+  String? visionBlockReason({bool needPdf = false}) {
+    final s = spec;
+    final label = s?.label ?? providerId;
+
+    if (visionSupport == VisionSupport.no) {
+      if (LlmVision.providersWithoutVision.contains(s?.id)) {
+        return '「$label」提供的是纯文本模型，不能读图片，因此无法做批量导入。'
+            '请换用支持视觉模型的服务商（Claude / Gemini / 通义 VL / 智谱 4V / Kimi 视觉版）。';
+      }
+      return '「$label」当前模型「$model」不支持图片输入，无法做批量导入。';
+    }
+
+    if (needPdf && pdfSupport == VisionSupport.no) {
+      return '「$label」不支持直接发送 PDF（只有 Claude 与 Gemini 支持）。'
+          '可以先把 PDF 导出成图片，或改用 Claude / Gemini。';
+    }
+
+    return null;
+  }
+
+  /// 配置可以跑但**并不确定**能跑通时的提醒。
+  ///
+  /// 返回 null 表示没有需要额外提醒的事。
+  String? visionWarning({bool needPdf = false}) {
+    if (visionBlockReason(needPdf: needPdf) != null) return null;
+
+    if (visionSupport == VisionSupport.unknown) {
+      final alt = LlmVision.suggestedVisionModels[spec?.id];
+      final hint = (alt == null || alt.isEmpty)
+          ? '请确认该模型支持图片输入。'
+          : '已知可用的有：${alt.join('、')}。';
+      return '无法确认模型「$model」是否支持图片输入 —— 若解析全部失败，'
+          '请换模型。$hint';
+    }
+    return null;
+  }
+
+  /// 建议改成哪个模型就能做批量导入。没有建议时返回空表。
+  List<String> get suggestedVisionModels =>
+      LlmVision.suggestedVisionModels[providerId] ?? const [];
 
   static String _stripTrailingSlash(String s) =>
       s.endsWith('/') ? s.substring(0, s.length - 1) : s;

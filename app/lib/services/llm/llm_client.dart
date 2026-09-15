@@ -18,6 +18,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'provider_registry.dart';
 
@@ -259,10 +260,66 @@ abstract final class LlmPricing {
 // 请求 / 响应
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// 附件的种类。决定在请求体里怎么编码。
+enum ChatAttachmentKind {
+  image,
+
+  /// 直接把 PDF 发给模型（Anthropic / Gemini 支持）。
+  ///
+  /// 为什么不做本地 PDF 转图片：那要引入 pdfium（+10–15 MB 包体），
+  /// 而云端本来就能读 PDF —— 既然批量导入走的已经是云端视觉模型，
+  /// 就没有必要为同一件事再往包里塞一个渲染引擎。
+  pdf,
+}
+
+/// 一次请求要带上的附件。
+///
+/// ## 为什么是「字节 + MIME」而不是文件路径
+///
+/// [LlmClient] 是 services 层，不该依赖 `dart:io`：
+/// - 测试要能直接 `const ChatAttachment(...)` 构造，不必落盘
+/// - 将来若把解析放到 isolate / 后端，这一层不用改
+///
+/// 读取文件是调用方（`ingest` 管道）的事。
+class ChatAttachment {
+  final ChatAttachmentKind kind;
+
+  /// MIME 类型，如 `image/png`、`image/jpeg`、`application/pdf`。
+  final String mimeType;
+
+  final Uint8List bytes;
+
+  /// 展示名（只用于日志与错误信息，不进请求体）。
+  final String name;
+
+  const ChatAttachment({
+    required this.kind,
+    required this.mimeType,
+    required this.bytes,
+    this.name = '',
+  });
+
+  /// base64 编码后的内容（三家协议都要求 base64）。
+  ///
+  /// 不用 data-URI 前缀 —— 那是 OpenAI 特有的写法，由各自的编码函数补。
+  String get base64Data => base64Encode(bytes);
+
+  int get byteLength => bytes.length;
+
+  String get displayName => name.isEmpty ? mimeType : name;
+}
+
 /// 一次对话请求。
 class ChatRequest {
   final String system;
   final String user;
+
+  /// 随请求一起发出去的图片 / PDF。
+  ///
+  /// 为空时请求体与"纯文本"完全一致（保持与既有服务商的兼容性）。
+  /// 非空时由 [_buildOpenAi] / [_buildAnthropic] / [_buildGemini]
+  /// 按各自协议编码 —— 三家的多模态格式**互不相同**。
+  final List<ChatAttachment> attachments;
 
   /// 是否要求模型输出 JSON。
   ///
@@ -279,10 +336,13 @@ class ChatRequest {
   const ChatRequest({
     required this.system,
     required this.user,
+    this.attachments = const [],
     this.jsonMode = false,
     this.temperature = 0.1,
     this.maxTokens,
   });
+
+  bool get hasAttachments => attachments.isNotEmpty;
 }
 
 /// 一次对话响应。
@@ -438,7 +498,7 @@ class LlmClient {
       'model': config.model,
       'messages': [
         {'role': 'system', 'content': req.system},
-        {'role': 'user', 'content': req.user},
+        {'role': 'user', 'content': _openAiUserContent(req)},
       ],
       'temperature': req.temperature,
       'stream': false,
@@ -462,6 +522,40 @@ class LlmClient {
     );
   }
 
+  /// OpenAI 兼容协议的 user content。
+  ///
+  /// 没有附件时保持**纯字符串** —— 部分第三方兼容端点对"内容数组"支持不全，
+  /// 没必要为了统一写法让纯文本调用冒兼容风险。
+  Object _openAiUserContent(ChatRequest req) {
+    if (!req.hasAttachments) return req.user;
+
+    final parts = <Map<String, dynamic>>[
+      {'type': 'text', 'text': req.user},
+    ];
+    for (final a in req.attachments) {
+      switch (a.kind) {
+        case ChatAttachmentKind.image:
+          parts.add({
+            'type': 'image_url',
+            'image_url': {'url': 'data:${a.mimeType};base64,${a.base64Data}'},
+          });
+        case ChatAttachmentKind.pdf:
+          // ⚠️ 宁可**报错也不要静默丢掉附件**。
+          //
+          // OpenAI 的 `/chat/completions` 不接受 PDF（要走 Files + Responses
+          // API）。若这里默默跳过，用户会收到一个只看了题干文字、完全没看
+          // PDF 的"解析结果"，而且**为它付了钱** —— 那种错误比直接失败难查得多。
+          // 调用方应当先用 `LlmConfig.pdfSupport` 判断，不要走到这里。
+          throw LlmException(
+            LlmErrorKind.badRequest,
+            '${config.providerId} 的对话接口不支持直接发送 PDF，'
+            '请改用支持 PDF 的服务商（Claude / Gemini），或先把 PDF 导出成图片。',
+          );
+      }
+    }
+    return parts;
+  }
+
   /// Anthropic Messages API。
   HttpRequest _buildAnthropic(ChatRequest req) {
     // Anthropic 把 system 放在顶层字段而非 messages 里
@@ -469,7 +563,7 @@ class LlmClient {
       'model': config.model,
       'system': req.system,
       'messages': [
-        {'role': 'user', 'content': req.user},
+        {'role': 'user', 'content': _anthropicUserContent(req)},
       ],
       'temperature': req.temperature,
       'max_tokens': req.maxTokens ?? 4096,
@@ -479,6 +573,26 @@ class LlmClient {
       headers: config.headers(),
       body: jsonEncode(body),
     );
+  }
+
+  Object _anthropicUserContent(ChatRequest req) {
+    if (!req.hasAttachments) return req.user;
+
+    final blocks = <Map<String, dynamic>>[];
+    for (final a in req.attachments) {
+      blocks.add({
+        // Anthropic 用两个不同的 block 类型：图片是 `image`，
+        // PDF 是 `document`（2024-11 起支持，走同一个 base64 source 结构）。
+        'type': a.kind == ChatAttachmentKind.pdf ? 'document' : 'image',
+        'source': {
+          'type': 'base64',
+          'media_type': a.mimeType,
+          'data': a.base64Data,
+        },
+      });
+    }
+    blocks.add({'type': 'text', 'text': req.user});
+    return blocks;
   }
 
   /// Google Gemini generateContent。
@@ -492,9 +606,7 @@ class LlmClient {
       'contents': [
         {
           'role': 'user',
-          'parts': [
-            {'text': req.user},
-          ],
+          'parts': _geminiParts(req),
         },
       ],
       'generationConfig': {
@@ -512,6 +624,17 @@ class LlmClient {
       headers: config.headers(),
       body: jsonEncode(body),
     );
+  }
+
+  /// Gemini 的 parts：图片与 PDF 都走 `inline_data`，只差 MIME。
+  List<Map<String, dynamic>> _geminiParts(ChatRequest req) {
+    return [
+      for (final a in req.attachments)
+        {
+          'inline_data': {'mime_type': a.mimeType, 'data': a.base64Data},
+        },
+      {'text': req.user},
+    ];
   }
 
   // ───────────────────────────────────────────────────────────────────────

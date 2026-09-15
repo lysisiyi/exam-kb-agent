@@ -13,6 +13,10 @@ import '../domain/paper/paper_models.dart';
 import '../domain/paper/paper_template.dart';
 import '../features/problems/problems_page.dart' show ProblemView;
 import '../services/library/problem_service.dart';
+import '../services/llm/dio_http_adapter.dart';
+import '../services/llm/llm_client.dart';
+import '../services/llm/llm_settings.dart';
+import '../services/llm/provider_registry.dart';
 import '../services/paper/paper_repository.dart';
 import '../services/review/reminder_service.dart';
 import '../services/review/review_repository.dart';
@@ -251,4 +255,41 @@ final problemSearchProvider =
   if (q.isEmpty) return const [];
   final db = await ref.watch(databaseProvider.future);
   return ProblemSearch(db).search(q, limit: 100);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI 配置（BYOK）
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 当前 LLM 配置。未配置 / 解密失败时是 [LlmSettings.none]。
+///
+/// 抽成 provider 而不是每处各自 `LlmSettingsStore().load()`：
+/// 批量导入页要**在选完文件后立刻**判断"当前模型能不能读图片"，
+/// 而录入页的 AI 按钮也要读同一份配置。两处各读一次的话，
+/// 用户在设置里改完模型，只有一部分界面会跟着变。
+final llmSettingsProvider = FutureProvider<LlmSettings>((ref) async {
+  return const LlmSettingsStore().load();
+});
+
+/// 配置完整到可以发请求时的 [LlmConfig]，否则 null。
+///
+/// ⚠️ 注意它**不判断视觉能力** —— 那是 `LlmConfig.visionSupport` 的事，
+/// 用于标注与提炼之外的其他调用（如纯文本任务）也可能只需要"配置完整"。
+final llmConfigProvider = Provider<LlmConfig?>((ref) {
+  final s = ref.watch(llmSettingsProvider).valueOrNull;
+  if (s == null || !s.isConfigured) return null;
+  final cfg = s.toConfig();
+  final (ok, _) = cfg.validate();
+  return ok ? cfg : null;
+});
+
+/// 批量导入用的客户端。配置不可用时为 null。
+///
+/// 单独一个 provider（而不是复用标注引擎内部那个）是因为导入用的是
+/// **视觉**接口，与标注的文本接口是两条路：能力要求不同，
+/// 报错要给的建议也不同。
+final ingestClientProvider = Provider<LlmClient?>((ref) {
+  final cfg = ref.watch(llmConfigProvider);
+  if (cfg == null) return null;
+  return LlmClient(config: cfg, http: DioHttpAdapter());
 });

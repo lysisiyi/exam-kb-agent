@@ -34,9 +34,12 @@ import 'package:kaoyan_math_agent/core/platform/platform_services_mock.dart';
 import 'package:kaoyan_math_agent/core/widgets/adaptive_shell.dart';
 import 'package:kaoyan_math_agent/dev_shell.dart';
 import 'package:kaoyan_math_agent/features/entry/entry_page.dart';
+import 'package:kaoyan_math_agent/features/ingest/ingest_page.dart';
 import 'package:kaoyan_math_agent/features/knowledge/knowledge_page.dart';
+import 'package:kaoyan_math_agent/features/paper/paper_page.dart';
 import 'package:kaoyan_math_agent/features/problems/problems_page.dart';
 import 'package:kaoyan_math_agent/features/review/review_page.dart';
+import 'package:kaoyan_math_agent/features/settings/settings_page.dart';
 
 /// 一个同步渲染、零异步的假页面。
 class _StubPage extends StatelessWidget {
@@ -209,13 +212,25 @@ void main() {
         for (final d in shell.destinations) d.label: d.builder().runtimeType,
       };
 
-      // 这一条同时守住"占位页有没有被忘掉换掉"：
-      // 复习和错题本在 M5 换成了真页面，组卷还是 M6 的占位页
+      // 这一条同时守住"占位页有没有被忘掉换掉"。
+      // 全部七个目的地都要点名 —— 早先这里只断言了前四个 + 一句
+      // `isNot(EntryPage)`，于是"组卷还是占位页"能一路绿到 M6；
+      // 而"七个都指向真页面"这句话在 `dev_shell.dart` 里只是注释，没人守。
       expect(built['知识库'], KnowledgePage);
       expect(built['今日复习'], ReviewPage);
       expect(built['错题本'], ProblemsPage);
       expect(built['录入'], EntryPage);
-      expect(built['组卷'], isNot(EntryPage));
+      expect(built['批量导入'], IngestPage);
+      expect(built['组卷'], PaperPage);
+      expect(built['设置'], SettingsPage);
+
+      expect(shell.destinations.length, 7, reason: '新增/删除目的地时这条要一起改');
+
+      // 快捷键提示必须与位置一致：AdaptiveShell 的 Ctrl+N 是按**下标**算的，
+      // 提示写错了比没有提示更糟（用户按了没反应，会以为快捷键坏了）
+      for (var i = 0; i < shell.destinations.length; i++) {
+        expect(shell.destinations[i].shortcutHint, 'Ctrl+${i + 1}');
+      }
 
       // builder 每次调用都该给新实例（`_LazyPage` 只在首次构建时调用一次，
       // 之后复用同一个 widget —— 所以这里必须是新实例，不能是同一个常量）
