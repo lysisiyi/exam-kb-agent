@@ -157,8 +157,14 @@ void main() {
 
   // ───────────────────────────────────────────────────────────────────────
   group('Schema 迁移', () {
-    test('v2 库升到 v3 会补出 cache 与 usage 两张表，且用户数据不丢', () async {
-      // 用真实的 v3 库建好，再手工退回 v2 形状（删掉两张新表、改 user_version）
+    test('v2 库升到当前版本会补出缺的表与列，且用户数据不丢', () async {
+      // 用当前代码建好一个库，再**手工退回 v2 形状**（删掉后来才有的表和列、
+      // 把 user_version 写回去），然后让迁移链重新跑一遍。
+      //
+      // ⚠️ 退回动作必须与真实的历史形状一致。曾经漏掉"v4 才加的
+      // `error_causes` 列"，于是重新打开时 `ADD COLUMN` 撞上已存在的列
+      // 直接抛 SqliteException —— 测试红了，但那不是产品缺陷，
+      // 是这个夹具没有真的把库退回 v2。
       final dir = await Directory.systemTemp.createTemp('dsh-migrate-');
       addTearDown(() async {
         try {
@@ -167,32 +173,34 @@ void main() {
       });
       final file = File('${dir.path}/index.sqlite');
 
-      final v3 = AppDatabase.openFile(file);
-      await v3.into(v3.userProblemState).insert(
+      final current = AppDatabase.openFile(file);
+      await current.into(current.userProblemState).insert(
             UserProblemStateCompanion.insert(
               problemId: 'p-1',
               wrongCount: const Value(7),
               fsrsState: const Value('{"due":"2024-06-01T00:00:00.000"}'),
             ),
           );
-      await v3.into(v3.tagCacheEntries).insert(
+      await current.into(current.tagCacheEntries).insert(
             TagCacheEntriesCompanion.insert(
               fingerprint: 'fp-1',
               result: '{"primary":"x"}',
               model: const Value('deepseek-chat'),
             ),
           );
-      await v3.close();
+      await current.close();
 
-      // 退回 v2：删掉 v3 才有的两张表 + 把版本号写回去
+      // 退回 v2：删掉后来才有的两张表、一列，再把版本号写回 2
       final rollback = AppDatabase.openFile(file);
-      // 直接执行 DDL：这两张表在 v2 里不存在
       await rollback.customStatement('DROP TABLE tag_cache_entries');
       await rollback.customStatement('DROP TABLE llm_usage_entries');
+      await rollback.customStatement(
+        'ALTER TABLE problems_index DROP COLUMN error_causes',
+      );
       await rollback.customStatement('PRAGMA user_version = 2');
       await rollback.close();
 
-      // 现在用当前代码打开：应当走 `onUpgrade` 的 `from < 3` 分支
+      // 现在用当前代码打开：应当逐版本跑 onUpgrade
       final upgraded = AppDatabase.openFile(file);
       addTearDown(upgraded.close);
 
@@ -204,6 +212,14 @@ void main() {
       final names = tables.map((r) => r.read<String>('name')).toSet();
       expect(names, contains('tag_cache_entries'));
       expect(names, contains('llm_usage_entries'));
+
+      // v4 的那一列要补回来
+      final cols = await upgraded
+          .customSelect('PRAGMA table_info(problems_index)')
+          .get();
+      final colNames = cols.map((r) => r.read<String>('name')).toSet();
+      expect(colNames, contains('error_causes'),
+          reason: 'v4 迁移必须把这一列加上，否则画像的错因分布永远是空的');
 
       // 已经存在的那一行缓存**不会**被重建（迁移只建表，不动数据）
       expect(await upgraded.select(upgraded.tagCacheEntries).get(), isEmpty,

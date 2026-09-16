@@ -62,7 +62,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -73,10 +73,11 @@ class AppDatabase extends _$AppDatabase {
         },
         onUpgrade: (m, from, to) async {
           // 逐版本升级，不要写 `if (from < 2)` 就跳到底 ——
-          // 将来加 v3 时容易漏掉中间步骤。
+          // 将来加 v5 时容易漏掉中间步骤。
           if (from < 2) await _migrateToV2();
           if (from < 3) await m.createTable(tagCacheEntries);
           if (from < 3) await m.createTable(llmUsageEntries);
+          if (from < 4) await _migrateToV4(m);
         },
         beforeOpen: (details) async {
           // 打开外键约束的**执行**开关。注意：当前 schema 里**没有任何
@@ -142,6 +143,26 @@ class AppDatabase extends _$AppDatabase {
   // FTS5 相关
   // ───────────────────────────────────────────────────────────────────────
 
+  /// v3 → v4：给 `problems_index` 加 `error_causes` 列（画像的错因分布要用）。
+  ///
+  /// ## 为什么这次可以简单加一列
+  ///
+  /// `problems_index` 是**派生数据** —— 整个删掉都能从 Markdown 重建，
+  /// 所以迁移不需要像 v2 那样小心翼翼地拷用户数据（那次动的是
+  /// `user_problem_state`，删了就是真丢复习进度）。
+  ///
+  /// ## 旧行会一直是空的
+  ///
+  /// 加完列之后**旧行的内容为空**，只有之后被重新索引过的题才有值
+  /// （增量重建按 mtime 跳过未改动的文件，所以老题不会被自动重扫）。
+  ///
+  /// 这一点**必须让画像如实说出来**，不能把"只统计了迁移之后新录的题"
+  /// 当成完整的错因分布显示 —— 错因分布是聚合结果，看起来有数据
+  /// 比空着更危险。所以画像里带了一个"有 N 道题缺错因数据，建议重建索引"
+  /// 的提示（见 `MasteryReport.missingCauseData`）。
+  Future<void> _migrateToV4(Migrator m) async {
+    await m.addColumn(problemsIndex, problemsIndex.errorCauses);
+  }
   /// 创建 FTS5 虚拟表与同步触发器。
   ///
   /// 幂等：全部使用 `IF NOT EXISTS`。

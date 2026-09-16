@@ -108,6 +108,12 @@ class $ProblemsIndexTable extends ProblemsIndex
   late final GeneratedColumn<String> parseWarnings = GeneratedColumn<String>(
       'parse_warnings', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _errorCausesMeta =
+      const VerificationMeta('errorCauses');
+  @override
+  late final GeneratedColumn<String> errorCauses = GeneratedColumn<String>(
+      'error_causes', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _needsReviewMeta =
       const VerificationMeta('needsReview');
   @override
@@ -171,6 +177,7 @@ class $ProblemsIndexTable extends ProblemsIndex
         primaryKpWeight,
         primaryKpName,
         parseWarnings,
+        errorCauses,
         needsReview,
         aiTagged,
         aiConfidence,
@@ -275,6 +282,12 @@ class $ProblemsIndexTable extends ProblemsIndex
           parseWarnings.isAcceptableOrUnknown(
               data['parse_warnings']!, _parseWarningsMeta));
     }
+    if (data.containsKey('error_causes')) {
+      context.handle(
+          _errorCausesMeta,
+          errorCauses.isAcceptableOrUnknown(
+              data['error_causes']!, _errorCausesMeta));
+    }
     if (data.containsKey('needs_review')) {
       context.handle(
           _needsReviewMeta,
@@ -344,6 +357,8 @@ class $ProblemsIndexTable extends ProblemsIndex
           .read(DriftSqlType.string, data['${effectivePrefix}primary_kp_name']),
       parseWarnings: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}parse_warnings']),
+      errorCauses: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}error_causes']),
       needsReview: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}needs_review'])!,
       aiTagged: attachedDatabase.typeMapping
@@ -427,6 +442,19 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
 
   /// 解析期产生的警告（JSON 数组字符串）。非空表示需人工复核。
   final String? parseWarnings;
+
+  /// 题目的错因（`error_causes`）—— **JSON 数组字符串**，如 `["sign","idea"]`。
+  ///
+  /// ⚠️ 这是**题目属性**（"这题容易在哪里错"，录入时用户勾选或 AI 预判），
+  /// 与 `user_problem_state.error_causes`（"我这次为什么错"）不是一回事。
+  ///
+  /// 为什么要冗余进索引：`画像` 要统计**错因分布**，而它是一张聚合表。
+  /// 不冗余的话，算一次分布就得读 5000 个 Markdown 文件 ——
+  /// 而索引表本来就是为"不必回头读 Markdown"而存在的。
+  ///
+  /// schema v4 新增。它同样是**派生数据**（可从 Markdown 重建），
+  /// 所以迁移只需加一列 + 重建索引，不涉及任何用户数据。
+  final String? errorCauses;
   final bool needsReview;
   final bool aiTagged;
   final double? aiConfidence;
@@ -453,6 +481,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
       this.primaryKpWeight,
       this.primaryKpName,
       this.parseWarnings,
+      this.errorCauses,
       required this.needsReview,
       required this.aiTagged,
       this.aiConfidence,
@@ -486,6 +515,9 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
     }
     if (!nullToAbsent || parseWarnings != null) {
       map['parse_warnings'] = Variable<String>(parseWarnings);
+    }
+    if (!nullToAbsent || errorCauses != null) {
+      map['error_causes'] = Variable<String>(errorCauses);
     }
     map['needs_review'] = Variable<bool>(needsReview);
     map['ai_tagged'] = Variable<bool>(aiTagged);
@@ -528,6 +560,9 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
       parseWarnings: parseWarnings == null && nullToAbsent
           ? const Value.absent()
           : Value(parseWarnings),
+      errorCauses: errorCauses == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorCauses),
       needsReview: Value(needsReview),
       aiTagged: Value(aiTagged),
       aiConfidence: aiConfidence == null && nullToAbsent
@@ -562,6 +597,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
       primaryKpWeight: serializer.fromJson<double?>(json['primaryKpWeight']),
       primaryKpName: serializer.fromJson<String?>(json['primaryKpName']),
       parseWarnings: serializer.fromJson<String?>(json['parseWarnings']),
+      errorCauses: serializer.fromJson<String?>(json['errorCauses']),
       needsReview: serializer.fromJson<bool>(json['needsReview']),
       aiTagged: serializer.fromJson<bool>(json['aiTagged']),
       aiConfidence: serializer.fromJson<double?>(json['aiConfidence']),
@@ -589,6 +625,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
       'primaryKpWeight': serializer.toJson<double?>(primaryKpWeight),
       'primaryKpName': serializer.toJson<String?>(primaryKpName),
       'parseWarnings': serializer.toJson<String?>(parseWarnings),
+      'errorCauses': serializer.toJson<String?>(errorCauses),
       'needsReview': serializer.toJson<bool>(needsReview),
       'aiTagged': serializer.toJson<bool>(aiTagged),
       'aiConfidence': serializer.toJson<double?>(aiConfidence),
@@ -614,6 +651,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
           Value<double?> primaryKpWeight = const Value.absent(),
           Value<String?> primaryKpName = const Value.absent(),
           Value<String?> parseWarnings = const Value.absent(),
+          Value<String?> errorCauses = const Value.absent(),
           bool? needsReview,
           bool? aiTagged,
           Value<double?> aiConfidence = const Value.absent(),
@@ -640,6 +678,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
             primaryKpName.present ? primaryKpName.value : this.primaryKpName,
         parseWarnings:
             parseWarnings.present ? parseWarnings.value : this.parseWarnings,
+        errorCauses: errorCauses.present ? errorCauses.value : this.errorCauses,
         needsReview: needsReview ?? this.needsReview,
         aiTagged: aiTagged ?? this.aiTagged,
         aiConfidence:
@@ -678,6 +717,8 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
       parseWarnings: data.parseWarnings.present
           ? data.parseWarnings.value
           : this.parseWarnings,
+      errorCauses:
+          data.errorCauses.present ? data.errorCauses.value : this.errorCauses,
       needsReview:
           data.needsReview.present ? data.needsReview.value : this.needsReview,
       aiTagged: data.aiTagged.present ? data.aiTagged.value : this.aiTagged,
@@ -710,6 +751,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
           ..write('primaryKpWeight: $primaryKpWeight, ')
           ..write('primaryKpName: $primaryKpName, ')
           ..write('parseWarnings: $parseWarnings, ')
+          ..write('errorCauses: $errorCauses, ')
           ..write('needsReview: $needsReview, ')
           ..write('aiTagged: $aiTagged, ')
           ..write('aiConfidence: $aiConfidence, ')
@@ -737,6 +779,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
         primaryKpWeight,
         primaryKpName,
         parseWarnings,
+        errorCauses,
         needsReview,
         aiTagged,
         aiConfidence,
@@ -763,6 +806,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
           other.primaryKpWeight == this.primaryKpWeight &&
           other.primaryKpName == this.primaryKpName &&
           other.parseWarnings == this.parseWarnings &&
+          other.errorCauses == this.errorCauses &&
           other.needsReview == this.needsReview &&
           other.aiTagged == this.aiTagged &&
           other.aiConfidence == this.aiConfidence &&
@@ -787,6 +831,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
   final Value<double?> primaryKpWeight;
   final Value<String?> primaryKpName;
   final Value<String?> parseWarnings;
+  final Value<String?> errorCauses;
   final Value<bool> needsReview;
   final Value<bool> aiTagged;
   final Value<double?> aiConfidence;
@@ -809,6 +854,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
     this.primaryKpWeight = const Value.absent(),
     this.primaryKpName = const Value.absent(),
     this.parseWarnings = const Value.absent(),
+    this.errorCauses = const Value.absent(),
     this.needsReview = const Value.absent(),
     this.aiTagged = const Value.absent(),
     this.aiConfidence = const Value.absent(),
@@ -832,6 +878,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
     this.primaryKpWeight = const Value.absent(),
     this.primaryKpName = const Value.absent(),
     this.parseWarnings = const Value.absent(),
+    this.errorCauses = const Value.absent(),
     this.needsReview = const Value.absent(),
     this.aiTagged = const Value.absent(),
     this.aiConfidence = const Value.absent(),
@@ -860,6 +907,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
     Expression<double>? primaryKpWeight,
     Expression<String>? primaryKpName,
     Expression<String>? parseWarnings,
+    Expression<String>? errorCauses,
     Expression<bool>? needsReview,
     Expression<bool>? aiTagged,
     Expression<double>? aiConfidence,
@@ -883,6 +931,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
       if (primaryKpWeight != null) 'primary_kp_weight': primaryKpWeight,
       if (primaryKpName != null) 'primary_kp_name': primaryKpName,
       if (parseWarnings != null) 'parse_warnings': parseWarnings,
+      if (errorCauses != null) 'error_causes': errorCauses,
       if (needsReview != null) 'needs_review': needsReview,
       if (aiTagged != null) 'ai_tagged': aiTagged,
       if (aiConfidence != null) 'ai_confidence': aiConfidence,
@@ -908,6 +957,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
       Value<double?>? primaryKpWeight,
       Value<String?>? primaryKpName,
       Value<String?>? parseWarnings,
+      Value<String?>? errorCauses,
       Value<bool>? needsReview,
       Value<bool>? aiTagged,
       Value<double?>? aiConfidence,
@@ -930,6 +980,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
       primaryKpWeight: primaryKpWeight ?? this.primaryKpWeight,
       primaryKpName: primaryKpName ?? this.primaryKpName,
       parseWarnings: parseWarnings ?? this.parseWarnings,
+      errorCauses: errorCauses ?? this.errorCauses,
       needsReview: needsReview ?? this.needsReview,
       aiTagged: aiTagged ?? this.aiTagged,
       aiConfidence: aiConfidence ?? this.aiConfidence,
@@ -987,6 +1038,9 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
     if (parseWarnings.present) {
       map['parse_warnings'] = Variable<String>(parseWarnings.value);
     }
+    if (errorCauses.present) {
+      map['error_causes'] = Variable<String>(errorCauses.value);
+    }
     if (needsReview.present) {
       map['needs_review'] = Variable<bool>(needsReview.value);
     }
@@ -1026,6 +1080,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
           ..write('primaryKpWeight: $primaryKpWeight, ')
           ..write('primaryKpName: $primaryKpName, ')
           ..write('parseWarnings: $parseWarnings, ')
+          ..write('errorCauses: $errorCauses, ')
           ..write('needsReview: $needsReview, ')
           ..write('aiTagged: $aiTagged, ')
           ..write('aiConfidence: $aiConfidence, ')
@@ -3697,6 +3752,7 @@ typedef $$ProblemsIndexTableCreateCompanionBuilder = ProblemsIndexCompanion
   Value<double?> primaryKpWeight,
   Value<String?> primaryKpName,
   Value<String?> parseWarnings,
+  Value<String?> errorCauses,
   Value<bool> needsReview,
   Value<bool> aiTagged,
   Value<double?> aiConfidence,
@@ -3721,6 +3777,7 @@ typedef $$ProblemsIndexTableUpdateCompanionBuilder = ProblemsIndexCompanion
   Value<double?> primaryKpWeight,
   Value<String?> primaryKpName,
   Value<String?> parseWarnings,
+  Value<String?> errorCauses,
   Value<bool> needsReview,
   Value<bool> aiTagged,
   Value<double?> aiConfidence,
@@ -3783,6 +3840,9 @@ class $$ProblemsIndexTableFilterComposer
 
   ColumnFilters<String> get parseWarnings => $composableBuilder(
       column: $table.parseWarnings, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get errorCauses => $composableBuilder(
+      column: $table.errorCauses, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get needsReview => $composableBuilder(
       column: $table.needsReview, builder: (column) => ColumnFilters(column));
@@ -3862,6 +3922,9 @@ class $$ProblemsIndexTableOrderingComposer
       column: $table.parseWarnings,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get errorCauses => $composableBuilder(
+      column: $table.errorCauses, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get needsReview => $composableBuilder(
       column: $table.needsReview, builder: (column) => ColumnOrderings(column));
 
@@ -3937,6 +4000,9 @@ class $$ProblemsIndexTableAnnotationComposer
   GeneratedColumn<String> get parseWarnings => $composableBuilder(
       column: $table.parseWarnings, builder: (column) => column);
 
+  GeneratedColumn<String> get errorCauses => $composableBuilder(
+      column: $table.errorCauses, builder: (column) => column);
+
   GeneratedColumn<bool> get needsReview => $composableBuilder(
       column: $table.needsReview, builder: (column) => column);
 
@@ -3997,6 +4063,7 @@ class $$ProblemsIndexTableTableManager extends RootTableManager<
             Value<double?> primaryKpWeight = const Value.absent(),
             Value<String?> primaryKpName = const Value.absent(),
             Value<String?> parseWarnings = const Value.absent(),
+            Value<String?> errorCauses = const Value.absent(),
             Value<bool> needsReview = const Value.absent(),
             Value<bool> aiTagged = const Value.absent(),
             Value<double?> aiConfidence = const Value.absent(),
@@ -4020,6 +4087,7 @@ class $$ProblemsIndexTableTableManager extends RootTableManager<
             primaryKpWeight: primaryKpWeight,
             primaryKpName: primaryKpName,
             parseWarnings: parseWarnings,
+            errorCauses: errorCauses,
             needsReview: needsReview,
             aiTagged: aiTagged,
             aiConfidence: aiConfidence,
@@ -4043,6 +4111,7 @@ class $$ProblemsIndexTableTableManager extends RootTableManager<
             Value<double?> primaryKpWeight = const Value.absent(),
             Value<String?> primaryKpName = const Value.absent(),
             Value<String?> parseWarnings = const Value.absent(),
+            Value<String?> errorCauses = const Value.absent(),
             Value<bool> needsReview = const Value.absent(),
             Value<bool> aiTagged = const Value.absent(),
             Value<double?> aiConfidence = const Value.absent(),
@@ -4066,6 +4135,7 @@ class $$ProblemsIndexTableTableManager extends RootTableManager<
             primaryKpWeight: primaryKpWeight,
             primaryKpName: primaryKpName,
             parseWarnings: parseWarnings,
+            errorCauses: errorCauses,
             needsReview: needsReview,
             aiTagged: aiTagged,
             aiConfidence: aiConfidence,

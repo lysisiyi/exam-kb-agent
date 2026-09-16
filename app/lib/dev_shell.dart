@@ -14,6 +14,7 @@ import 'features/ingest/ingest_page.dart';
 import 'features/knowledge/knowledge_page.dart';
 import 'features/paper/paper_page.dart';
 import 'features/problems/problems_page.dart';
+import 'features/profile/profile_page.dart';
 import 'features/review/review_page.dart';
 import 'features/settings/settings_page.dart';
 
@@ -75,10 +76,17 @@ List<NavDestination> buildDevDestinations({
         builder: () => const PaperPage(),
       ),
       NavDestination(
+        label: '画像',
+        icon: Icons.insights_outlined,
+        selectedIcon: Icons.insights,
+        shortcutHint: 'Ctrl+7',
+        builder: () => const ProfilePage(),
+      ),
+      NavDestination(
         label: '设置',
         icon: Icons.settings_outlined,
         selectedIcon: Icons.settings,
-        shortcutHint: 'Ctrl+7',
+        shortcutHint: 'Ctrl+8',
         builder: () => const SettingsPage(),
       ),
     ];

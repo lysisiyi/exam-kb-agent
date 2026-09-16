@@ -498,6 +498,16 @@ class ProblemListRow {
   /// 用户状态（可能还没建卡）。
   final UserProblemStateRow? state;
 
+  /// **此刻**的掌握度 0–1。0 表示"没有可谈的掌握度"（新卡 / 状态损坏）。
+  ///
+  /// ⚠️ 刻意**不**读 `state.mastery`。那一列是打分那一刻算出的快照，
+  /// 之后只会随时间衰减而它自己不变（T37）。用快照会出现
+  /// "列表说掌握 90%、画像说掌握 40%"这种两处不一致，
+  /// 而用户完全无法判断该信哪个。
+  ///
+  /// 由 `problemListProvider` 按同一个 `now` 现算（见 [masteryNowOf]）。
+  final double mastery;
+
   const ProblemListRow({
     required this.problemId,
     required this.stemText,
@@ -508,9 +518,10 @@ class ProblemListRow {
     this.aiTagged = false,
     this.createdAt,
     this.state,
+    this.mastery = 0,
   });
 
   int get wrongCount => state?.wrongCount ?? 0;
-  double get mastery => state?.mastery ?? 0;
   bool get starred => state?.starred ?? false;
+  bool get hasMastery => mastery > 0;
 }

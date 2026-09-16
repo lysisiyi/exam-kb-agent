@@ -106,6 +106,19 @@ class ProblemsIndex extends Table {
   /// 解析期产生的警告（JSON 数组字符串）。非空表示需人工复核。
   TextColumn get parseWarnings => text().nullable()();
 
+  /// 题目的错因（`error_causes`）—— **JSON 数组字符串**，如 `["sign","idea"]`。
+  ///
+  /// ⚠️ 这是**题目属性**（"这题容易在哪里错"，录入时用户勾选或 AI 预判），
+  /// 与 `user_problem_state.error_causes`（"我这次为什么错"）不是一回事。
+  ///
+  /// 为什么要冗余进索引：`画像` 要统计**错因分布**，而它是一张聚合表。
+  /// 不冗余的话，算一次分布就得读 5000 个 Markdown 文件 ——
+  /// 而索引表本来就是为"不必回头读 Markdown"而存在的。
+  ///
+  /// schema v4 新增。它同样是**派生数据**（可从 Markdown 重建），
+  /// 所以迁移只需加一列 + 重建索引，不涉及任何用户数据。
+  TextColumn get errorCauses => text().nullable()();
+
   BoolColumn get needsReview =>
       boolean().withDefault(const Constant(false))();
 

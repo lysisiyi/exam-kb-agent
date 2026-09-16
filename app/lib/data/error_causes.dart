@@ -139,6 +139,18 @@ class ErrorCauseCatalog {
     return out;
   }
 
+  /// id → 中文名。认不出来时**返回 id 本身**，不返回空串。
+  ///
+  /// 认不出来通常意味着"题目里存了一个已经不在词表里的错因 id"
+  /// （词表改过、或者 AI 标了一个不存在的）。这时把 id 显示出来，
+  /// 用户和开发者至少能看到是哪一个；显示空串等于把线索抹掉。
+  String nameOf(String id) {
+    for (final c in causes) {
+      if (c.id == id) return c.name;
+    }
+    return id;
+  }
+
   ErrorCause? byId(String id) {
     for (final c in causes) {
       if (c.id == id) return c;

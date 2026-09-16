@@ -8,6 +8,7 @@ import '../data/error_causes.dart';
 import '../data/index/index_builder.dart';
 import '../data/knowledge/knowledge_repository.dart';
 import '../data/markdown/problem_store.dart';
+import '../domain/fsrs/fsrs_scheduler.dart';
 import '../domain/knowledge/knowledge_point.dart';
 import '../domain/paper/paper_template.dart';
 import '../features/problems/problems_page.dart' show ProblemView;
@@ -17,6 +18,7 @@ import '../services/llm/llm_client.dart';
 import '../services/llm/llm_settings.dart';
 import '../services/llm/provider_registry.dart';
 import '../services/paper/paper_repository.dart';
+import '../services/profile/mastery_service.dart';
 import '../services/review/reminder_service.dart';
 import '../services/review/review_repository.dart';
 
@@ -210,6 +212,13 @@ final problemListProvider =
   final states = await db.select(db.userProblemState).get();
   final byId = {for (final s in states) s.problemId: s};
 
+  // 掌握度**读时重算**（T37）。整个列表用同一个 `now`，
+  // 保证同一屏里各行的"此刻"是一致的 —— 逐行各自取 DateTime.now()
+  // 会让相差几毫秒的行算在不同的时间点上（虽然差异极小，
+  // 但"同一屏用同一个基准"是更干净的定义）。
+  final now = DateTime.now();
+  final scheduler = FsrsScheduler();
+
   final out = [
     for (final r in rows)
       ProblemListRow(
@@ -222,6 +231,7 @@ final problemListProvider =
         aiTagged: r.read(t.aiTagged) ?? false,
         createdAt: r.read(t.createdAt),
         state: byId[r.read(t.id)],
+        mastery: masteryNowOf(byId[r.read(t.id)], scheduler, now) ?? 0,
       ),
   ];
 
@@ -289,6 +299,37 @@ final problemSearchProvider = FutureProvider.autoDispose
   if (q.isEmpty) return const [];
   final db = await ref.watch(databaseProvider.future);
   return ProblemSearch(db).search(q, limit: 100);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 掌握度画像（F7）
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 画像服务。
+///
+/// ⚠️ 它**不缓存**报告，因为报告的全部价值就在于"说的是此刻的情况"。
+/// 缓存一份 = 把 T37 那个"快照会过期"的问题换个地方重演。
+/// 缓存在 provider 层（同一个 `now` 只算一次），重建时自然失效。
+final masteryServiceProvider = FutureProvider<MasteryService>((ref) async {
+  final db = await ref.watch(databaseProvider.future);
+  final catalog = await ref.watch(errorCauseCatalogProvider.future);
+  return MasteryService(
+    db: db,
+    // 关掉 fuzzing：画像要的是可复现的数字，不是抖动的间隔
+    scheduler: FsrsScheduler(enableFuzzing: false),
+    causes: catalog,
+  );
+});
+
+/// 一份画像报告。
+///
+/// 每次 `invalidate` 都重新算（打开页面 / 复习完一批之后）。
+/// 它要读全表 + 逐题解 FSRS 状态，五千题量级约几十毫秒 ——
+/// 与错题本列表是同一档开销，可以接受。
+final masteryReportProvider = FutureProvider<MasteryReport>((ref) async {
+  final svc = await ref.watch(masteryServiceProvider.future);
+  final kb = await ref.watch(knowledgeBaseProvider.future);
+  return svc.build(knowledge: kb);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

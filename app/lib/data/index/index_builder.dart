@@ -234,6 +234,15 @@ class IndexBuilder {
                     ? null
                     : jsonEncode(problem.warnings),
               ),
+              // 错因是**题目属性**（易错点）。冗余进索引是为了让画像能聚合 ——
+              // 否则算一次错因分布要读 5000 个 Markdown 文件。
+              // 空列表存 null（而不是 `[]`）：让"没有错因"与"有但为空"
+              // 在数据上就没区别，画像不必再判一次。
+              errorCauses: Value(
+                problem.errorCauses.isEmpty
+                    ? null
+                    : jsonEncode(problem.errorCauses),
+              ),
               needsReview: Value(problem.needsReview),
               aiTagged: Value(problem.aiTagged),
               aiConfidence: Value(problem.aiConfidence),
