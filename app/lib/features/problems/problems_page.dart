@@ -110,29 +110,22 @@ class _ProblemsPageState extends ConsumerState<ProblemsPage> {
   }
 
   Future<void> _openDetail(String problemId) async {
-    final store = await ref.read(problemStoreProvider.future);
-    final read = await store.read(problemId);
-    if (!mounted) return;
-    if (!read.isOk) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('读取失败：${read.error}')),
-      );
-      return;
-    }
+    final problem = await _loadDetail(problemId);
+    if (!mounted || problem == null) return;
 
     final action = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _ProblemDetailSheet(problem: read.problem!),
+      builder: (_) => _ProblemDetailSheet(problem: problem),
     );
     if (!mounted || action == null) return;
 
     switch (action) {
       case 'edit':
-        // 编辑：把题目反向填进录入页（M4 的表单本来就能接收草稿）
+        // 编辑：把题目反向填进编辑页（M4 的表单本来就能接收草稿）
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (_) => EntryPage(initial: ProblemDraft.fromProblem(read.problem!)),
+            builder: (_) => EntryPage(initial: ProblemDraft.fromProblem(problem)),
           ),
         );
         _refresh(); // 回来后刷新列表（题干可能已经改了）
@@ -148,8 +141,57 @@ class _ProblemsPageState extends ConsumerState<ProblemsPage> {
         _snack('已记一次错');
         _refresh();
       case 'delete':
-        await _confirmDelete(problemId, read.problem!);
+        await _confirmDelete(problemId, problem);
     }
+  }
+
+  /// 详情缓存（LRU，[kDetailCacheSize] 条）。
+  ///
+  /// 点开一道题要读盘 + 解析 Markdown。单次 1–5 ms（T40 记的就是这条），
+  /// 但用户在新录完一批题之后会**反复来回翻同一批**核对，
+  /// 每次都重新读盘既慢又没必要。
+  ///
+  /// 上限取 20：详情面板一次只显示一道题，20 条足够覆盖"来回翻"，
+  /// 又不会在用户手工改了文件之后长期显示旧内容 ——
+  /// [_refresh] 会清掉整个缓存。
+  static const int kDetailCacheSize = 20;
+  final Map<String, Problem> _detailCache = {};
+  final List<String> _detailOrder = [];
+
+  Problem? _cachedDetail(String id) {
+    final hit = _detailCache[id];
+    if (hit == null) return null;
+    // 命中挪到队尾，保持 LRU 语义（与 MathRenderCache 同一个道理）
+    if (_detailOrder.isNotEmpty && _detailOrder.last != id) {
+      _detailOrder.remove(id);
+      _detailOrder.add(id);
+    }
+    return hit;
+  }
+
+  void _cacheDetail(String id, Problem p) {
+    _detailCache[id] = p;
+    _detailOrder.remove(id);
+    _detailOrder.add(id);
+    while (_detailOrder.length > kDetailCacheSize) {
+      _detailCache.remove(_detailOrder.removeAt(0));
+    }
+  }
+
+  /// 取一道题的完整内容（带缓存）。失败时提示并返回 null。
+  Future<Problem?> _loadDetail(String problemId) async {
+    final cached = _cachedDetail(problemId);
+    if (cached != null) return cached;
+
+    final store = await ref.read(problemStoreProvider.future);
+    final read = await store.read(problemId);
+    if (!mounted) return null;
+    if (!read.isOk) {
+      _snack('读取失败：${read.error}', error: true);
+      return null;
+    }
+    _cacheDetail(problemId, read.problem!);
+    return read.problem!;
   }
 
   /// 让列表与侧边栏角标重新取数。
@@ -159,6 +201,11 @@ class _ProblemsPageState extends ConsumerState<ProblemsPage> {
   /// 同一份旧快照。后果是删掉一道题之后它仍留在列表里，
   /// 用户会以为删除失败了，于是再删一次。
   void _refresh() {
+    // 详情缓存也要清：题目内容可能刚被编辑过，
+    // 留着旧快照会让用户看到改动前的版本
+    _detailCache.clear();
+    _detailOrder.clear();
+
     ref.invalidate(problemListProvider);
     ref.invalidate(reviewStatsProvider);
     if (mounted) setState(() {});

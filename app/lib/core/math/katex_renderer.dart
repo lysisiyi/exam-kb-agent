@@ -54,10 +54,19 @@ class KatexRenderer implements MathRenderer {
     MathRenderOptions options = MathRenderOptions.none,
   }) {
     final display = style == MathStyle.display;
-    final size = options.fontSize ?? (display ? 16.0 : 14.0);
+    final base = options.fontSize ?? (display ? 16.0 : 14.0);
 
-    final widget = _renderTex(latex, display: display, fontSize: size,
-        color: options.color);
+    // 见 [_scaleFor]：公式必须自己乘上系统字号，因为 `katex` 内部的
+    // `TextPainter` 不带 `TextScaler`（而旁边的中文由 Flutter 自动缩放）。
+    final widget = Builder(
+      builder: (context) => _renderTex(
+        latex,
+        display: display,
+        mathFontSize: base * scaleFor(context),
+        textFontSize: base,
+        color: options.color,
+      ),
+    );
 
     if (!display) return widget;
     // 独立公式：居中 + 上下留白（与纯文本兜底渲染器的行为一致）
@@ -72,20 +81,34 @@ class KatexRenderer implements MathRenderer {
     String markdown, {
     MathRenderOptions options = MathRenderOptions.none,
   }) {
-    final size = options.fontSize ?? 14.0;
-    final spans = _parseInline(markdown, size, options.color);
+    final base = options.fontSize ?? 14.0;
 
-    final text = Text.rich(
-      TextSpan(children: spans),
-      style: TextStyle(
-        fontSize: size,
-        color: options.color,
-        height: 1.9,
-      ),
+    // 外面这层 Builder 只为了拿到 context 读系统字号。
+    // 缓存层（`CachedMathRenderer`）存的就是这个 Builder，而它依赖
+    // `MediaQuery` —— 用户改系统字号时 MediaQuery 变化会把这一层标脏，
+    // 于是公式跟着重排。缩放为 1.0（绝大多数情况）时代价只是一个 Builder。
+    return Builder(
+      builder: (context) {
+        final spans = _parseInline(
+          markdown,
+          base,
+          options.color,
+          mathFontSize: base * scaleFor(context),
+        );
+
+        final text = Text.rich(
+          TextSpan(children: spans),
+          style: TextStyle(
+            fontSize: base,
+            color: options.color,
+            height: 1.9,
+          ),
+        );
+
+        // `selectable` 时包一层可选区 —— 让用户能复制 LaTeX 源码。
+        return options.selectable ? SelectionArea(child: text) : text;
+      },
     );
-
-    // `selectable` 时包一层可选区 —— 让用户能复制 LaTeX 源码。
-    return options.selectable ? SelectionArea(child: text) : text;
   }
 
   @override
@@ -94,15 +117,40 @@ class KatexRenderer implements MathRenderer {
   @override
   String get name => splitCjk ? 'katex(+cjk-split)' : 'katex';
 
+  /// 系统字号缩放系数。
+  ///
+  /// ## 为什么公式必须自己乘
+  ///
+  /// 混排时中文走普通 `TextSpan`，由 `Text.rich` 按 `MediaQuery.textScaler`
+  /// **自动**缩放；而数学走 `WidgetSpan` 里的 `katex.Math`，它内部的
+  /// `TextPainter` 不带 scaler（见 katex 的 `_RenderInlineMath._measure`：
+  /// `boxSizePx(_box, _fontSize)`）。
+  ///
+  /// 结果是：系统字号调到 150% 时，同一条公式里**数学还是 1x、中文已经 1.5x**，
+  /// 看起来像排版坏了。
+  ///
+  /// ⚠️ 只缩放**传给 katex 的字号**，不能连外围 `TextSpan` 一起乘 ——
+  /// 那些 span 会被 Flutter 再缩放一次，变成双重缩放。
+  static double scaleFor(BuildContext context) {
+    final s = MediaQuery.textScalerOf(context).scale(1.0);
+    // 防御：异常值不该让公式消失
+    return (s.isFinite && s > 0) ? s : 1.0;
+  }
+
   // ───────────────────────────────────────────────────────────────────────
   // 内部
   // ───────────────────────────────────────────────────────────────────────
 
   /// 渲染一条公式，失败时降级为源码。
+  ///
+  /// [mathFontSize] 是交给 katex 的字号（**已乘过系统缩放**）；
+  /// [textFontSize] 是旁边中文用的字号（**未乘**，由 Flutter 自己缩放）。
+  /// 两者分开正是为了不双重缩放，见 [scaleFor]。
   Widget _renderTex(
     String tex, {
     required bool display,
-    required double fontSize,
+    required double mathFontSize,
+    required double textFontSize,
     Color? color,
     Key? key,
   }) {
@@ -111,7 +159,7 @@ class KatexRenderer implements MathRenderer {
         tex,
         key: key,
         displayMode: display,
-        fontSize: fontSize,
+        fontSize: mathFontSize,
         color: color,
       );
     }
@@ -122,7 +170,7 @@ class KatexRenderer implements MathRenderer {
         tex,
         key: key,
         displayMode: display,
-        fontSize: fontSize,
+        fontSize: mathFontSize,
         color: color,
       );
     }
@@ -137,12 +185,12 @@ class KatexRenderer implements MathRenderer {
               LatexChunk(:final tex) => katex.mathSpan(
                   tex,
                   displayMode: display,
-                  fontSize: fontSize,
+                  fontSize: mathFontSize,
                   color: color,
                 ),
               TextChunk(:final text) => TextSpan(
                   text: text,
-                  style: TextStyle(fontSize: fontSize, color: color),
+                  style: TextStyle(fontSize: textFontSize, color: color),
                 ),
             },
         ],
@@ -162,7 +210,12 @@ class KatexRenderer implements MathRenderer {
   ///
   /// 需要完整 Markdown 时（例如将来要渲染列表和图片），
   /// 在这里接 `flutter_markdown` 的 builder 即可，本方法就是那个接缝。
-  List<InlineSpan> _parseInline(String src, double fontSize, Color? color) {
+  List<InlineSpan> _parseInline(
+    String src,
+    double textFontSize,
+    Color? color, {
+    required double mathFontSize,
+  }) {
     final spans = <InlineSpan>[];
     final buffer = StringBuffer();
 
@@ -170,7 +223,9 @@ class KatexRenderer implements MathRenderer {
       if (buffer.isEmpty) return;
       spans.add(TextSpan(
         text: buffer.toString(),
-        style: TextStyle(fontSize: fontSize, color: color),
+        // 中文用**未缩放**的字号：`Text.rich` 会按 MediaQuery 自己缩放它，
+        // 这里再乘一次就变成双重缩放
+        style: TextStyle(fontSize: textFontSize, color: color),
       ));
       buffer.clear();
     }
@@ -208,7 +263,8 @@ class KatexRenderer implements MathRenderer {
         child: _renderTex(
           tex,
           display: isDisplay,
-          fontSize: fontSize,
+          mathFontSize: mathFontSize,
+          textFontSize: textFontSize,
           color: color,
         ),
       ));
@@ -217,7 +273,12 @@ class KatexRenderer implements MathRenderer {
 
     flushText();
     if (spans.isEmpty) {
-      return [TextSpan(text: src, style: TextStyle(fontSize: fontSize, color: color))];
+      return [
+        TextSpan(
+          text: src,
+          style: TextStyle(fontSize: textFontSize, color: color),
+        ),
+      ];
     }
     return spans;
   }

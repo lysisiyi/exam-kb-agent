@@ -86,8 +86,18 @@ class SecureStoreWindows implements SecureStore {
 
   @override
   Future<void> deleteAll() async {
-    // 只删自己的键，不动同一个存储里其他人的数据。
-    for (final key in await _allOurKeys()) {
+    // ⚠️ 这里**不能吞掉异常**。
+    //
+    // 早先 `_allOurKeys()` 在 `readAll()` 抛异常时返回空表，于是
+    // `deleteAll()` 会"成功地什么都不删" —— 用户点了"清空配置"，
+    // 界面说成功，而他那一串 API Key 还在盘上。
+    // 静默失败在一个**安全相关**的操作上尤其不能接受。
+    //
+    // 现在让异常传出去：调用方要么报告失败，要么自己决定怎么处理。
+    // 目前没有生产调用方（清空配置走的是逐个 `delete`），
+    // 所以这条改动不会影响现有行为，只是把坑填上了。
+    final keys = await _allOurKeys();
+    for (final key in keys) {
       await _storage.delete(key: _kPrefix + key);
     }
   }
@@ -99,16 +109,15 @@ class SecureStoreWindows implements SecureStore {
   }
 
   /// 列出本应用写入的全部键（去掉前缀）。
+  ///
+  /// 读不到时**抛出**，不返回空表 —— 见 [deleteAll] 的说明：
+  /// "读不到"与"没有键"必须能区分，否则删除会静默变成空操作。
   Future<List<String>> _allOurKeys() async {
-    try {
-      final all = await _storage.readAll();
-      return all.keys
-          .where((k) => k.startsWith(_kPrefix))
-          .map((k) => k.substring(_kPrefix.length))
-          .toList();
-    } catch (_) {
-      return const [];
-    }
+    final all = await _storage.readAll();
+    return all.keys
+        .where((k) => k.startsWith(_kPrefix))
+        .map((k) => k.substring(_kPrefix.length))
+        .toList();
   }
 
   /// 把密钥转成可安全显示的掩码。

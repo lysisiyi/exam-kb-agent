@@ -18,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/core/math/katex_renderer.dart';
 import 'package:kaoyan_math_agent/core/math/latex_text_split.dart';
 import 'package:kaoyan_math_agent/core/math/math_renderer.dart';
+import 'package:katex/katex.dart' as katex;
 
 /// 取出切分结果里的纯文本片段。
 List<String> texts(String tex) =>
@@ -189,6 +190,81 @@ void main() {
       // 真正的定界符仍然不许摘
       expect(splitLatexText(r'\left(\text{甲}\right)').length, 1);
     });
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  group('公式跟随系统字号', () {
+    // ## 这一组守的是什么
+    //
+    // 混排时中文走普通 `TextSpan`，`Text.rich` 会按 `MediaQuery.textScaler`
+    // **自动**缩放它；而数学走 `WidgetSpan` 里的 `katex.Math`，它内部的
+    // `TextPainter` **不带** scaler。
+    //
+    // 结果是系统字号调到 150% 时，同一条公式里数学还是 1x、中文已经 1.5x。
+    // 修法是给 katex 传的字号乘上缩放系数 —— 但**不能连外围 TextSpan 一起乘**，
+    // 那会变成双重缩放。下面两条断言正好把这两半都钉住。
+
+    Future<void> pumpWithScale(
+      WidgetTester tester,
+      Widget child,
+      double scale,
+    ) async {
+      await tester.pumpWidget(MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+          child: Scaffold(body: child),
+        ),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    double mathFontSizeOf(WidgetTester tester) =>
+        tester.widget<katex.Math>(find.byType(katex.Math).first).fontSize!;
+
+    testWidgets('缩放 1.0：公式用给定字号，不改写', (tester) async {
+      await pumpWithScale(
+        tester,
+        const KatexRenderer().render(r'\frac{1}{2}',
+            options: const MathRenderOptions(fontSize: 14)),
+        1.0,
+      );
+      expect(mathFontSizeOf(tester), 14);
+    });
+
+    testWidgets('缩放 2.0：公式字号翻倍（否则公式会显得特别小）', (tester) async {
+      await pumpWithScale(
+        tester,
+        const KatexRenderer().render(r'\frac{1}{2}',
+            options: const MathRenderOptions(fontSize: 14)),
+        2.0,
+      );
+      expect(mathFontSizeOf(tester), 28);
+    });
+
+    testWidgets('混排里只有数学被缩放，中文保持原字号（不能双重缩放）', (tester) async {
+      await pumpWithScale(
+        tester,
+        const KatexRenderer().renderMarkdown(
+          r'甲 $x^2$ 乙',
+          options: const MathRenderOptions(fontSize: 14),
+        ),
+        2.0,
+      );
+
+      // 数学：我们自己乘了 2
+      expect(mathFontSizeOf(tester), 28);
+
+      // 中文：**没有**乘。它由 Flutter 的 TextScaler 负责，
+      // 我们在样式里再乘一次就会变成 4x。
+      final rich = tester.widget<Text>(find.byType(Text).first);
+      final children = (rich.textSpan! as TextSpan).children!;
+      final textSpans = children.whereType<TextSpan>();
+      expect(textSpans, isNotEmpty);
+      for (final s in textSpans) {
+        expect(s.style?.fontSize, 14,
+            reason: '中文片段的字号必须是未缩放的原值');
+      }
     });
   });
 
