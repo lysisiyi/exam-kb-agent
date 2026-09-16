@@ -52,11 +52,16 @@ class FormulaRasterizer {
   /// 公式文字颜色。
   final Color color;
 
+  /// 缓存条数上限。见 [_remember]。
+  final int maxEntries;
+
   final Map<String, FormulaImage> _cache = {};
+  final List<String> _order = [];
 
   FormulaRasterizer({
     this.pixelRatio = 4.0,
     this.color = const Color(0xFF000000),
+    this.maxEntries = 400,
   });
 
   int get cacheSize => _cache.length;
@@ -114,11 +119,35 @@ class FormulaRasterizer {
         // 不减：内边距是刻意的防裁切余量，保留它排版更稳（见 kInkOverflowPadEm）
         height: logical.height,
       );
-      _cache[key] = out;
+      _remember(key, out);
       return out;
     } catch (_) {
       // 非法 LaTeX：返回 null，调用方降级成源码文本
       return null;
+    }
+  }
+
+  /// 记进缓存，并在超出上限时按 LRU 淘汰。
+  ///
+  /// ## 为什么必须有上限
+  ///
+  /// 缓存的每一份都是**原始 PNG 字节**（4 倍光栅化，一条公式几 KB 到几十 KB）。
+  /// 早先这个 Map 没有上限：导出一册 5000 题的题库时，所有见过的公式都会
+  /// 一直留在内存里 —— 那是几十 MB 级别的常驻，而且**永远不会被释放**，
+  /// 因为导出器本身的寿命就是整个 App 会话。
+  ///
+  /// 400 条足够覆盖"一份卷子里公式重复出现"这个真实的复用场景
+  /// （一份卷子 22 题，每题的题干/答案/解析里公式会重复），
+  /// 又不会让内存随题库规模增长。
+  void _remember(String key, FormulaImage img) {
+    if (_cache.containsKey(key)) {
+      _order.remove(key);
+    }
+    _cache[key] = img;
+    _order.add(key);
+
+    while (_order.length > maxEntries) {
+      _cache.remove(_order.removeAt(0));
     }
   }
 }

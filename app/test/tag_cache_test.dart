@@ -274,7 +274,15 @@ void main() {
       );
 
       final s = await ledger.summary();
-      expect(s.isEmpty, isTrue, reason: '读不出来就当作没有记录');
+      // ⚠️ 这里断言的是 **hasError**，不是 isEmpty。
+      //
+      // 早先 `summary()` 读库失败时返回一个空的 `UsageSummary`，界面于是
+      // 显示「还没有调用过 AI」—— 一句听起来完全正常、但会让用户
+      // 以为自己没花钱的谎。现在读不出来必须能被区分出来，
+      // 所以 `isEmpty` 对"有错误"的汇总是 false。
+      expect(s.hasError, isTrue, reason: '读不出来必须能被区分出来');
+      expect(s.isEmpty, isFalse, reason: '有错误时不能装作"没有记录"');
+      expect(describeUsage(s), contains('读取失败'));
       expect(await ledger.recent(), isEmpty);
     });
   });

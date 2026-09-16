@@ -135,11 +135,57 @@ void main() {
       await pumpPage(tester);
 
       await tester.enterText(find.byType(TextField), '中值定理');
-      await tester.pump(const Duration(milliseconds: 20));
+      // 搜索有 250 ms 去抖（见 `_onQueryChanged`），所以要推过它
+      await tester.pump(const Duration(milliseconds: 300));
       await settle(tester);
 
       expect(find.textContaining('证明中值定理'), findsOneWidget);
       expect(find.textContaining('求极限的值'), findsNothing);
+    });
+
+    testWidgets('搜索去抖：连打不会每敲一个字符就查一次', (tester) async {
+      // 没有去抖时，5000 题的库上输入会明显发涩，而且
+      // `problemSearchProvider` 是按查询串分家的 family ——
+      // 每敲一个字符就攒一份再也不会用到的结果。
+      await seed(tester, [
+        const SeedProblem(id: 'p-1', stem: '求极限的值'),
+        const SeedProblem(id: 'p-2', stem: '证明中值定理'),
+      ]);
+      await pumpPage(tester);
+
+      await tester.enterText(find.byType(TextField), '中');
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.enterText(find.byType(TextField), '中值定理');
+
+      // 还没到去抖时间：仍然显示**浏览列表**（两道题都在），
+      // 说明搜索没有被触发
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.textContaining('求极限的值'), findsOneWidget,
+          reason: '去抖期内不该已经切到搜索结果');
+
+      // 越过去抖：这时才真的查，非命中项消失
+      await tester.pump(const Duration(milliseconds: 300));
+      await settle(tester);
+      expect(find.textContaining('求极限的值'), findsNothing);
+      expect(find.textContaining('证明中值定理'), findsOneWidget);
+    });
+
+    testWidgets('清空搜索立刻回到浏览列表（不等去抖）', (tester) async {
+      await seed(tester, [const SeedProblem(id: 'p-1', stem: '求极限的值')]);
+      await pumpPage(tester);
+
+      await tester.enterText(find.byType(TextField), '拉格朗日');
+      await tester.pump(const Duration(milliseconds: 300));
+      await settle(tester);
+      expect(find.textContaining('没有匹配'), findsOneWidget);
+
+      // 清空要立刻生效：让用户按完删除还要等 250ms 才看到列表回来，
+      // 会以为界面卡住了
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
+      await settle(tester);
+      expect(find.textContaining('没有匹配'), findsNothing);
+      expect(find.textContaining('求极限的值'), findsOneWidget);
     });
 
     testWidgets('搜不到时给出明确空态', (tester) async {
@@ -149,7 +195,7 @@ void main() {
       await pumpPage(tester);
 
       await tester.enterText(find.byType(TextField), '拉格朗日');
-      await tester.pump(const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 300));
       await settle(tester);
 
       expect(find.textContaining('没有匹配'), findsOneWidget);

@@ -269,6 +269,20 @@ class _ResultCard extends StatelessWidget {
             if (result.failures.length > 10)
               Text('…还有 ${result.failures.length - 10} 条',
                   style: const TextStyle(fontSize: 11)),
+            if (result.renamedRootFiles.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Text(
+                '目标目录里已经有同名的、不是本 App 写的文件，'
+                '所以下面这些改用了新名字（没有覆盖你的东西）：',
+                style: TextStyle(fontSize: 11.5, height: 1.6),
+              ),
+              for (final r in result.renamedRootFiles)
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text('· $r',
+                      style: const TextStyle(fontSize: 11, height: 1.5)),
+                ),
+            ],
           ],
         ],
       ),

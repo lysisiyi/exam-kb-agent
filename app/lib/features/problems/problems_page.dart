@@ -18,12 +18,15 @@
 /// 用户需要知道"我现在看的是什么顺序"。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/layout/breakpoints.dart';
 import '../../core/math/math_renderer.dart';
 import '../../core/providers.dart';
+import '../../core/widgets/state_views.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../domain/problem_draft.dart';
 import '../../services/review/review_repository.dart';
@@ -51,10 +54,39 @@ class _ProblemsPageState extends ConsumerState<ProblemsPage> {
   ProblemView _view = ProblemView.recent;
   String _search = '';
 
+  /// 搜索去抖计时器。
+  ///
+  /// ## 为什么必须有
+  ///
+  /// 没有它时**每敲一个字符**都会发起一次 FTS 查询并切一次 provider：
+  /// 5000 题的库上输入明显发涩，而且 `problemSearchProvider` 是按查询串
+  /// 分家的 family —— 敲 20 个字符就攒下 20 份结果（每份最多 100 条），
+  /// 它们再也不会被用到第二次。
+  ///
+  /// 250 ms 是个常见的取值：比最快的打字间隔长一点，比"感觉卡了"短得多。
+  Timer? _debounce;
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _query.dispose();
     super.dispose();
+  }
+
+  void _onQueryChanged(String raw) {
+    final q = raw.trim();
+    _debounce?.cancel();
+
+    // 清空要**立刻**生效：用户按 Ctrl+A 删掉整串时，
+    // 还要等 250 ms 才看到列表回来，会以为界面卡住了
+    if (q.isEmpty) {
+      if (_search.isNotEmpty) setState(() => _search = '');
+      return;
+    }
+
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) setState(() => _search = q);
+    });
   }
 
   @override
@@ -65,7 +97,7 @@ class _ProblemsPageState extends ConsumerState<ProblemsPage> {
           query: _query,
           view: _view,
           onView: (v) => setState(() => _view = v),
-          onQuery: (q) => setState(() => _search = q.trim()),
+          onQuery: _onQueryChanged,
         ),
         const Divider(height: 1),
         Expanded(
@@ -270,7 +302,13 @@ class _BrowseList extends ConsumerWidget {
     final async = ref.watch(problemListProvider(view));
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('载入失败：$e')),
+      error: (e, _) => AppErrorView(
+        title: '错题本载入失败',
+        error: e,
+        // 题库读不出来几乎都是瞬时问题（库被占用、一次 IO 抖动），
+        // 重试一下基本就好 —— 早先这里只有一行字，用户唯一的出路是重启应用
+        onRetry: () => ref.invalidate(problemListProvider),
+      ),
       data: (rows) => rows.isEmpty
           ? const _EmptyState()
           : _List(rows: rows, onOpen: onOpen),
@@ -290,13 +328,21 @@ class _SearchList extends ConsumerWidget {
     final async = ref.watch(problemSearchProvider(query));
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('检索失败：$e')),
+      error: (e, _) => AppErrorView(
+        title: '检索失败',
+        error: e,
+        hint: '全文检索依赖本机索引。若刚手工改动过 problems/ 目录，'
+            '可以到「设置」里重建索引。',
+        onRetry: () => ref.invalidate(problemSearchProvider),
+      ),
       data: (hits) {
         if (hits.isEmpty) {
-          return Center(
-            child: Text('没有匹配「$query」的题目',
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          // 空态要回答"那我该做什么"，而不只是"没找到"
+          return AppEmptyView(
+            icon: Icons.search_off,
+            title: '没有匹配「$query」的题目',
+            hint: '试试更短的关键词，或者只留一个考点名。\n'
+                '中文是按字匹配的，不需要空格。',
           );
         }
         return ListView.separated(
@@ -479,34 +525,12 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.inbox_outlined,
-                size: 44, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(height: 12),
-            const Text('错题本还是空的', style: TextStyle(fontSize: 15)),
-            const SizedBox(height: 6),
-            Text(
-              '去「录入」页记下第一道题 —— 之后它会出现在这里，\n'
-              '并按遗忘曲线进入「今日复习」。',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5,
-                height: 1.7,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const AppEmptyView(
+        icon: Icons.inbox_outlined,
+        title: '错题本还是空的',
+        hint: '去「录入」页记下第一道题 —— 之后它会出现在这里，\n'
+            '并按遗忘曲线进入「今日复习」。',
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

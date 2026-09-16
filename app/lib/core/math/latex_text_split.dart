@@ -111,7 +111,7 @@ List<MathChunk> splitLatexText(String tex) {
 
     final prefix = tex.substring(cursor, cmdStart);
     if (prefix.isNotEmpty) out.add(LatexChunk(prefix));
-    out.add(TextChunk(body));
+    out.add(TextChunk(_unescapeTextBody(body)));
 
     cursor = closeBrace + 1;
     i = closeBrace + 1;
@@ -147,9 +147,64 @@ List<MathChunk> splitLatexText(String tex) {
   return merged.isEmpty ? [LatexChunk(tex)] : merged;
 }
 
+/// 把 `\text{}` 内容里的 LaTeX 转义还原成用户该看到的字符。
+///
+/// ## 为什么必须做
+///
+/// 摘出来的内容会作为**普通文本**交给 Flutter 排。而 LaTeX 里的转义
+/// 是给排版引擎看的：
+///
+/// | 公式里写的 | LaTeX 排出来 | 不还原的话用户看到 |
+/// |---|---|---|
+/// | `\text{在关于\ x\ 轴对称的}` | 在关于 x 轴对称的 | `在关于\ x\ 轴对称的` |
+/// | `\text{命中率 50\%}` | 命中率 50% | `命中率 50\%` |
+///
+/// 真实语料里有 1 条命中（`\text{若}\ f\ \text{在关于\ x\ 轴对称的}\ D`），
+/// 变体（`\%` `\&` `\_` `\text{甲\text{乙}丙}`）都属同类。
+///
+/// ⚠️ **认不出的转义要原样保留**，不能静默吞掉反斜杠 ——
+/// 那会把 `\alpha` 变成 `alpha`，性质比"多显示一个反斜杠"更糟。
+String _unescapeTextBody(String s) {
+  final b = StringBuffer();
+  var i = 0;
+  while (i < s.length) {
+    final c = s[i];
+    if (c != r'\' || i + 1 >= s.length) {
+      b.write(c);
+      i++;
+      continue;
+    }
+    final n = s[i + 1];
+    switch (n) {
+      // 反斜杠本身：`\\` → `\`
+      case '\\':
+        b.write(r'\');
+        i += 2;
+      // LaTeX 的"字面字符"转义
+      case '{':
+      case '}':
+      case '%':
+      case '&':
+      case '#':
+      case '_':
+      case r'$':
+        b.write(n);
+        i += 2;
+      // `\ `（反斜杠 + 空格）是一个显式空格
+      case ' ':
+        b.write(' ');
+        i += 2;
+      // 其余（`\alpha`、嵌套的 `\text` 等）保持原样，只跳过这两个字符
+      default:
+        b.write(c);
+        i++;
+    }
+  }
+  return b.toString();
+}
+
 /// 文本片段里是否含中文或全角标点。
-bool _hasCjkOrFullWidth(String s) {
-  for (final r in s.runes) {
+bool _hasCjkOrFullWidth(String s) {  for (final r in s.runes) {
     // CJK 统一表意文字 + 扩展 A
     if (r >= 0x4E00 && r <= 0x9FFF) return true;
     if (r >= 0x3400 && r <= 0x4DBF) return true;
@@ -292,12 +347,12 @@ bool _insidePairing(String tex, int pos) {
   var envDepth = 0;
   var i = 0;
   while (i < pos) {
-    if (tex.startsWith(r'\left', i)) {
+    if (_isDelimiterCommand(tex, i, r'\left')) {
       leftDepth++;
       i += 5;
       continue;
     }
-    if (tex.startsWith(r'\right', i)) {
+    if (_isDelimiterCommand(tex, i, r'\right')) {
       if (leftDepth > 0) leftDepth--;
       i += 6;
       continue;
@@ -315,5 +370,21 @@ bool _insidePairing(String tex, int pos) {
     i++;
   }
   return leftDepth > 0 || envDepth > 0;
+}
+
+/// [i] 处的 [cmd]（`\left` / `\right`）是不是**定界符**，
+/// 而不是某个更长命令的前缀。
+///
+/// ⚠️ 只写 `startsWith(r'\left')` 会把 `\leftarrow`、`\leftrightarrow`
+/// 也当成左定界符：`leftDepth` 从此不再归零，那条公式**剩下的部分
+/// 全都不再摘中文** —— 中文退回显示成方框，而且完全没有报错。
+/// 当前语料里 0 命中，但 `\leftarrow` 在数学里太常见，属于迟早会踩的坑。
+bool _isDelimiterCommand(String tex, int i, String cmd) {
+  if (!tex.startsWith(cmd, i)) return false;
+  final after = i + cmd.length;
+  if (after >= tex.length) return true; // 公式到此结束，算定界符
+  final c = tex.codeUnitAt(after);
+  final isLetter = (c >= 0x61 && c <= 0x7A) || (c >= 0x41 && c <= 0x5A);
+  return !isLetter;
 }
 

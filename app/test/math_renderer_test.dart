@@ -111,6 +111,44 @@ void main() {
       expect(rebuilt, isTrue, reason: '最旧的应当已被淘汰');
     });
 
+    test('命中会刷新新鲜度 —— 这是 LRU，不是 FIFO', () {
+      // ⚠️ 这条守的是一个真实存在过的缺陷：`getOrBuild` 命中时**不更新**
+      // 淘汰顺序，于是这个类实际是 FIFO，而类名与文档都写着 LRU。
+      //
+      // 差别在真实场景里很明显：用户反复翻同一批刚录的题时，
+      // 那几个反复用到的渲染结果会因为"进得早"被后来的项一个个挤出去，
+      // 于是每翻回来一次都要重新解析一遍 LaTeX。
+      final cache = MathRenderCache(maxEntries: 3);
+      Widget sizeBox() => const SizedBox();
+
+      cache.getOrBuild('a', MathStyle.inline, MathRenderOptions.none, sizeBox);
+      cache.getOrBuild('b', MathStyle.inline, MathRenderOptions.none, sizeBox);
+      cache.getOrBuild('c', MathStyle.inline, MathRenderOptions.none, sizeBox);
+
+      // 摸一下 a —— 它现在是"最近用过"的
+      cache.getOrBuild('a', MathStyle.inline, MathRenderOptions.none, sizeBox);
+
+      // 再插两个，把容量顶爆
+      cache.getOrBuild('d', MathStyle.inline, MathRenderOptions.none, sizeBox);
+      cache.getOrBuild('e', MathStyle.inline, MathRenderOptions.none, sizeBox);
+      expect(cache.size, 3);
+
+      // a 应当还活着；被淘汰的是 b（而不是 a）
+      var rebuiltA = false;
+      cache.getOrBuild('a', MathStyle.inline, MathRenderOptions.none, () {
+        rebuiltA = true;
+        return const SizedBox();
+      });
+      expect(rebuiltA, isFalse, reason: 'a 刚被访问过，不该比 b 先被淘汰');
+
+      var rebuiltB = false;
+      cache.getOrBuild('b', MathStyle.inline, MathRenderOptions.none, () {
+        rebuiltB = true;
+        return const SizedBox();
+      });
+      expect(rebuiltB, isTrue, reason: 'b 是最久没用过的');
+    });
+
     test('clear 之后全部重算', () {
       final cache = MathRenderCache();
       cache.getOrBuild('x', MathStyle.inline, MathRenderOptions.none,

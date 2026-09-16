@@ -51,8 +51,25 @@ void main() {
     });
 
     test('中文里的嵌套花括号不会截断', () {
-      // \text{集合 \{x\}} —— 转义花括号不参与配对
-      expect(texts(r'\text{集合 \{x\}}'), [r'集合 \{x\}']);
+      // \text{集合 \{x\}} —— 转义花括号不参与配对。
+      //
+      // ⚠️ 期望值是 `集合 {x}` 而不是 `集合 \{x\}`：摘出来的内容会作为
+      // **普通文本**交给 Flutter 排，所以 LaTeX 的字面字符转义要还原
+      // （`\{` → `{`、`\%` → `%`、`\ ` → 空格）。不还原的话用户会直接
+      // 看到反斜杠 —— 真实语料里有这条（`\text{在关于\ x\ 轴对称的}`）。
+      // 本条测试要守的是"嵌套花括号没把内容截断"，还原是另一件事。
+      expect(texts(r'\text{集合 \{x\}}'), ['集合 {x}']);
+    });
+
+    test('抽取的文本会还原 LaTeX 转义（用户不该看到反斜杠）', () {
+      expect(texts(r'\text{在关于\ x\ 轴对称的}'), ['在关于 x 轴对称的']);
+      expect(texts(r'\text{命中率 50\%}'), ['命中率 50%']);
+      expect(texts(r'\text{甲\_乙}'), ['甲_乙']);
+    });
+
+    test('认不出的转义原样保留（不能静默吞掉反斜杠）', () {
+      // 吞掉反斜杠会把 `\alpha` 变成 `alpha` —— 那比多显示一个反斜杠更糟
+      expect(texts(r'\text{系数 \alpha 与 \beta}'), [r'系数 \alpha 与 \beta']);
     });
 
     test('同一段里多个中文会合并成一段', () {
@@ -161,6 +178,17 @@ void main() {
       test('顶层的仍然要切（别因为保守把这条也拦掉）', () {
         expect(texts(r'\text{甲}\ \text{乙}'), ['甲', '乙']);
       });
+
+    test(r'\leftarrow 不是 \left 定界符（否则后面全都不摘了）', () {
+      // 早先用 `startsWith(r'\left')` 判断，`\leftarrow` 也被当成左定界符，
+      // 于是 leftDepth 永不归零，这条公式剩下的中文全部退回方框显示。
+      // 当前语料里 0 命中 —— 这正是它值得一条测试的原因：
+      // 不写下来，下次有人改这段代码时没有任何东西会提醒他。
+      expect(texts(r'A \leftarrow B \ \text{中文}'), ['中文']);
+      expect(texts(r'A \leftrightarrow B \ \text{中文}'), ['中文']);
+      // 真正的定界符仍然不许摘
+      expect(splitLatexText(r'\left(\text{甲}\right)').length, 1);
+    });
     });
   });
 

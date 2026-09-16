@@ -225,6 +225,11 @@ void main() {
   });
 
   testWidgets('模板载入失败时给出可读提示而不是崩', (tester) async {
+    // ⚠️ 这里断言的是**真的把原因说出来**，不是"还没有可用模板"。
+    //
+    // 早先模板 JSON 坏掉时界面显示「这个科目还没有可用模板」——
+    // 一句听起来像产品决定的谎，用户会一直等一个永远不会出现的模板，
+    // 也不会来报障。现在坏数据必须显式报出来。
     await tester.runAsync(() async {
       env = await TempLibrary.create();
       await seedProblems(env, const []);
@@ -261,6 +266,8 @@ void main() {
     }
 
     expect(tester.takeException(), isNull);
-    expect(find.textContaining('还没有可用模板'), findsOneWidget);
+    expect(find.textContaining('读取或解析失败'), findsOneWidget);
+    // 不能再说成"这个科目还没有可用模板"
+    expect(find.textContaining('还没有可用模板'), findsNothing);
   });
 }

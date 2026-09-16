@@ -106,18 +106,34 @@ class MathRenderCache {
   ) {
     final k = _key(latex, style, options);
     final hit = _cache[k];
-    if (hit != null) return hit;
+    if (hit != null) {
+      _touch(k);
+      return hit;
+    }
 
     final built = build();
     _cache[k] = built;
     _order.add(k);
 
-    // 超出上限时按插入顺序淘汰最旧的
+    // 超出上限时淘汰**最久没用过**的
     while (_order.length > maxEntries) {
       final oldest = _order.removeAt(0);
       _cache.remove(oldest);
     }
     return built;
+  }
+
+  /// 命中时把这一项挪到队尾。
+  ///
+  /// ⚠️ 少了这一步，这个类就不是 LRU 而是 **FIFO** —— 而类名与文档都写着
+  /// LRU。差别在真实场景里很明显：用户反复翻同一批刚录的题时，
+  /// 那几个反复用到的渲染结果会因为"进得早"被后来的项一个个挤出去，
+  /// 于是每翻回来一次都要重新解析一遍 LaTeX。
+  void _touch(String k) {
+    // 已经在队尾就什么都不做：`remove` 是 O(n)，没必要为了原地不动的项付这个代价
+    if (_order.isNotEmpty && _order.last == k) return;
+    _order.remove(k);
+    _order.add(k);
   }
 
   void clear() {

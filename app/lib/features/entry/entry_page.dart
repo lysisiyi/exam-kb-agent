@@ -26,6 +26,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/layout/breakpoints.dart';
 import '../../core/math/math_renderer.dart';
 import '../../core/providers.dart';
+import '../../core/widgets/state_views.dart';
 import '../../data/error_causes.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../domain/knowledge/knowledge_point.dart';
@@ -326,10 +327,20 @@ class _EntryPageState extends ConsumerState<EntryPage> {
 
     return kbAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('知识点本体载入失败：$e')),
+      error: (e, _) => AppErrorView(
+        title: '知识点本体载入失败',
+        error: e,
+        hint: '知识本体是随包数据。若反复失败，'
+            '请确认运行过 `python tools/data/sync_assets.py` 并重新构建。',
+        onRetry: () => ref.invalidate(knowledgeBaseProvider),
+      ),
       data: (kb) => causesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('错因词表载入失败：$e')),
+        error: (e, _) => AppErrorView(
+          title: '错因词表载入失败',
+          error: e,
+          onRetry: () => ref.invalidate(errorCauseCatalogProvider),
+        ),
         data: (catalog) => _buildForm(context, kb, catalog, wide: wide),
       ),
     );

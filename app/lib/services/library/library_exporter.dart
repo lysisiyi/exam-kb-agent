@@ -46,11 +46,19 @@ class ExportResult {
   /// 导出到哪个目录。
   final String targetDir;
 
+  /// 因为目标目录里已有**同名但不像我们生成的**文件，而改了名字的根文件。
+  ///
+  /// 形如 `['如何打开.md → 如何打开（导出自错题本）.md']`。
+  /// 空表示没发生改名。UI 应当把它显示出来 ——
+  /// 用户下次去目标目录找 `如何打开.md` 时，得知道它去哪了。
+  final List<String> renamedRootFiles;
+
   const ExportResult({
     required this.problems,
     required this.images,
     required this.targetDir,
     this.failures = const {},
+    this.renamedRootFiles = const [],
   });
 
   bool get isClean => failures.isEmpty;
@@ -60,10 +68,18 @@ class ExportResult {
       '导出 $problems 道题',
       if (images > 0) '图片 $images 张',
       if (failures.isNotEmpty) '失败 ${failures.length} 条',
+      if (renamedRootFiles.isNotEmpty) '${renamedRootFiles.length} 个文件改了名',
     ];
     return parts.join(' · ');
   }
 }
+
+/// 我们生成的 Markdown 里的标记。
+///
+/// 用途只有一个：**导出时判断目标目录里的同名文件是不是我们自己写的**。
+/// 目标目录很可能是用户的 Obsidian 库，`如何打开.md` 这种名字谁都可能占用 ——
+/// 凭文件名覆盖就等于删用户的笔记。
+const String kExportMarker = '<!-- kaoyan-math-agent-export -->';
 
 /// 题库导出器。
 class LibraryExporter {
@@ -140,21 +156,48 @@ class LibraryExporter {
       }
     }
 
-    await _writeAtomic(
-      File(p.join(target.path, '题库索引.md')),
-      _indexMarkdown(rows, stateById),
-    );
-    await _writeAtomic(
-      File(p.join(target.path, '如何打开.md')),
-      _readmeMarkdown(written, imagesCopied),
-    );
+    // 这两个文件写在**目标根目录**，而目标根目录很可能是用户自己的
+    // Obsidian 库（类注释里承诺过"不删用户的东西"）。
+    // 所以：同名文件若不像我们生成的，就**不覆盖**，改成带后缀的名字并记下来。
+    final skippedRoot = <String>[];
+    for (final entry in {
+      '题库索引.md': _indexMarkdown(rows, stateById),
+      '如何打开.md': _readmeMarkdown(written, imagesCopied),
+    }.entries) {
+      final target0 = File(p.join(target.path, entry.key));
+      if (target0.existsSync() && !_looksLikeOurs(target0)) {
+        final alt = File(
+          p.join(target.path, '${p.basenameWithoutExtension(entry.key)}'
+              '（导出自错题本）.md'),
+        );
+        await _writeAtomic(alt, entry.value);
+        skippedRoot.add('${entry.key} → ${p.basename(alt.path)}');
+        continue;
+      }
+      await _writeAtomic(target0, entry.value);
+    }
 
     return ExportResult(
       problems: written,
       images: imagesCopied,
       targetDir: target.path,
       failures: failures,
+      renamedRootFiles: skippedRoot,
     );
+  }
+
+  /// 这个文件像不像我们导出生成的。
+  ///
+  /// 判据是**我们自己在文件开头写的标记**，而不是文件名 ——
+  /// 同名文件完全可能是用户自己的笔记（"如何打开.md"这个名字太容易被占用了）。
+  /// 读不出来时保守地当作"不是我们的"，宁可多写一个新文件，也不覆盖用户内容。
+  static bool _looksLikeOurs(File f) {
+    try {
+      final head = f.readAsStringSync();
+      return head.contains(kExportMarker);
+    } catch (_) {
+      return false;
+    }
   }
 
   /// 用户状态 → frontmatter 里的 `my_*` 字段。
@@ -209,6 +252,7 @@ class LibraryExporter {
       ..sort((a, b) => byKp[b]!.length.compareTo(byKp[a]!.length));
 
     final b = StringBuffer()
+      ..writeln(kExportMarker)
       ..writeln('# 错题本索引')
       ..writeln()
       ..writeln('共 ${rows.length} 道题，按主考点分组。')
@@ -236,6 +280,7 @@ class LibraryExporter {
   }
 
   String _readmeMarkdown(int problems, int images) => '''
+$kExportMarker
 # 如何在 Obsidian 里打开这个题库
 
 这是「考研数学错题 Agent」的导出快照：**$problems 道题、$images 张图片**。

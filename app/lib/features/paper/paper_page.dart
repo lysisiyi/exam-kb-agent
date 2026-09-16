@@ -33,6 +33,7 @@ import '../../domain/paper/paper_models.dart';
 import '../../domain/paper/paper_template.dart';
 import '../../services/paper/paper_composer.dart';
 import '../../services/paper/paper_pdf_exporter.dart';
+import '../../services/paper/paper_repository.dart' show PaperTemplatesResult;
 
 /// 模板 kind → 用户看得懂的说明。
 ///
@@ -79,10 +80,13 @@ class _PaperPageState extends ConsumerState<PaperPage> {
     });
     try {
       final repo = await ref.read(paperRepositoryProvider.future);
-      final templates = await repo.templates(subject: _subject);
-      final template = templates[kind];
+      final loaded = await repo.templates(subject: _subject);
+      final template = loaded[kind];
       if (template == null) {
-        throw StateError('模板「$kind」载入失败');
+        // 带上真实原因：数据坏了与"没这个模板"要给用户不同的话
+        throw StateError(
+          loaded.error ?? '这个科目没有「$kind」模板',
+        );
       }
 
       final pool = await repo.candidates(
@@ -336,7 +340,7 @@ class _PaperPageState extends ConsumerState<PaperPage> {
 class _Settings extends StatelessWidget {
   final String subject;
   final ValueChanged<String> onSubject;
-  final AsyncValue<Map<String, PaperTemplate>> templates;
+  final AsyncValue<PaperTemplatesResult> templates;
   final String? kind;
   final ValueChanged<String> onKind;
   final int tolerance;
@@ -407,12 +411,19 @@ class _Settings extends StatelessWidget {
             error: (e, _) => Text('模板载入失败：$e',
                 style: TextStyle(
                     fontSize: 12.5, color: theme.colorScheme.error)),
-            data: (map) => map.isEmpty
-                ? const Text('这个科目还没有可用模板',
-                    style: TextStyle(fontSize: 12.5))
+            data: (r) => r.isEmpty
+                ? Text(
+                    // 数据出问题与"这个科目没模板"是两件完全不同的事，
+                    // 不能都说成"还没有可用模板"（见 PaperTemplatesResult）
+                    r.error ?? '这个科目还没有可用模板',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: r.isOk ? null : theme.colorScheme.error,
+                    ),
+                  )
                 : Column(
                     children: [
-                      for (final e in map.entries)
+                      for (final e in r.templates.entries)
                         _TemplateTile(
                           template: e.value,
                           selected: kind == e.key,

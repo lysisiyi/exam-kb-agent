@@ -75,14 +75,20 @@ class SqliteTagCache implements TagCache {
   ///
   /// 用 `COUNT(*)` 而不是"取回全部行再数长度"：缓存上限没有限制，
   /// 而每次打开 AI 配置对话框都会调它一次。
-  Future<int> count() async {
+  ///
+  /// ⚠️ 返回 **null 表示读不到**，而不是 0。
+  ///
+  /// 早先这里 catch 之后返回 0，于是"数据库被锁住 / 表损坏"与
+  /// "确实还没缓存过"在界面上长得一模一样 —— 面板会**自信地**
+  /// 显示"0 道题缓存"。用户据此以为缓存没生效，而真实原因是读不出来。
+  Future<int?> count() async {
     try {
       final row = await db
           .customSelect('SELECT COUNT(*) AS c FROM tag_cache_entries')
           .getSingle();
       return row.read<int>('c');
     } catch (_) {
-      return 0;
+      return null;
     }
   }
 
@@ -110,6 +116,13 @@ class UsageSummary {
   final DateTime? firstAt;
   final DateTime? lastAt;
 
+  /// 读库失败的原因。非空表示这份汇总**不可信**。
+  ///
+  /// 有它才能把"读不出来"和"确实没花过钱"分开 —— 早先两者都会走到
+  /// `describeUsage` 的空态分支，于是数据库出问题时面板显示的是
+  /// 「还没有调用过 AI」，一个**看起来完全正常**的谎。
+  final String? error;
+
   const UsageSummary({
     this.calls = 0,
     this.inputTokens = 0,
@@ -117,11 +130,14 @@ class UsageSummary {
     this.costYuan = 0,
     this.firstAt,
     this.lastAt,
+    this.error,
   });
+
+  bool get hasError => error != null;
 
   int get totalTokens => inputTokens + outputTokens;
 
-  bool get isEmpty => calls == 0;
+  bool get isEmpty => calls == 0 && !hasError;
 
   /// 平均每道题的 token（用于"再标 100 道大概要多少钱"的估算）。
   double get tokensPerCall => calls == 0 ? 0 : totalTokens / calls;
@@ -194,8 +210,9 @@ class UsageLedger {
         firstAt: first,
         lastAt: last,
       );
-    } catch (_) {
-      return const UsageSummary();
+    } catch (e) {
+      // 见 [UsageSummary.error]：不能把"读不出来"伪装成"没花过钱"
+      return UsageSummary(error: '$e');
     }
   }
 
@@ -220,9 +237,20 @@ class UsageLedger {
 
 /// 一笔账的展示文案。UI 与测试共用，避免两处各写一份格式化。
 String describeUsage(UsageSummary s) {
+  // ⚠️ 读库失败必须**说出来**，不能落到下面的空态分支。
+  // 否则数据库出问题时面板显示「还没有调用过 AI」——
+  // 一个看起来完全正常、但会让用户以为自己没花钱的谎。
+  if (s.hasError) return '用量读取失败：${s.error}';
   if (s.isEmpty) return '还没有调用过 AI';
   final cost = s.costYuan < 0.01
       ? '<0.01'
       : s.costYuan.toStringAsFixed(2);
   return '${s.calls} 次调用 · ${s.totalTokens} tokens · 约 ¥$cost';
+}
+
+/// 缓存条数的展示文案。`null` 表示读不到。
+String describeCacheCount(int? count) {
+  if (count == null) return '本地缓存条数读取失败';
+  if (count == 0) return '';
+  return '本地已缓存 $count 道题的标注结果 —— 重复录入同一道题不会再花 token。';
 }

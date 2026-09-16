@@ -53,14 +53,24 @@ class PaperRepository {
   }
 
   /// 载入某科目的全部模板。
-  Future<Map<String, PaperTemplate>> templates({
-    required String subject,
-  }) async {
+  ///
+  /// 返回值带 [PaperTemplatesResult.error]：**"数据坏了"与"这个科目没模板"
+  /// 必须能分开**。早先这里 catch 之后直接给空表，于是模板 JSON 损坏时
+  /// 界面显示的是「这个科目还没有可用模板」——
+  /// 一句听起来像产品决定的谎，而真相是随包数据坏了，
+  /// 用户会一直等一个永远不会出现的模板，也不会来报障。
+  Future<PaperTemplatesResult> templates({required String subject}) async {
     try {
-      return PaperTemplateLoader.parse(await _json(), subject: subject);
-    } catch (_) {
-      // 资产缺失时给空表，让 UI 显示"模板载入失败"而不是崩
-      return {};
+      final map = PaperTemplateLoader.parse(await _json(), subject: subject);
+      if (map.isEmpty) {
+        return const PaperTemplatesResult(
+          {},
+          '模板文件里没有这个科目的模板（数据结构可能变了）',
+        );
+      }
+      return PaperTemplatesResult(map, null);
+    } catch (e) {
+      return PaperTemplatesResult(const {}, '模板文件读取或解析失败：$e');
     }
   }
 
@@ -212,4 +222,31 @@ class PaperRepository {
     return '${r.template.name} · ${ts.month}月${ts.day}日 '
         '${two(ts.hour)}:${two(ts.minute)}';
   }
+}
+
+/// 模板载入结果。
+///
+/// [templates] 为空时看 [error]：
+/// - `error == null` 且为空 → 这个科目确实没有模板（产品决定，正常）
+/// - `error != null` → **随包数据出了问题**，必须如实告诉用户
+///
+/// 之所以要这个类型：早先 `templates()` 在解析失败时直接返回空表，
+/// 于是"模板 JSON 损坏"在界面上显示成「这个科目还没有可用模板」——
+/// 一句听起来像产品决定的谎。用户会一直等一个永远不会出现的模板，
+/// 而且不会来报障（他以为这功能就是这样）。
+class PaperTemplatesResult {
+  final Map<String, PaperTemplate> templates;
+  final String? error;
+
+  const PaperTemplatesResult(this.templates, this.error);
+
+  bool get isOk => error == null;
+  bool get isEmpty => templates.isEmpty;
+
+  PaperTemplate? operator [](String kind) => templates[kind];
+  Iterable<String> get kinds => templates.keys;
+
+  @override
+  String toString() => 'PaperTemplatesResult(${templates.length} 个模板'
+      '${error == null ? '' : ', error=$error'})';
 }

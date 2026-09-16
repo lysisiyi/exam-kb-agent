@@ -9,7 +9,6 @@ import '../data/index/index_builder.dart';
 import '../data/knowledge/knowledge_repository.dart';
 import '../data/markdown/problem_store.dart';
 import '../domain/knowledge/knowledge_point.dart';
-import '../domain/paper/paper_models.dart';
 import '../domain/paper/paper_template.dart';
 import '../features/problems/problems_page.dart' show ProblemView;
 import '../services/library/problem_service.dart';
@@ -114,8 +113,10 @@ final paperRepositoryProvider = FutureProvider<PaperRepository>((ref) async {
 });
 
 /// 当前科目的组卷模板（键是 kind：`real_exam` / `quick_mock` / `wrong_only`）。
-final paperTemplatesProvider =
-    FutureProvider.family<Map<String, PaperTemplate>, String>(
+///
+/// 返回 [PaperTemplatesResult] 而不是裸 Map：模板 JSON 损坏与
+/// "这个科目没有模板"必须能分开，否则界面会把前者说成后者（见该类注释）。
+final paperTemplatesProvider = FutureProvider.family<PaperTemplatesResult, String>(
         (ref, subject) async {
   final repo = await ref.watch(paperRepositoryProvider.future);
   return repo.templates(subject: subject);
@@ -177,26 +178,50 @@ final dueQueueProvider = FutureProvider<List<DueCard>>((ref) async {
 ///
 /// 刻意**不做**分页：个人错题本是几百到几千条量级，一次全读 + 排序
 /// 比引入分页状态便宜得多，而且列表页的三种排序都要求全量。
+/// 5000 题时这一步约 100–140 ms（实测见 `test/list_perf_test.dart`），
+/// 是**打开页签的一次性开销**，不在滚动路径上 ——
+/// 列表本身是 `ListView.separated`，5000 题下同时存活的项只有 12–13 个。
 final problemListProvider =
     FutureProvider.family<List<ProblemListRow>, ProblemView>((ref, view) async {
   final db = await ref.watch(databaseProvider.future);
+  final t = db.problemsIndex;
 
-  final rows = await db.select(db.problemsIndex).get();
+  // ⚠️ **只取列表用得到的 8 列**，不要 `select(t).get()`。
+  //
+  // `problems_index` 里有两列很大、而列表一个字符都不用：
+  // - `search_tokens`：逐字加空格的全文（CJK 分词产物），比 stem_text 大好几倍
+  // - `parse_warnings`：解析期警告的 JSON
+  //
+  // 5000 题实测：全表读 51 ms，只取这 8 列 28 ms —— **省掉 45%**
+  // （`test/list_perf_test.dart` 里有这条对比，改回全表会被它打印出来）。
+  final q = db.selectOnly(t)
+    ..addColumns([
+      t.id,
+      t.stemText,
+      t.primaryKpName,
+      t.difficulty,
+      t.source,
+      t.needsReview,
+      t.aiTagged,
+      t.createdAt,
+    ]);
+
+  final rows = await q.get();
   final states = await db.select(db.userProblemState).get();
   final byId = {for (final s in states) s.problemId: s};
 
   final out = [
     for (final r in rows)
       ProblemListRow(
-        problemId: r.id,
-        stemText: r.stemText,
-        primaryKpName: r.primaryKpName,
-        difficulty: r.difficulty,
-        source: r.source,
-        needsReview: r.needsReview,
-        aiTagged: r.aiTagged,
-        createdAt: r.createdAt,
-        state: byId[r.id],
+        problemId: r.read(t.id) ?? '',
+        stemText: r.read(t.stemText) ?? '',
+        primaryKpName: r.read(t.primaryKpName),
+        difficulty: r.read(t.difficulty) ?? 2,
+        source: r.read(t.source),
+        needsReview: r.read(t.needsReview) ?? false,
+        aiTagged: r.read(t.aiTagged) ?? false,
+        createdAt: r.read(t.createdAt),
+        state: byId[r.read(t.id)],
       ),
   ];
 
@@ -249,8 +274,17 @@ final problemListProvider =
 });
 
 /// FTS5 全文检索。空查询返回空列表（调用方负责别搜空串）。
-final problemSearchProvider =
-    FutureProvider.family<List<SearchHit>, String>((ref, query) async {
+///
+/// ## 为什么是 `autoDispose`
+///
+/// 它是按查询串分家的 family。用户敲「罗尔定理」是 4 个字符 ——
+/// 不去抖的话每次按键都建一个实例，而**非 autoDispose 的 family 实例
+/// 会一直留在容器里**：敲 20 个字符就攒下 20 份结果（每份最多 100 条
+/// `SearchHit`），而且它们永远不会被用到第二次。
+/// 加上去抖（见 `problems_page.dart`）之后，一次搜索通常只建 1 个实例，
+/// 松手后立刻回收。
+final problemSearchProvider = FutureProvider.autoDispose
+    .family<List<SearchHit>, String>((ref, query) async {
   final q = query.trim();
   if (q.isEmpty) return const [];
   final db = await ref.watch(databaseProvider.future);
@@ -291,5 +325,10 @@ final llmConfigProvider = Provider<LlmConfig?>((ref) {
 final ingestClientProvider = Provider<LlmClient?>((ref) {
   final cfg = ref.watch(llmConfigProvider);
   if (cfg == null) return null;
-  return LlmClient(config: cfg, http: DioHttpAdapter());
+  // ⚠️ 必须自己拿着适配器实例才能在 provider 销毁时关掉它。
+  // 写成 `LlmClient(http: DioHttpAdapter())` 的话那个 Dio 实例
+  // 就没人引用了 —— `close()` 再也没有调用者，连接池只能等 GC。
+  final adapter = DioHttpAdapter();
+  ref.onDispose(adapter.close);
+  return LlmClient(config: cfg, http: adapter);
 });

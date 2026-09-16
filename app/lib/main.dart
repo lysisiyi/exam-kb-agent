@@ -37,6 +37,10 @@ Future<void> main() async {
   _launchProbe('engine 绑定完成');
   StartupLog.log('engine 绑定完成，开始启动');
 
+  // 尽早接上运行期异常的出口。放在这里而不是最后：日志会先在内存里排队，
+  // `StartupLog.bindTo` 之后补写进文件，所以早接不会丢任何一条。
+  _installErrorHooks();
+
   // ── 窗口 ──────────────────────────────────────────────────────────────
   // 给一个合理的起手尺寸并锁住最小尺寸，否则窗口能被拖到比表单还窄。
   // 非桌面平台或插件不可用时静默返回，此时用系统默认尺寸。
@@ -90,6 +94,47 @@ Future<void> main() async {
   _launchProbe('准备 runApp');
   runApp(ProviderScope(child: KaoyanApp(initialTab: _initialTabFromEnv())));
   _launchProbe('runApp 已返回');
+}
+
+/// 把运行期异常接到 `startup.log` 上（T41）。
+///
+/// ## 为什么需要
+///
+/// 启动日志此前只覆盖**启动**链条。应用跑起来之后崩在某个页面里时，
+/// 用户看到的只是"点了没反应"或"闪一下就没了" —— 而 Windows release 版
+/// 没有 stdout，异常也不一定进事件日志。报障时**零线索**。
+///
+/// ## 两个钩子分工不同，缺一不可
+///
+/// | 钩子 | 覆盖 |
+/// |---|---|
+/// | `FlutterError.onError` | **框架内**的错误：build / layout / paint 抛异常、手势回调里抛异常 |
+/// | `PlatformDispatcher.onError` | **框架外**的异步错误：没人 await 的 Future |
+///
+/// 只接前者会漏掉后者，而后者恰恰是"什么都没发生"那类故障的常见成因
+/// （一个没 await 的写库操作失败，界面毫无反应）。
+///
+/// ## 两个钩子都**不吞**错误
+///
+/// 写日志是**追加**一条线索，不是替代原有行为：
+/// - `FlutterError.onError` 交回框架原来的处理器（debug 下照常画红屏）
+/// - `PlatformDispatcher.onError` 返回 `false`（= 未处理），让平台照旧处理。
+///   返回 `true` 会让错误**静默消失** —— 那比崩溃更难查。
+void _installErrorHooks() {
+  final previous = FlutterError.onError;
+  FlutterError.onError = (details) {
+    StartupLog.error(
+      '【运行期异常】${details.library ?? 'flutter'}',
+      details.exception,
+      details.stack,
+    );
+    previous?.call(details);
+  };
+
+  WidgetsBinding.instance.platformDispatcher.onError = (error, stack) {
+    StartupLog.error('【未捕获的异步异常】', error, stack);
+    return false;
+  };
 }
 
 /// 启动进度探针：把 [stage] 追加到一行文件里。

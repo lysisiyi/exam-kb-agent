@@ -280,6 +280,61 @@ void main() {
       expect(result.isClean, isTrue);
       expect(File('${out.path}/题库索引.md').existsSync(), isTrue);
     });
+
+    test('目标目录里**别人的**同名文件不会被覆盖', () async {
+      // 目标目录很可能是用户自己的 Obsidian 库，而 `如何打开.md`
+      // 这种名字谁都可能占用。凭文件名覆盖就等于删用户的笔记 ——
+      // 必须靠"文件里有没有我们自己的标记"来判断。
+      await seedProblems(env, [const SeedProblem(id: 'p-1', stem: '一')]);
+      final out = await Directory.systemTemp.createTemp('dsh-export-');
+      addTearDown(() async {
+        try {
+          await out.delete(recursive: true);
+        } catch (_) {}
+      });
+
+      const mine = '# 我的笔记\n这是用户自己写的东西，导出不该动它。';
+      final userFile = File('${out.path}/如何打开.md');
+      await userFile.writeAsString(mine);
+
+      final result = await exporter.exportTo(out);
+
+      // 用户那个文件原封不动
+      expect(await userFile.readAsString(), mine);
+      // 我们的说明换了个名字写出去
+      expect(result.renamedRootFiles, hasLength(1));
+      expect(result.renamedRootFiles.single, contains('如何打开.md →'));
+      expect(
+        File('${out.path}/如何打开（导出自错题本）.md').existsSync(),
+        isTrue,
+      );
+      // 摘要里要提一句，否则用户找不到文件了
+      expect(result.summary, contains('改了名'));
+    });
+
+    test('目标目录里**我们自己上次导出的**同名文件照常覆盖', () async {
+      // 反向用例：如果连自己的文件都不覆盖，重复导出就会堆一堆副本。
+      await seedProblems(env, [const SeedProblem(id: 'p-1', stem: '一')]);
+      final out = await Directory.systemTemp.createTemp('dsh-export-');
+      addTearDown(() async {
+        try {
+          await out.delete(recursive: true);
+        } catch (_) {}
+      });
+
+      await exporter.exportTo(out);
+      final second = await exporter.exportTo(out);
+
+      expect(second.renamedRootFiles, isEmpty);
+      expect(File('${out.path}/如何打开.md').existsSync(), isTrue);
+      expect(
+        Directory(out.path)
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.path.contains('导出自错题本')),
+        isEmpty,
+      );
+    });
   });
 }
 

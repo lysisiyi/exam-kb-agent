@@ -526,14 +526,21 @@ void main() {
                      "score_per_item":5,"difficulty":[1,2]}]}}}}''';
       final repo = PaperRepository(db: env.db, templatesJson: json);
       final t = await repo.templates(subject: 'math1');
-      expect(t.keys, contains('real_exam'));
+      expect(t.error, isNull);
+      expect(t.kinds, contains('real_exam'));
       expect(t['real_exam']!.seats.length, 2);
       expect(t['real_exam']!.totalScore, 150);
     });
 
-    test('模板 JSON 坏掉时返回空表而不是抛异常', () async {
+    test('模板 JSON 坏掉时返回空表，并且**带上错误原因**', () async {
+      // 只返回空表是不够的：界面会把"数据坏了"显示成
+      // "这个科目还没有可用模板" —— 用户会一直等一个不会出现的模板，
+      // 而真相是随包数据坏了。所以错误原因必须传出去。
       final repo = PaperRepository(db: env.db, templatesJson: '这不是 JSON');
-      expect(await repo.templates(subject: 'math1'), isEmpty);
+      final bad = await repo.templates(subject: 'math1');
+      expect(bad.isEmpty, isTrue);
+      expect(bad.isOk, isFalse);
+      expect(bad.error, isNotNull);
       expect((await repo.labels()).difficulty, isEmpty);
     });
 

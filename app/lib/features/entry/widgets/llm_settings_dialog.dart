@@ -287,9 +287,17 @@ class _UsagePanelState extends ConsumerState<_UsagePanel> {
       final usage = await UsageLedger(db).summary();
       final cacheCount = await SqliteTagCache(db: db).count();
       return AppUsageView(usage: usage, cacheCount: cacheCount);
-    } catch (_) {
-      // 读不到就说"没有记录"，不要让配置对话框因此报错
-      return const AppUsageView(usage: UsageSummary(), cacheCount: 0);
+    } catch (e) {
+      // ⚠️ 这里**不能**返回"看起来正常的空数据"。
+      //
+      // 早先 catch 后给的是 `UsageSummary()` + `cacheCount: 0`，
+      // 于是数据库打不开时面板显示「还没有调用过 AI」与「0 道题缓存」——
+      // 两句都像是事实，实际什么都读不到。用户会据此以为
+      // "AI 没生效 / 缓存没起作用"，而真正的问题是库读不出来。
+      return AppUsageView(
+        usage: UsageSummary(error: '$e'),
+        cacheCount: null,
+      );
     }
   }
 
@@ -321,11 +329,10 @@ class _UsagePanelState extends ConsumerState<_UsagePanel> {
                 v == null ? '正在读取…' : describeUsage(v.usage),
                 style: const TextStyle(fontSize: 11.5, height: 1.6),
               ),
-              if (v != null && v.cacheCount > 0) ...[
+              if (v != null && describeCacheCount(v.cacheCount).isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
-                  '本地已缓存 ${v.cacheCount} 道题的标注结果 —— '
-                  '重复录入同一道题不会再花 token。',
+                  describeCacheCount(v.cacheCount),
                   style: TextStyle(
                     fontSize: 11,
                     height: 1.6,
@@ -357,7 +364,9 @@ class _UsagePanelState extends ConsumerState<_UsagePanel> {
 /// 用量面板要展示的两个数。
 class AppUsageView {
   final UsageSummary usage;
-  final int cacheCount;
+
+  /// 缓存条数。**null 表示读不到**（不是 0）。
+  final int? cacheCount;
 
   const AppUsageView({required this.usage, required this.cacheCount});
 }

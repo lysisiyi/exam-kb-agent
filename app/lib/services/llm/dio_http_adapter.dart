@@ -35,6 +35,13 @@ class DioHttpAdapter implements HttpAdapter {
           method: request.method,
           headers: request.headers,
           responseType: ResponseType.plain,
+          // ⚠️ `connectTimeout` 必须显式设。
+          //
+          // `sendTimeout` 管的是"连接建立之后发数据"，**不管建立连接**。
+          // 少了它，一个丢包/黑洞的地址只能等操作系统的 TCP 超时 ——
+          // Windows 上约 21 秒，而这期间界面什么都不显示。
+          // 用户会以为软件卡死了，实际是卡在 TCP 握手。
+          connectTimeout: request.timeout,
           sendTimeout: request.timeout,
           receiveTimeout: request.timeout,
         ),
@@ -76,5 +83,11 @@ class DioHttpAdapter implements HttpAdapter {
     };
   }
 
+  /// 关闭底层连接池。
+  ///
+  /// ⚠️ **调用方必须记得调它。** 每次 `buildTagger` / 每次新建适配器都会
+  /// 建一个 Dio 实例，而每个实例自带一个连接池；不关的话这些池只能等 GC ——
+  /// 在批量导入那种"一次几十次请求"的场景里会一直攒着。
+  /// provider 里已经用 `ref.onDispose` 接上了（见 `providers.dart`）。
   void close() => _dio.close(force: true);
 }

@@ -38,6 +38,7 @@ import '../../data/markdown/problem_markdown.dart';
 import '../../services/ingest/ingest_models.dart';
 import '../../services/ingest/ingest_session.dart';
 import '../../services/ingest/ingest_source_io.dart';
+import '../../services/llm/dio_http_adapter.dart';
 import '../../services/llm/llm_settings.dart';
 import '../../services/llm/provider_registry.dart';
 import '../../services/tagger/knowledge_tagger.dart';
@@ -279,6 +280,8 @@ class _IngestPageState extends ConsumerState<IngestPage> {
       _status = null;
     });
 
+    // 声明在 try 之外，才能保证 `finally` 里一定关得掉
+    DioHttpAdapter? adapter;
     try {
       final settings = await ref.read(llmSettingsProvider.future);
       final kb = await ref.read(knowledgeBaseProvider.future);
@@ -286,13 +289,19 @@ class _IngestPageState extends ConsumerState<IngestPage> {
       final store = await ref.read(problemStoreProvider.future);
 
       final ledger = UsageLedger(db);
+      // 自己拿适配器实例，好在结束时关掉连接池。
+      // 交给 `buildTagger` 内部新建的话就没人引用它了，
+      // `DioHttpAdapter.close()` 会永远没有调用者（见该方法的说明）。
+      adapter = DioHttpAdapter();
       final tagger = await buildTagger(
         knowledge: kb,
         settings: settings,
+        http: adapter,
         cache: SqliteTagCache(db: db, model: settings.toConfig().model),
         onUsage: (u) => ledger.record(provider: settings.providerId, usage: u),
       );
       if (tagger == null) {
+        adapter.close();
         setState(() => _error = 'AI 配置不完整，无法打标。请先到「设置」里配置。');
         return;
       }
@@ -342,6 +351,8 @@ class _IngestPageState extends ConsumerState<IngestPage> {
     } catch (e) {
       if (mounted) setState(() => _error = '打标失败：$e');
     } finally {
+      // 无论成功失败都要关掉连接池
+      adapter?.close();
       if (mounted) setState(() => _tagging = false);
     }
   }

@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/layout/breakpoints.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/state_views.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 
 class KnowledgePage extends ConsumerWidget {
@@ -35,40 +36,17 @@ class _ErrorView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 44, color: AppColors.danger),
-              const SizedBox(height: 16),
-              const Text(
-                '知识点本体载入失败',
-                style: AppTypography.sectionTitle,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              SelectableText(
-                '$error',
-                textAlign: TextAlign.center,
-                style: AppTypography.caption,
-              ),
-              const SizedBox(height: 22),
-              FilledButton.icon(
-                onPressed: () {
-                  ref.read(knowledgeRepositoryProvider).clear();
-                  ref.invalidate(knowledgeBaseProvider);
-                },
-                icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('重新载入'),
-              ),
-            ],
-          ),
-        ),
-      ),
+    // 复用统一的错误态，但重试要**多做一步**：清掉 `KnowledgeRepository`
+    // 的内部缓存。只 invalidate provider 不够 —— 单例仓库会把上次的失败
+    // 结果一直留在 `_cache` 里，重试永远拿到同一个错误。
+    return AppErrorView(
+      title: '知识点本体载入失败',
+      error: error,
+      onRetry: () {
+        ref.read(knowledgeRepositoryProvider).clear();
+        ref.invalidate(knowledgeBaseProvider);
+      },
+      retryLabel: '重新载入',
     );
   }
 }
