@@ -190,10 +190,17 @@ class _PaperPageState extends ConsumerState<PaperPage> {
 
   Future<void> _showCaveats(List<String> caveats) async {
     if (!mounted) return;
+    // 标题里的条数要**跟着实际条数走**。早先写死"但有两点要注意" ——
+    // 而 T43 修好之后"中文可能显示异常"那条不再出现，
+    // 于是只有 1 条（甚至 3 条）时标题在说谎。
+    // 一条时干脆不数数，直接说"有一点要注意"。
+    final title = caveats.length == 1
+        ? '导出完成，但有一点要注意'
+        : '导出完成，有 ${caveats.length} 点要注意';
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('导出完成，但有两点要注意'),
+        title: Text(title),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -11,8 +11,15 @@
 ///
 /// 没法在测试里"看" PDF。但 `pdf` 包会把文本以可提取的形式写进内容流，
 /// 所以用拉丁字母做的探针文字（`ANSWER-MARKER`）能在原始字节里搜到 ——
-/// 用它判断"答案到底有没有被写进去"是可靠的。中文不行（字体不含字形），
-/// 所以探针刻意用英文。
+/// 用它判断"答案到底有没有被写进去"是可靠的。
+///
+/// ⚠️ **探针必须用拉丁字母**，理由不是"中文没字形"（T43 已修好），
+/// 而是：中文字体走 TrueType 的 `/Encoding /Identity-H`，正文里写的是
+/// **字形序号（GID）** 而不是字符码 —— 汉字本身在字节流里搜不到。
+/// 这是 CID 字体的正常编码方式，不是缺陷。
+///
+/// 「中文到底有没有被嵌进去」由 `T43：中文能正常嵌进 PDF` 那一组
+/// 用 `/FontFile2` 来判定（见那组的说明）。
 library;
 
 import 'dart:convert';
@@ -21,6 +28,7 @@ import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kaoyan_math_agent/core/platform/system_fonts.dart';
 import 'package:kaoyan_math_agent/data/db/database.dart';
 import 'package:kaoyan_math_agent/data/markdown/problem_markdown.dart';
 import 'package:kaoyan_math_agent/domain/paper/paper_models.dart';
@@ -166,6 +174,180 @@ void main() {
   PaperPdfExporter exporter() => PaperPdfExporter(loadProblem: loadFromStore);
 
   // ───────────────────────────────────────────────────────────────────────────
+  group('T43：中文能正常嵌进 PDF', () {
+    // ## 这一组在验什么
+    //
+    // 缺陷是"PDF 内置字体不含中文字形 → 中文渲染成空白"。`pdf` 包遇到
+    // 画不出来的字符时会插一个**占位空白**，并且只在 debug 下 `print`
+    // 一句提示 —— 所以它长期没被发现：文件照常生成、测试照常通过、
+    // 只有人眼能看到那份卷子上是空的。
+    //
+    // 修法是给文档主题挂 `fontFallback`（取本机已装的中文字体）。
+    // 于是"中文有没有真的被嵌入"这件事可以**从 PDF 字节里读出来**：
+    // 嵌入的 TrueType 会在字体描述里留下 `/FontFile2`，
+    // 而 Helvetica 是 PDF 标准 14 字体之一、**从不嵌入**。
+    // 所以"有没有 `/FontFile2`"就是"中文有没有字形"的可判定代理。
+
+    /// PDF 里有没有嵌入 TrueType 字体。
+    bool embedsTtf(List<int> bytes) =>
+        _indexOf(Uint8List.fromList(bytes), 'FontFile2', 0) >= 0;
+
+    test('含中文的 PDF 会嵌入 TrueType 中文字体（走 CID 路径）', () async {
+      final cjk = SystemFonts.findCjk();
+      if (cjk == null) {
+        // 英文/精简版 Windows 上确实一个中文字体都没有。
+        // 那条分支由下面「一个中文字体都没有时必须如实提示」覆盖。
+        return;
+      }
+
+      await seedProblems(env, [
+        const SeedProblem(id: 'p-1', stem: r'求 $\lim_{x\to0}$ 的值。'),
+        const SeedProblem(id: 'p-2', stem: '证明该函数连续。'),
+      ]);
+
+      final f = File('${outDir.path}/cjk.pdf');
+      final r = await exporter()
+          .export(paper: _result(), layout: PaperLayout.answers, target: f);
+      final bytes = await f.readAsBytes();
+
+      expect(embedsTtf(bytes), isTrue,
+          reason: 'PDF 里没有 /FontFile2 —— 说明中文还是渲染成占位空白');
+      expect(_indexOf(Uint8List.fromList(bytes), '/Identity-H', 0),
+          greaterThanOrEqualTo(0),
+          reason: '中文应当走 CID 字体（Identity-H 编码）');
+      expect(r.hasCjkFont, isTrue);
+    });
+
+    test('嵌入的是**子集**：整份 PDF 比字体文件本身小', () async {
+      // 这条是"不随包内置字体"这个决定的关键论据：
+      // `pdf` 包只写用到的字形，所以 PDF 不会变成 9 MB。
+      // 哪天它改成了整包嵌入，这条会立刻红。
+      final cjk = SystemFonts.findCjk();
+      if (cjk == null) return;
+
+      await seedProblems(env, [
+        const SeedProblem(id: 'p-1', stem: '求极限的值。'),
+        const SeedProblem(id: 'p-2', stem: '证明该函数连续。'),
+      ]);
+
+      final f = File('${outDir.path}/subset.pdf');
+      final r = await exporter()
+          .export(paper: _result(), layout: PaperLayout.answers, target: f);
+
+      expect(r.bytes, lessThan(2 * 1024 * 1024),
+          reason: '一份两题的小卷嵌完字体不该超过 2 MB');
+      expect(r.bytes, lessThan(cjk.lengthSync()),
+          reason: '整份 PDF 比源字体文件还大，说明嵌入的不是子集');
+    });
+
+    test('拉丁探针仍然按原样可搜（字体编码没把普通文本弄坏）', () async {
+      await seedProblems(env, [
+        const SeedProblem(id: 'p-1', stem: 'PLAIN-ASCII-STEM'),
+        const SeedProblem(id: 'p-2', stem: 'ANOTHER-ASCII-STEM'),
+      ]);
+
+      final f = File('${outDir.path}/latin.pdf');
+      final r = await exporter()
+          .export(paper: _result(), layout: PaperLayout.exam, target: f);
+
+      final text = extractPdfText(await f.readAsBytes());
+      expect(text.contains('PLAIN-ASCII-STEM'), isTrue,
+          reason: '挂了 fontFallback 之后拉丁字母应当仍走 Helvetica');
+      expect(r.bytes, lessThan(2 * 1024 * 1024));
+    });
+
+    test('一个中文字体都没有时必须如实提示，并给出出路', () {
+      // 直接构造结果来验文案：这台开发机上有黑体，跑不出"没有字体"那条分支，
+      // 而"安静地输出一堆空白"正是这个缺陷当初难被发现的原因。
+      const noFont = PdfExportResult(
+        path: 'x.pdf',
+        bytes: 0,
+        problems: 0,
+        hasChinese: true,
+        hasCjkFont: false,
+      );
+      expect(
+          noFont.caveats.any((c) => c.contains('没有找到可用的中文字体')), isTrue);
+      expect(noFont.caveats.any((c) => c.contains('语言和区域')), isTrue,
+          reason: '要给出具体出路，不能只说"中文可能异常"');
+
+      const withFont = PdfExportResult(
+        path: 'x.pdf',
+        bytes: 0,
+        problems: 0,
+        hasChinese: true,
+        hasCjkFont: true,
+      );
+      expect(withFont.caveats, isEmpty, reason: '修好了就不该再提示');
+    });
+
+    test('生成三份样张供人眼确认（DSH_PDF_SAMPLE=1 时才跑）', () async {
+      // ## 为什么要有这一条
+      //
+      // 上面几条断言证明的是"/FontFile2 在、子集不大、拉丁没坏" ——
+      // 它们**不能**证明"中文看起来是对的"。排版观感只有人眼能判。
+      //
+      // 所以这里把真实样张写到工作区根目录（不在仓库里、不会被提交），
+      // 让用户直接打开看。默认不跑：随手往盘上写文件不是好习惯。
+      //
+      // ```powershell
+      // $env:DSH_PDF_SAMPLE = "1"; flutter test test/paper_export_test.dart
+      // ```
+      if (Platform.environment['DSH_PDF_SAMPLE'] != '1') return;
+
+      await seedProblems(env, [
+        const SeedProblem(
+          id: 'p-1',
+          stem: r'设函数 $f(x)$ 在闭区间 $[a,b]$ 上连续，在开区间 $(a,b)$ 内可导，'
+              r'且 $f(a)=f(b)$。证明：存在 $\xi\in(a,b)$，使 $f^{\prime}(\xi)=0$。',
+          answer: r'由罗尔定理即得。',
+          solution: r'因为 $f$ 在 $[a,b]$ 上连续、在 $(a,b)$ 内可导，且两端点函数值相等，'
+              r'故满足罗尔定理的三个条件，结论成立。',
+          primaryKpId: 'math1.calc.diff.rolle',
+          primaryKpName: '罗尔定理',
+          difficulty: 2,
+          wrongCount: 3,
+        ),
+        const SeedProblem(
+          id: 'p-2',
+          stem: r'求 $\displaystyle\lim_{x\to0}\frac{\sin x-x\cos x}{x^{3}}$。',
+          answer: r'$\dfrac{1}{3}$',
+          solution: r'用泰勒展开：$\sin x=x-\dfrac{x^3}{6}+o(x^3)$，'
+              r'$\cos x=1-\dfrac{x^2}{2}+o(x^2)$，代入得极限为 $\dfrac13$。',
+          primaryKpId: 'math1.calc.limit.taylor',
+          primaryKpName: '泰勒展开',
+          difficulty: 3,
+          wrongCount: 1,
+        ),
+      ]);
+
+      // 写到**仓库之外**的工作区根目录：`flutter test` 的 cwd 是 `app/`，
+      // 所以上两级才是工作区（`…/Project`）。写进仓库的话它会变成
+      // 未跟踪文件，早晚有人误提交。
+      final out = Directory(
+        '${Directory.current.parent.parent.path}'
+        '${Platform.pathSeparator}pdf-sample',
+      );
+      if (!out.existsSync()) out.createSync(recursive: true);
+
+      for (final layout in PaperLayout.values) {
+        final f = File('${out.path}${Platform.pathSeparator}${layout.label}.pdf');
+        final r = await exporter().export(
+          paper: _result(),
+          layout: layout,
+          target: f,
+        );
+        // ignore: avoid_print
+        print('[pdf-sample] ${f.path}  ${r.sizeText}  '
+            '中文字体=${r.hasCjkFont}  提示=${r.caveats.length} 条');
+      }
+      // ignore: avoid_print
+      print('[pdf-sample] 打开看看：中文有没有正常显示、公式清不清楚、'
+          '试卷版式有没有留够演算空间');
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
   group('PDF 导出', () {
     /// 种两道题：一道带公式与英文答案标记，一道纯文本。
     Future<void> seed() async {
@@ -224,7 +406,7 @@ void main() {
 
     test('解析卷含解析，试卷版式不含', () async {
       await seed();
-      // 用英文探针当解析内容（中文在 PDF 字体里没有字形，搜不到）
+      // 拉丁探针的理由见文件头的说明（中文走 GID，搜不到字符）
       await seedProblems(env, [
         const SeedProblem(
           id: 'p-3',
@@ -290,7 +472,11 @@ void main() {
       expect(text, contains('undefinedcommand'));
     });
 
-    test('正文含中文时给出提示（PDF 内置字体没有中文字形）', () async {
+    test('中文的提示只在**找不到字体**时出现（T43 之后）', () async {
+      // ⚠️ 这条此前断言的是"含中文就一定提示中文可能显示异常" ——
+      // 那是 T43 未修时的行为。现在反过来：
+      // 找得到中文字体就**不该**再提示（否则用户以为还有问题），
+      // 找不到才必须说，并给出出路。两个分支都验。
       await seed();
       final r = await exporter().export(
         paper: _result(),
@@ -298,8 +484,15 @@ void main() {
         target: File('${outDir.path}/cn.pdf'),
       );
       expect(r.hasChinese, isTrue);
-      expect(r.caveats.any((c) => c.contains('中文')), isTrue,
-          reason: '不说的话用户会拿到一份满是空白的 PDF 而不知道为什么');
+
+      final warned = r.caveats.any((c) => c.contains('中文字体'));
+      if (SystemFonts.findCjk() == null) {
+        expect(warned, isTrue,
+            reason: '没有字体却不说 —— 用户会拿到一份满是空白的 PDF 而不知道为什么');
+      } else {
+        expect(warned, isFalse, reason: '字体找得到就不该再提示中文有问题');
+        expect(r.hasCjkFont, isTrue);
+      }
     });
 
     test('组卷说明会附在末尾（偏离模板的地方要留痕）', () async {

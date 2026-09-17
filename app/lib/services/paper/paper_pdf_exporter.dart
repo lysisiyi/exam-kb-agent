@@ -31,10 +31,13 @@
 library;
 
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../core/platform/system_fonts.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../domain/paper/paper_models.dart';
 import 'formula_rasterizer.dart';
@@ -78,14 +81,18 @@ class PdfExportResult {
 
   /// 正文里含中文字符。
   ///
-  /// `pdf` 包默认字体不含中日韩字形，所以这种情况要在结果里提示。
-  /// 不提示的话用户会拿到一份满是空白的 PDF 而不知道为什么。
-  ///
   /// ⚠️ 这个标志**恒为 true**：PDF 的页眉、页脚、页码、分区标题（"选择题
   /// （共 10 题，50 分）"）、"答案"/"解析"标签全都是中文，由本文件自己写死。
   /// 早先它只统计题目正文，于是"一道纯英文题"导出后会带着一堆乱码标签，
   /// 而提示**不出现** —— 恰好是最需要提示的那种情况。
   final bool hasChinese;
+
+  /// 是否成功嵌入了中文字体。
+  ///
+  /// 为 true 时中文**正常显示**（字形取自本机字体，只嵌入用到的那些）。
+  /// 为 false 表示这台机器上一个候选中文字体都没找到（英文/精简版 Windows），
+  /// 此时中文会渲染成空白 —— **必须提示用户**，见 [caveats]。
+  final bool hasCjkFont;
 
   const PdfExportResult({
     required this.path,
@@ -95,6 +102,7 @@ class PdfExportResult {
     this.missingProblems = 0,
     this.omittedImages = 0,
     this.hasChinese = true,
+    this.hasCjkFont = false,
   });
 
   String get sizeText {
@@ -107,7 +115,9 @@ class PdfExportResult {
 
   /// 需要提醒用户的事（可能为空）。
   List<String> get caveats => [
-        if (hasChinese) _chineseCaveat,
+        // 只有"有中文但没找到中文字体"才需要提醒。
+        // 找得到字体时**不再出现**这条 —— T43 已经修好了。
+        if (hasChinese && !hasCjkFont) _noFontCaveat,
         if (missingProblems > 0)
           '$missingProblems 道题在题库里读不到（Markdown 文件缺失或损坏），这份卷子里它们只有题干摘要，没有答案与解析。可以先重建索引确认题库是否完整。',
         if (omittedImages > 0)
@@ -116,9 +126,14 @@ class PdfExportResult {
           '$degradedFormulas 处公式无法渲染（LaTeX 不合法或尺寸过大），已降级为等宽源码显示。',
       ];
 
-  static const String _chineseCaveat =
-      '正文含中文，而 PDF 内置字体不含中文字形 —— 中文可能显示异常或缺失。'
-      '需要完整中文排版时，请先用「设置 → 导出题库」导出 Markdown 包。';
+  /// 本机一个中文字体都没找到时的提示。
+  ///
+  /// 措辞要给出**具体出路**：这不是"App 坏了"，而是这台机器缺字体。
+  static const String _noFontCaveat =
+      '这台机器上没有找到可用的中文字体（黑体 / 楷体 / 仿宋 / 等线），'
+      '卷子里的中文会显示成空白。'
+      '装一个中文字体（Windows 的「语言和区域」里加中文即可），'
+      '或改用「设置 → 导出题库」的 Markdown 包。';
 }
 
 /// 试卷 PDF 导出器。
@@ -140,6 +155,46 @@ class PaperPdfExporter {
   /// 题干里的图片引用。PDF 不嵌图，只记数并换成占位符。
   static final RegExp _imageRef = RegExp(r'!\[([^\]]*)\]\(([^)]*)\)');
 
+  /// 中文字体：整个进程只加载一次。
+  ///
+  /// ## 为什么要缓存
+  ///
+  /// 黑体那个文件是 **9.29 MB**，`pw.Font.ttf()` 持有它的字节，
+  /// 真正解析发生在第一次用它画字的时候。每次导出都重读一遍
+  /// 是没必要的 IO + 解析。
+  ///
+  /// 用 `static` 而不是实例字段：`PaperPdfExporter` 是**每次点导出新建一个**的
+  /// （见 `paper_page.dart`），实例字段等于没有缓存。
+  static pw.Font? _cjkFont;
+  static bool _cjkLoaded = false;
+
+  /// 取中文字体。找不到返回 null（**不抛**）。
+  ///
+  /// ⚠️ 这里**必须允许注入失败**：测试要能验"这台机器没有中文字体时
+  /// 会如实提示"，而在装了中文字体的开发机上跑不出那条分支。
+  static Future<pw.Font?> cjkFont({bool forceReload = false}) async {
+    if (_cjkLoaded && !forceReload) return _cjkFont;
+    _cjkLoaded = true;
+    _cjkFont = null;
+
+    final bytes = await SystemFonts.loadCjk();
+    if (bytes == null || bytes.isEmpty) return null;
+    try {
+      _cjkFont = pw.Font.ttf(ByteData.view(bytes.buffer, bytes.offsetInBytes));
+    } catch (_) {
+      // 字体文件损坏 / 格式不被 pdf 包支持 —— 降级到"没有中文字体"
+      _cjkFont = null;
+    }
+    return _cjkFont;
+  }
+
+  /// 仅供测试：清掉缓存，让下一次调用重新探测。
+  @visibleForTesting
+  static void resetCjkFontCache() {
+    _cjkFont = null;
+    _cjkLoaded = false;
+  }
+
   /// 导出到 [target]。
   ///
   /// ## 为什么先把所有 widget 建好再交给 pdf 包
@@ -155,11 +210,16 @@ class PaperPdfExporter {
   }) async {
     _resetCounters();
 
+    final cjk = await cjkFont();
     final body = await _buildBody(paper, layout);
 
     final doc = pw.Document(
       title: title ?? paper.template.name,
       author: '考研数学错题 Agent',
+      // 中文走 [fontFallback]，拉丁字母与数字**仍然用 Helvetica**：
+      // 后者是 PDF 的标准 14 字体之一，不嵌入、只引用，文件更小
+      // 且字形比中文字体里的拉丁部分好看。
+      theme: _themeWith(cjk),
     );
 
     doc.addPage(
@@ -183,8 +243,23 @@ class PaperPdfExporter {
       missingProblems: _missing,
       omittedImages: _omittedImages,
       hasChinese: true,
+      hasCjkFont: cjk != null,
     );
   }
+
+  /// 文档主题：把中文字体挂在 [pw.ThemeData.withFont] 的 `fontFallback` 上。
+  ///
+  /// 走主题而不是给每个 `pw.TextStyle` 加一遍 `fontFallback`：
+  /// 样式散在七八处（页眉、页脚、"答案"/"解析"标签、题号行、正文……），
+  /// 逐处加**迟早会漏一处**，而漏掉的那处就是一块空白。
+  /// 主题是单一入口，漏不掉。
+  static pw.ThemeData _themeWith(pw.Font? cjk) => pw.ThemeData.withFont(
+        base: pw.Font.helvetica(),
+        bold: pw.Font.helveticaBold(),
+        italic: pw.Font.helveticaOblique(),
+        boldItalic: pw.Font.helveticaBoldOblique(),
+        fontFallback: cjk == null ? const [] : [cjk],
+      );
 
   void _resetCounters() {
     _degraded = 0;
@@ -194,8 +269,9 @@ class PaperPdfExporter {
 
   /// 只渲染第一页的字节，用于"导出前看一眼"而不落盘。
   Future<int> estimateBytes(PaperResult paper, PaperLayout layout) async {
+    final cjk = await cjkFont();
     final body = await _buildBody(paper, layout);
-    final doc = pw.Document();
+    final doc = pw.Document(theme: _themeWith(cjk));
     doc.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.fromLTRB(42, 40, 42, 36),
