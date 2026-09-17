@@ -307,6 +307,28 @@ flutter pub get
 flutter test
 ```
 
+### ⚠️ SDK 版本下限：`pubspec.yaml` 里写的是**推导值**
+
+```yaml
+environment:
+  sdk: ">=3.7.0 <4.0.0"
+  flutter: ">=3.29.0"
+```
+
+这个下限**推导自代码里实际用到的最新 API**，不是实测值：
+
+| 用到的 API | 引入版本 |
+|---|---|
+| `Color.withValues()` / `Color.toARGB32()` | Flutter 3.27 |
+| `ThemeData.cardTheme: CardThemeData(...)` | Flutter 3.29 |
+
+本项目实际构建与测试用的是 **Flutter 3.47.4 / Dart 3.13.3**（见第 2 节）。
+下限的作用是"拦住明显太旧的 SDK"，不是"承诺 3.29 一定能构建"。
+
+> 早先这里写的是 `flutter: ">=3.24.0"` —— 那是**错的**：用 3.24–3.26
+> 编译会在 `toARGB32` 上直接失败，而约束却放它通过。
+> **声明一个比实际需要更低的下限，比不声明更糟**：它让人以为能编译。
+
 ### ⚠️ 关于 Windows「开发者模式」——**构建 exe 必须开启**
 
 `flutter pub get` 与 `flutter build windows` 会提示：

@@ -19,7 +19,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart' show ZLibDecoder;
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/data/db/database.dart';
@@ -110,9 +109,10 @@ String extractPdfText(List<int> bytes) {
     }
     if (stop > start) {
       try {
-        final decoded = const ZLibDecoder().decodeBytes(
-          raw.sublist(start, stop),
-        );
+        // `dart:io` 自带 zlib 编解码 —— PDF 的 FlateDecode 就是 zlib 流。
+        // 早先这里用的是 `package:archive` 的 `ZLibDecoder`，为了一个
+        // 测试函数引一个包不值得（而且它当时被声明成无界的 `archive: any`）。
+        final decoded = zlib.decode(raw.sublist(start, stop));
         out.write(latin1.decode(decoded));
       } catch (_) {
         // 不是 zlib 流（或本来就是明文）就直接用原文

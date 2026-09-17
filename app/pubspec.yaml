@@ -4,8 +4,23 @@ publish_to: "none"
 version: 0.1.0+1
 
 environment:
-  sdk: ">=3.5.0 <4.0.0"
-  flutter: ">=3.24.0"
+  # ## 下限是**推导**出来的，不是实测的
+  #
+  # 之前写的是 `flutter: ">=3.24.0"`，那是**错的** —— 代码里用了
+  # Flutter 3.27 才有的 API，用 3.24 编译会直接失败，而约束却放它通过。
+  # 声明一个比实际需要更低的下限，比不声明更糟：它让人以为能编译。
+  #
+  # 推导依据（代码里实际用到的、最新的 API）：
+  #   `Color.withValues()` / `Color.toARGB32()`   → Flutter 3.27
+  #       （`colors` 的宽色域改造，替代已废弃的 `Color.value`）
+  #   `ThemeData.cardTheme: CardThemeData(...)`   → Flutter 3.29
+  #       （`CardTheme` 这个数据类被 `CardThemeData` 取代）
+  #
+  # ⚠️ 我们**没有**在 3.29 上实测过。本项目实际构建与测试用的是
+  # Flutter 3.47.4 / Dart 3.13.3（见 `docs/SETUP.md`）。
+  # 这个下限的作用是"拦住明显太旧的 SDK"，不是"承诺 3.29 一定能构建"。
+  sdk: ">=3.7.0 <4.0.0"
+  flutter: ">=3.29.0"
 
 dependencies:
   flutter:
@@ -58,9 +73,18 @@ dependencies:
   # ── 数据格式 ────────────────────────────────────────────────────
   yaml: ^3.1.2          # 解析题目 Markdown 的 frontmatter
   crypto: ^3.0.5        # 题目去重指纹
-  collection: ^1.18.0
-  uuid: ^4.5.1
-  intl: ^0.19.0
+  #
+  # ⚠️ 这里曾经声明过 `collection` / `uuid` / `intl` —— 三个都**零引用**。
+  #
+  # 与本文件里其它"声明了却零引用"的依赖（go_router / share_plus /
+  # printing / sqlite3_flutter_libs）同一个毛病：它们会拖长构建时间、
+  # 进构建产物，还会让人以为存在一套没在用的约定。
+  #
+  # `collection` 的能力（`firstWhereOrNull` 等）Dart 3 的扩展方法已经覆盖；
+  # `uuid` 没用上是因为题目 id 走的是"人类可读 + 指纹"那套；
+  # `intl` 没用上是因为日期文案都是手写的（`${ts.month}月${ts.day}日`），
+  # 只有三个数字要补零，不值得为它引一个本地化包。
+  # 将来真要用（比如按语言格式化日期）再加回来。
 
   # ── 导出 ────────────────────────────────────────────────────────
   #
@@ -103,8 +127,11 @@ dependencies:
   # ── 图表：掌握度画像 ────────────────────────────────────────────
   fl_chart: ^0.69.0
 
-  # ── 图片处理（批量导入）────────────────────────────────────────
-  image: ^4.2.0
+  # ⚠️ 这里曾经声明过 `image` —— **零引用**。
+  #
+  # 批量导入不做本地图像处理：图片原样交给云端视觉模型（见
+  # `services/ingest/`）。所以当时"顺手加上去"的这个包一次都没用上。
+  # 将来真要在本机压缩/裁剪（比如为了省 token 先缩图）再加回来。
 
   # ── 公式渲染 ───────────────────────────────────────────────────
   # `katex` 是 KaTeX 的 Flutter 封装：底层 `katex_dart`（纯 Dart 解析器）
@@ -140,7 +167,14 @@ dev_dependencies:
   drift_dev: ^2.20.0
   build_runner: ^2.4.11
 
-  archive: any
+  # ⚠️ 这里曾经是 `archive: any` —— 两个问题：
+  #
+  # 1. **无界约束**。`any` 意味着任何一个版本都接受，包括将来会破坏
+  #    兼容的大版本。它只在 `paper_export_test.dart` 里用来解压 PDF
+  #    内容流（`ZLibDecoder`），而 `dart:io` 自带 zlib 编解码
+  #    （`zlib.decode`）—— 为一个测试函数引一个包本来就不划算。
+  # 2. 所以这个依赖**已经删掉了**，不是改成了有界约束。
+  #    现在那个测试用 `dart:io` 的 `zlib`。
 flutter:
   uses-material-design: true
 

@@ -18,7 +18,7 @@ packages:
     source: hosted
     version: "14.4.0"
   archive:
-    dependency: "direct dev"
+    dependency: transitive
     description:
       name: archive
       sha256: a96e8b390886ee8abb49b7bd3ac8df6f451c621619f52a26e815fdcf568959ff
@@ -162,7 +162,7 @@ packages:
     source: hosted
     version: "2.0.0"
   collection:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: collection
       sha256: "2f5709ae4d3d59dd8f7cd309b4e023046b57d8a6c82130785d2b0e5868084e76"
@@ -473,21 +473,13 @@ packages:
     source: hosted
     version: "4.1.2"
   image:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: image
       sha256: "1976370a4df3091bb0f72409c187ad1f9132a818bc6b95ca59c0bae1c75c688e"
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "4.9.2"
-  intl:
-    dependency: "direct main"
-    description:
-      name: intl
-      sha256: d6f56758b7d3014a48af9701c085700aac781a92a87a62b1333b46d8879661cf
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "0.19.0"
   io:
     dependency: transitive
     description:
@@ -973,14 +965,6 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.4.0"
-  uuid:
-    dependency: "direct main"
-    description:
-      name: uuid
-      sha256: "9b129329f58692f6e6578329498a8fe9fbe98f090beb764ffbb8ee2eadd01dcd"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
-    version: "4.6.0"
   vector_math:
     dependency: transitive
     description:

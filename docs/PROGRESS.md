@@ -1212,6 +1212,15 @@ FTS5 内置的 `unicode61` 分词器按**空白与标点**切词。中文句子�
 | **T53** | `RobustJson` 的修复路径可能把值改坏 | 值里含撇号（`L'Hopital`）时，`'` → `"` 的兜底转换会把 JSON 弄成非法 | 只影响"模型输出本来就不合法"的情况，且失败会表现为重试一次。V1 保留 |
 | **T54** | 「待复习」列表要逐行解 `fsrs_state` JSON，5000 题时 249 ms（另外两档 146 ms） | 与 `review_repository.dart` 里"一次全读 + 解析是毫秒级"的说法不符 —— 那句话是按几百条估的 | 出路是加一个冗余的 `due_at` 列（写状态时同步维护），代价是每次算法升级要一起改。真到万题量级再**实测**决定，不凭感觉 |
 
+### 技术栈体检（2026-03-16）
+
+| # | 问题 | 影响 | 处理 |
+|---|---|---|---|
+| **T55** | `pubspec.yaml` 声明的 Flutter 下限 `>=3.24.0` **是错的** | 代码用了 Flutter 3.27 才有的 `Color.withValues`（19 处）与 `toARGB32`（3 处）、3.29 才有的 `CardThemeData`。用 3.24–3.26 编译**必然失败**，而约束却放它通过 | ✅ **已修**：改为 `flutter: ">=3.29.0"` / `sdk: ">=3.7.0"`，并在 `SETUP.md` 写明这是**推导值而非实测值**（实测的是 3.47.4）。教训：**声明一个比实际需要更低的下限，比不声明更糟** —— 它让人以为能编译 |
+| **T56** | 5 个直接依赖**零引用**：`collection` / `uuid` / `intl` / `image` / `archive` | 拖长构建、进产物，并让人以为存在一套没在用的约定（与本项目已删的 go_router / share_plus / printing / sqlite3_flutter_libs 同一个毛病） | ✅ **已清理**。`archive` 那条还带一个无界约束 `archive: any` —— 用 `dart:io` 的 `zlib` 替掉测试里的 `ZLibDecoder` 之后，包和那个约束一起消失。⚠️ `image`/`archive`/`collection` 仍在解析图里，但那是 `pdf` / `flutter` 自己拉的，与本项目的声明无关 |
+| **T57** | 传递依赖 `js` 0.6.7 上游**已废弃** | 无功能影响：只有 `flutter_secure_storage_web` 用它，而 Windows 版永远不加载 web 实现 | 升级 `flutter_secure_storage` 9 → 11 应当消掉（新版改用 `package:web`）。属于 T58 的范畴，本次刻意不做 |
+| **T58** | 13 个包被约束在比可用版本更旧的版本上，其中 5 个是**破坏性大版本**：`flutter_riverpod` 2→3、`fl_chart` 0.69→1.2、`flutter_secure_storage` 9→11、`win32` 5→6、`flutter_lints` 4→6 | 停在旧版没有已知缺陷，升级的收益主要只是"不再落伍" | **刻意不做**：riverpod 3 的 API 不兼容（`StateNotifier` 移除、provider 语义变化），要逐处迁移并重跑全部 602 个用例；而 V1 功能已经全通，为"版本号好看"引入回归风险不划算。`flutter pub outdated` 的输出 + 本表就是 V2 的升级清单 |
+
 ### 🔴 T19：本体冗余是当前**最大的质量风险**（比召回率更严重）
 
 项目原则是「**知识点本体是整个系统的尺子**」——错题分类、画像聚合、组卷加权
