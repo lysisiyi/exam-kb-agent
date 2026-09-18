@@ -25,6 +25,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
@@ -38,6 +39,7 @@ import 'package:kaoyan_math_agent/services/paper/paper_pdf_exporter.dart';
 import 'package:kaoyan_math_agent/services/paper/paper_repository.dart';
 
 import 'support/test_env.dart';
+import 'support/test_fonts.dart';
 
 /// 造一份能直接导出的小卷。
 PaperTemplate _template() => const PaperTemplate(
@@ -149,7 +151,39 @@ int _indexOf(Uint8List b, String s, int from) {
   return -1;
 }
 
+/// 位图里"非白像素"的占比。
+///
+/// 用来把"公式画得对不对"变成一个**可判定的数**：细笔画占比低，
+/// 实心方块占比高。见「公式**不是实心方块**」那条测试。
+Future<double> _inkRatio(Uint8List png) async {
+  final codec = await ui.instantiateImageCodec(png);
+  final frame = await codec.getNextFrame();
+  final image = frame.image;
+  final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+  final bytes = data!.buffer.asUint8List();
+
+  var ink = 0;
+  var total = 0;
+  for (var i = 0; i < bytes.length; i += 4) {
+    total++;
+    if (bytes[i + 3] < 128) continue; // 透明不计
+    final lum = (bytes[i] + bytes[i + 1] + bytes[i + 2]) ~/ 3;
+    if (lum < 128) ink++;
+  }
+  image.dispose();
+  return total == 0 ? 0 : ink / total;
+}
+
 void main() {
+  // ⚠️ 必须显式初始化 binding。
+  //
+  // 这个文件用的是普通 `test()`（不是 `testWidgets`），而 `testWidgets`
+  // 会顺手把 binding 建好 —— 普通 `test()` 不会。
+  // 少了这一行，`rootBundle.loadString` / `FontLoader.load()` 这些走
+  // **平台通道**的调用会永远等不到回应：表现为**整个测试文件挂死**
+  // （不是报错），而且没有任何提示。
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late TempLibrary env;
   late Directory outDir;
 
@@ -294,6 +328,15 @@ void main() {
       // $env:DSH_PDF_SAMPLE = "1"; flutter test test/paper_export_test.dart
       // ```
       if (Platform.environment['DSH_PDF_SAMPLE'] != '1') return;
+
+      // ⚠️ **必须先装字体**，否则公式全是一排黑块。
+      //
+      // 第一版忘了这一步，生成的样张里公式是实心方框 —— 那不是产品缺陷，
+      // 是测试环境只给了占位字体（每个字形都画成方框）。
+      // 见 `test/support/test_fonts.dart` 的说明。
+      final loaded = await loadBundledFonts();
+      expect(loaded, greaterThan(0),
+          reason: '一个字体包都没装上 —— 样张里的公式会全是黑块');
 
       await seedProblems(env, [
         const SeedProblem(
@@ -601,6 +644,35 @@ void main() {
       expect(img!.png.length, greaterThan(50));
       expect(img.width, greaterThan(0));
       expect(img.height, greaterThan(0));
+    });
+
+    test('公式**不是实心方块** —— 装了真数学字体之后墨迹占比应当很小', () async {
+      // ## 为什么要专门量"墨迹占比"
+      //
+      // `flutter test` 默认只给占位字体（每个字形一个**实心方框**）。
+      // 公式是靠字形画出来的，所以字体没装上时光栅化结果就是一排黑块 ——
+      // 导出的 PDF 里公式全变黑，而**所有其它断言照样通过**：
+      // 文件生成了、字节数正常、文本探针搜得到。
+      //
+      // 这个缺陷真的发生过：样张里的公式全是黑块，人眼一看才发现。
+      // 所以这里量一个可判定的数：一个 `x` 是细斜线，墨迹占比应当很低；
+      // 实心方框会到 80% 以上（实测：装字体前 87.8%）。
+      final loaded = await loadBundledFonts();
+      expect(loaded, greaterThan(0),
+          reason: '一个字体包都没装上 —— 公式必然渲染成黑块');
+
+      final img = await FormulaRasterizer()
+          .rasterize(r'x', fontSize: 14, displayMode: false);
+      expect(img, isNotNull);
+
+      final ink = await _inkRatio(img!.png);
+      // ignore: avoid_print
+      print('[perf] 公式 x 的墨迹占比：${(ink * 100).toStringAsFixed(1)}%');
+      expect(ink, lessThan(0.35),
+          reason: '墨迹占比 ${(ink * 100).toStringAsFixed(1)}% 太高 —— '
+              '公式大概率被画成了实心方块（数学字体没装上）');
+      expect(ink, greaterThan(0.005),
+          reason: '几乎没有墨迹 —— 可能是字号/尺寸算错了，公式是空的');
     });
 
     test('同一公式第二次走缓存', () async {
