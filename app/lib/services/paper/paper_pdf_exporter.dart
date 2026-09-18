@@ -530,6 +530,24 @@ class PaperPdfExporter {
   ///
   /// 公式走 [FormulaRasterizer] 出位图；光栅化失败（非法 LaTeX）时
   /// 降级成等宽源码并计数 —— **不静默丢内容**。
+  ///
+  /// ## ⚠️ 行内公式必须**留在段落里**，不能各占一行
+  ///
+  /// 早先这里是"每个片段一个块"：文字一段、公式一张图、再文字一段……
+  /// 于是一句
+  ///
+  /// ```
+  /// 设函数 $f(x)$ 在闭区间 $[a,b]$ 上连续，在开区间 $(a,b)$ 内可导。
+  /// ```
+  ///
+  /// 会被拆成 **7 个上下堆叠的块**（"设函数" / f(x) / "在闭区间" / [a,b] /
+  /// "上连续，在开区间" / (a,b) / "内可导。"），每个各占一行 ——
+  /// 排版碎得没法读。用户反馈的"换行过多"就是它。
+  ///
+  /// 现在按 [groupPieces] 分组：**一段连续的行内内容合成一个 `pw.RichText`**，
+  /// 公式作为 `pw.WidgetSpan` 嵌在文字中间，基线用
+  /// [FormulaImage.baseline] 对齐。只有 `$$...$$` 独立公式仍然单独成行
+  /// （那本来就该居中独占一行）。
   Future<void> _markdown(
     String src,
     pw.TextStyle base, {
@@ -547,66 +565,198 @@ class PaperPdfExporter {
       return alt.isEmpty ? '［图］' : '［图：$alt］';
     });
 
-    for (final p in splitMarkdownPieces(withPlaceholders)) {
-      switch (p) {
-        case TextPiece(:final text):
-          final t = text.trim();
-          if (t.isEmpty) continue;
-          out.add(pw.Padding(
-            padding: pw.EdgeInsets.only(left: indent, top: 1, bottom: 1),
-            child: pw.Text(t, style: base),
-          ));
-
-        case FormulaPiece(:final tex, :final display):
+    for (final block in groupPieces(splitMarkdownPieces(withPlaceholders))) {
+      switch (block) {
+        case DisplayFormula(:final tex):
           final img = await rasterizer.rasterize(
             tex,
-            fontSize: display ? 14 : 10.5,
-            displayMode: display,
+            fontSize: 14,
+            displayMode: true,
           );
           if (img == null) {
             _degraded++;
             out.add(pw.Padding(
-              padding: pw.EdgeInsets.only(left: indent, top: 1, bottom: 1),
-              child: pw.Text(
-                tex,
-                style: pw.TextStyle(
-                  fontSize: 8.5,
-                  font: pw.Font.courier(),
-                  color: PdfColors.red800,
-                ),
-              ),
+              padding: const pw.EdgeInsets.symmetric(vertical: 4),
+              child: _degradedText(tex),
             ));
             continue;
           }
-          // ⚠️ `dpi` 不能省。
-          //
-          // 一旦给 `pw.Image` 传了 width/height，`pdf` 包就走 **DPI 路径**：
-          // 它按 dpi（省略时默认 72）算出目标像素数，再 `copyResize` 缩放。
-          // 默认 72 的含义是"这张位图按 72 dpi 使用"，于是我们辛苦按 4 倍
-          // 光栅化出来的 56px 公式，会被**重新采样回 14px** 再嵌入 ——
-          // 打印出来就是糊的（`formula_rasterizer.dart` 承诺的 300 dpi 量级
-          // 完全没有兑现）。
-          // 把 dpi 按同样的倍数放大，`effectiveDpi` 才与位图实际密度一致，
-          // 包里的 `copyResize` 也就不会发生。
-          final image = pw.Image(
-            pw.MemoryImage(
-              img.png,
-              dpi: 72 * rasterizer.pixelRatio,
-            ),
-            width: img.width,
-            height: img.height,
-          );
           out.add(pw.Padding(
-            padding: pw.EdgeInsets.only(
-              left: display ? 0 : indent,
-              top: display ? 4 : 1,
-              bottom: display ? 4 : 1,
+            padding: const pw.EdgeInsets.symmetric(vertical: 5),
+            child: pw.Center(child: _formulaImage(img)),
+          ));
+
+        case InlineRun(:final pieces):
+          final spans = await _inlineSpans(pieces, base);
+          if (spans.isEmpty) continue;
+          out.add(pw.Padding(
+            padding: pw.EdgeInsets.only(left: indent, top: 1, bottom: 1),
+            child: pw.RichText(
+              text: pw.TextSpan(style: base, children: spans),
             ),
-            child: display
-                ? pw.Center(child: image)
-                : pw.Align(alignment: pw.Alignment.centerLeft, child: image),
           ));
       }
     }
   }
+
+  /// 把一段行内内容排成 span 序列（公式是 [pw.WidgetSpan]）。
+  ///
+  /// 文字片段**不 trim**：片段之间的空格是原文的一部分，
+  /// 去掉会让 `设函数 f(x) 在…` 变成 `设函数f(x)在…`。
+  /// 只把整体两端交给 `RichText` 自己处理。
+  Future<List<pw.InlineSpan>> _inlineSpans(
+    List<MarkdownPiece> pieces,
+    pw.TextStyle base,
+  ) async {
+    final spans = <pw.InlineSpan>[];
+    for (final p in pieces) {
+      switch (p) {
+        case TextPiece(:final text):
+          if (text.isEmpty) continue;
+          spans.add(pw.TextSpan(text: text));
+        case FormulaPiece(:final tex, :final display):
+          // 行内片段里理论上不会出现 display（groupPieces 已把它们分出去），
+          // 但真出现了也按行内排，别丢内容
+          final img = await rasterizer.rasterize(
+            tex,
+            fontSize: display ? 14 : 10.5,
+            displayMode: false,
+          );
+          if (img == null) {
+            _degraded++;
+            spans.add(pw.TextSpan(
+              text: tex,
+              // `pw.Font.courier()` 不是 const 构造，所以这里不能用 const
+              style: pw.TextStyle(
+                fontSize: 8.5,
+                font: pw.Font.courier(),
+                color: PdfColors.red800,
+              ),
+            ));
+            continue;
+          }
+          spans.add(pw.WidgetSpan(
+            // 基线对齐：见 [_pdfBaseline]（`pdf` 的锚点不是 Flutter 那套）
+            baseline: _pdfBaseline(img),
+            child: _formulaImage(img),
+          ));
+      }
+    }
+    return spans;
+  }
+
+  /// 把 [FormulaImage] 的几何值换算成 `pdf` 包要的 `WidgetSpan.baseline`。
+  ///
+  /// ## 为什么不能直接用 `img.baseline`
+  ///
+  /// Flutter 的 `WidgetSpan.baseline` 是"控件顶到自己基线的距离"，
+  /// 而 `pdf` 包的实现**锚的是控件底边**：它把控件底边放在
+  /// `文字基线 + baseline` 处，控件从那里往上长
+  /// （见其 `text.dart`：`ws.offset = PdfPoint(offsetX, -offsetY + baseline)`，
+  /// 控件再以该点为原点向上绘制）。
+  ///
+  /// 于是"控件顶到基线距离 = d"这件事在 `pdf` 里要写成 `d - 高度`。
+  ///
+  /// ## 这个结论是量出来的，不是猜的
+  ///
+  /// 早先直接传 `img.baseline`，导出的样张里量到的位置是
+  /// （`解析卷.pdf`，题干行文字基线 y = 688.14）：
+  ///
+  /// | 量到的东西 | 值 |
+  /// |---|---|
+  /// | 公式图片底边 y | 696.91 |
+  /// | 即图片底边比文字基线**高** | 8.77pt |
+  /// | 而图片顶到数学基线是 | 8.77pt |
+  /// | → 数学基线比文字基线高 | 12.07pt（正好一个图片高度）|
+  ///
+  /// 也就是每个公式都整整浮高一行。换算后图片底边落到
+  /// `文字基线 - (depth + 内边距) * 字号`（约 −3pt），公式基线与文字基线重合。
+  static double _pdfBaseline(FormulaImage img) => img.baseline - img.height;
+
+  /// 公式位图 → PDF 图片控件。
+  ///
+  /// ⚠️ `dpi` 不能省。
+  ///
+  /// 一旦给 `pw.Image` 传了 width/height，`pdf` 包就走 **DPI 路径**：
+  /// 它按 dpi（省略时默认 72）算出目标像素数，再 `copyResize` 缩放。
+  /// 默认 72 的含义是"这张位图按 72 dpi 使用"，于是我们辛苦按 4 倍光栅化
+  /// 出来的 56px 公式，会被**重新采样回 14px** 再嵌入 —— 打印出来就是糊的
+  /// （`formula_rasterizer.dart` 承诺的 300 dpi 量级完全没有兑现）。
+  /// 把 dpi 按同样的倍数放大，`effectiveDpi` 才与位图实际密度一致，
+  /// 包里的 `copyResize` 也就不会发生。
+  pw.Widget _formulaImage(FormulaImage img) => pw.Image(
+        pw.MemoryImage(img.png, dpi: 72 * rasterizer.pixelRatio),
+        width: img.width,
+        height: img.height,
+      );
+
+  /// 降级显示的公式源码（等宽红字）。
+  pw.Widget _degradedText(String tex) => pw.Text(
+        tex,
+        style: pw.TextStyle(
+          fontSize: 8.5,
+          font: pw.Font.courier(),
+          color: PdfColors.red800,
+        ),
+      );
+}
+
+/// 一段混排内容被排成哪些"块"。
+sealed class PdfBlock {
+  const PdfBlock();
+}
+
+/// 一段**行内**内容：文字与行内公式，合成一个段落排。
+class InlineRun extends PdfBlock {
+  final List<MarkdownPiece> pieces;
+  const InlineRun(this.pieces);
+}
+
+/// 一个**独立**公式（`$$...$$`）：居中独占一块。
+class DisplayFormula extends PdfBlock {
+  final String tex;
+  const DisplayFormula(this.tex);
+}
+
+/// 把切好的片段分组：连续的行内内容并成一段，独立公式各自成块。
+///
+/// 抽成顶层函数是为了**能单测**：用户反馈的"换行过多"本质就是
+/// "一句话题干被分成了几个块"，而这件事不需要渲染 PDF 就能断言。
+/// 见 `test/paper_export_test.dart` 的「PDF 排版」一组。
+List<PdfBlock> groupPieces(List<MarkdownPiece> pieces) {
+  final out = <PdfBlock>[];
+  var current = <MarkdownPiece>[];
+
+  void flush() {
+    // 段落结尾的悬空空白丢掉。
+    //
+    // 只在**没有换行**时丢：`$x$  ` 尾巴上的两个空格没有任何信息，
+    // 留着却可能正好压满一行、多折出一个空行。而 `"正文\n\n"` 里的
+    // 换行是原文的段落分隔，丢了会把两段并成一段。
+    while (current.isNotEmpty) {
+      final last = current.last;
+      final dangling = last is TextPiece &&
+          last.text.trim().isEmpty &&
+          !last.text.contains('\n');
+      if (!dangling) break;
+      current.removeLast();
+    }
+    if (current.isEmpty) return;
+    out.add(InlineRun(List.unmodifiable(current)));
+    current = <MarkdownPiece>[];
+  }
+
+  for (final p in pieces) {
+    if (p is FormulaPiece && p.display) {
+      flush();
+      out.add(DisplayFormula(p.tex));
+      continue;
+    }
+    // 段落开头的纯空白片段不单独成块（否则会多出一堆空行）
+    if (p is TextPiece && p.text.trim().isEmpty && current.isEmpty) continue;
+    current.add(p);
+  }
+  flush();
+
+  return out;
 }

@@ -33,10 +33,24 @@ class FormulaImage {
   final double width;
   final double height;
 
+  /// 从图片**顶部**到数学基线的距离（逻辑像素）。
+  ///
+  /// 用途：把公式作为**行内**元素排进文字段落时，要让公式的基线与文字
+  /// 基线对齐 —— 否则 `设函数 f(x) 在…` 里的公式会浮起来或沉下去。
+  ///
+  /// ⚠️ 这个值**不能**直接当 `pdf` 包的 `WidgetSpan.baseline` 用，
+  /// 两者的锚点不一样，见 `paper_pdf_exporter.dart` 的 `_pdfBaseline`。
+  /// 它是对齐的**几何依据**（顶到基线的距离），与 PDF 无关。
+  ///
+  /// 计算见 [FormulaRasterizer.rasterize]：KaTeX 箱子的 `height` 在基线
+  /// 之上、`depth` 在基线之下，两侧再加内边距。
+  final double baseline;
+
   const FormulaImage({
     required this.png,
     required this.width,
     required this.height,
+    required this.baseline,
   });
 
   double get aspectRatio => height == 0 ? 1 : width / height;
@@ -118,6 +132,16 @@ class FormulaRasterizer {
         // PDF 里按逻辑像素排，所以要减掉两边内边距之外的视觉高度吗？
         // 不减：内边距是刻意的防裁切余量，保留它排版更稳（见 kInkOverflowPadEm）
         height: logical.height,
+        // 基线距图片顶部 = (箱子在基线之上的高度 + 单侧内边距) × 字号。
+        //
+        // KaTeX 的箱子把 `height`（基线之上）与 `depth`（基线之下）分开给，
+        // 而 `boxSizePxPadded` 的尺寸是
+        // `(height + depth + 2 * pad) * fontSize`（见 katex 包的 `boxSizePx`）。
+        // 所以顶部到基线就是 `(height + pad) * fontSize`。
+        //
+        // ⚠️ 行内公式必须用这个值，否则 `设函数 f(x) 在…` 里的公式会
+        // 明显浮起或下沉 —— 而这类错位在预览里很难说清、只能靠人眼。
+        baseline: (box.height + katex.kInkOverflowPadEm) * fontSize,
       );
       _remember(key, out);
       return out;

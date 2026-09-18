@@ -1,6 +1,6 @@
 # 开发进度台账
 
-> 最后更新：2026-03-16
+> 最后更新：2026-09-18
 > 范围依据：`docs/V1_PLAN.md`
 > 每次推进都更新这个文件 —— 它是**唯一可信的进度来源**。
 
@@ -21,6 +21,64 @@
 | M8 画像 + 打磨 | 🟢 **代码完成**（F7 掌握度画像 + 打磨）；只剩"连续自用 7 天"这条真机验收 | ~95% |
 
 图例：⚪ 未开始 · 🟡 进行中 · 🟢 完成 · 🔴 阻塞
+
+### 🟢 PDF 行内公式排版：两个"只有量真实产出才能发现"的缺陷
+
+用户打开导出的样张，反馈是「公式位置对了，但**排版有点混乱、换行过多**」。
+查下来是**两个叠在一起**的问题，第二个要把 PDF 的内容流解出来量才看得见。
+
+#### 1. 一句话题干被拆成了 7 行
+
+旧写法把切分后的**每个片段各自渲染成一个块**：文字一段、公式一张图、再文字一段。
+于是一句
+
+```
+设函数 $f(x)$ 在闭区间 $[a,b]$ 上连续，在开区间 $(a,b)$ 内可导，且 $f(a)=f(b)$。
+```
+
+变成 7 个上下堆叠的块，每个各占一行。
+
+改法：新增 `groupPieces()` 把**连续的行内内容并成一个 `pw.RichText`**，
+公式作为 `pw.WidgetSpan` 嵌在文字中间；只有 `$$…$$` 独立公式仍然单独成行
+（它本来就该居中独占一行）。分组是纯函数，所以"会不会又碎成一行一行"
+**不用渲染 PDF 就能断言** —— 块的数量就是行数。
+
+#### 2. 每个公式都整整浮高了一行（这一条是量出来的）
+
+`pdf` 的 `WidgetSpan.baseline` **不是** Flutter 文档里的那个语义。
+Flutter 的 `PlaceholderSpan.baseline` 是"控件顶到自己基线的距离"，
+而 `pdf` 的实现锚的是**控件底边**：底边放在 `文字基线 + baseline` 处，
+控件从那里往上长。
+
+直接传"图片顶到数学基线的距离"（`img.baseline`）的结果，是在导出的
+`解析卷.pdf` 里量到：
+
+| 量到的东西 | 值 |
+|---|---|
+| 题干行文字基线 y | 688.14 |
+| 第一个公式图片底边 y | 696.91 |
+| 即图片底边在文字基线**上方** | 8.77pt |
+| 而图片顶到数学基线也是 | 8.77pt |
+| ⇒ 数学基线比文字基线高 | **12.07pt（正好一个图片高度）** |
+
+所以要换算成 `baseline: img.baseline - img.height`（常见公式约 −3pt）。
+换算后同一位置量到：图片底边 696.60、数学基线 699.90、文字基线 700.00 —— **残差 0.1pt**。
+
+顺带确认的两件事：
+
+- 段落换行时行距 15.0pt（普通行约 12.2pt），公式图（12.1pt 高）**不会压到下一行**
+- `pdf` 的 `Image` 按 `BoxFit.contain` 把位图塞进给定宽高，而位图像素尺寸是
+  `ceil()` 过的，所以画面上的框比 `img.height` 小约 1% —— 断言里按比例缩了一下
+
+#### 3. 用一条"量产出"的测试钉住它
+
+单元测试**测不出**第 2 条：分组对了、尺寸对了、PDF 也照常生成，
+公式只是静静地浮高一行。所以新增 `test/support/pdf_geometry.dart` ——
+解压页面内容流（`dart:io` 的 `zlib`），解析 `cm` / `Td` / `TJ` / `Do`，
+量出**文字行基线**与**图片框**，再断言"公式的数学基线落在文字基线上"。
+
+反向验证过：把换算改回 `img.baseline`，这条测试报
+`差了 12.21pt —— 差一个图片高度就是 WidgetSpan.baseline 的锚点又用错了`。
 
 ### 🟢 F7 掌握度画像：八个导航目的地全部指向真实页面
 
@@ -1192,7 +1250,7 @@ FTS5 内置的 `unicode61` 分词器按**空白与标点**切词。中文句子�
 | T20 | ~~去重工具的自动检测有天花板~~ | ✅ **已缓解** | 已一次性人工通读全部叶子名，产出 50 组映射。工具的 `--suggest` 仍是发现新重复的入口，但**最终判断靠人** —— 实测自动检测既有漏报（`定积分性质与计算` vs `定积分的性质与牛顿-莱布尼茨公式`）也有误报（二重积分直角/极坐标） |
 | T21 | ~~`flutter analyze` 有 2 个 error~~ | ✅ 已修复（`lib/main.dart` 缺 import、`dio_http_adapter` switch 不穷尽） | 已验证 0 error / 0 warning |
 | T22 | 31 条 `prefer_const_constructors` 等 info 级提示 | 无功能影响 | 交付前统一 `dart fix --apply` |
-| **T36** | 🔴 **本机 shell 是 Windows PowerShell 5.1，`Get-Content`/`Set-Content` 默认按 GBK 读写** | **含中文的文件会被静默毁掉** | 本项目已因此损坏文件两次（`app_theme.dart`、`docs/PROGRESS.md`）。**规矩：凡含非 ASCII 的读写，一律走 Python 显式 `encoding='utf-8'`，或走 read / write / edit 工具；绝不用 Get-Content / Set-Content** |
+| **T36** | 🔴 **本机 shell 是 Windows PowerShell 5.1，`Get-Content`/`Set-Content` 默认按 GBK 读写** | **含中文的文件会被静默毁掉** | 本项目已因此损坏文件两次（`app_theme.dart`、`docs/PROGRESS.md`）。**第三次（2026-09-18）**：为了省一次编辑，用 `Get-Content -Raw \| Set-Content` 改了一行 Dart 源码 —— 内容没坏（读时显式 `-Encoding UTF8`），但文件被写成**带 BOM + 结尾 CRLF**，而仓库里其余文件都是无 BOM 的 LF。教训：**"这次只是改一行"正是这条规矩存在的理由**，改写源码只有 read / write / edit 工具这一条路。**规矩：凡含非 ASCII 的读写，一律走 Python 显式 `encoding='utf-8'`，或走 read / write / edit 工具；绝不用 Get-Content / Set-Content** |
 | T37 | ~~`mastery` 存的是**打分那一刻**算出的可提取性~~ | ✅ **已修** | 改为**读时按 `now` 重算**（`masteryNowOf`）。画像与错题本列表共用同一个函数 —— 否则同一个考点会出现"列表说 90%、画像说 40%"，用户无法判断该信哪个。测试专门断言"同一个库在两个时间点算出不同的掌握度"。那列仍然保留（作为历史快照），但**不再有读它的地方** |
 | T38 | `problem_knowledge.problem_id` 等查找列没有索引 | 单次删除/查关联是全表扫（几千行 = 几毫秒） | 现在不值得为此加一次 schema 迁移。到万题量级再连同 FTS 一起评估，届时要实测而不是凭感觉 |
 | T39 | 复习会话不持久化，中途退出要重来 | `grade()` 写库了所以进度不丢，丢的只是"抽到一半的那一轮" | 队列本来就是 `dueQueue` 的临时快照，重开即重建；暂不改 |
@@ -1220,6 +1278,7 @@ FTS5 内置的 `unicode61` 分词器按**空白与标点**切词。中文句子�
 | **T56** | 5 个直接依赖**零引用**：`collection` / `uuid` / `intl` / `image` / `archive` | 拖长构建、进产物，并让人以为存在一套没在用的约定（与本项目已删的 go_router / share_plus / printing / sqlite3_flutter_libs 同一个毛病） | ✅ **已清理**。`archive` 那条还带一个无界约束 `archive: any` —— 用 `dart:io` 的 `zlib` 替掉测试里的 `ZLibDecoder` 之后，包和那个约束一起消失。⚠️ `image`/`archive`/`collection` 仍在解析图里，但那是 `pdf` / `flutter` 自己拉的，与本项目的声明无关 |
 | **T57** | 传递依赖 `js` 0.6.7 上游**已废弃** | 无功能影响：只有 `flutter_secure_storage_web` 用它，而 Windows 版永远不加载 web 实现 | 升级 `flutter_secure_storage` 9 → 11 应当消掉（新版改用 `package:web`）。属于 T58 的范畴，本次刻意不做 |
 | **T58** | 13 个包被约束在比可用版本更旧的版本上，其中 5 个是**破坏性大版本**：`flutter_riverpod` 2→3、`fl_chart` 0.69→1.2、`flutter_secure_storage` 9→11、`win32` 5→6、`flutter_lints` 4→6 | 停在旧版没有已知缺陷，升级的收益主要只是"不再落伍" | **刻意不做**：riverpod 3 的 API 不兼容（`StateNotifier` 移除、provider 语义变化），要逐处迁移并重跑全部 602 个用例；而 V1 功能已经全通，为"版本号好看"引入回归风险不划算。`flutter pub outdated` 的输出 + 本表就是 V2 的升级清单 |
+| **T59** | ~~`pdf` 的 `WidgetSpan.baseline` 锚的是控件**底边**，与 Flutter 文档里 `PlaceholderSpan.baseline` 的语义**相反**~~ | ✅ **已修** | 用错了不报错、单元测试全绿，公式只是整体浮高一个图片高度（约 12pt，正好一行）。换算见 `PaperPdfExporter._pdfBaseline`，并由 `test/support/pdf_geometry.dart` 从**导出的 PDF** 里量出基线来断言（拿掉换算立刻失败，实测差 12.21pt）。⚠️ 负数是被支持的写法 —— `pdf` 包自己的测试里就用了 `baseline: -10` |
 
 ### 🔴 T19：本体冗余是当前**最大的质量风险**（比召回率更严重）
 
@@ -1327,3 +1386,4 @@ math1.linalg.vector.linear_combo      「线性组合与线性表示」      ←
 
 | 2026-03-16 | 🧹 **砍掉两个零引用依赖**（`go_router` / `share_plus`）：都出现在 V1_PLAN 的技术栈里，但全项目零引用。`go_router` 的活是 `AdaptiveShell` 的 `IndexedStack` 在干；`share_plus` 的活在桌面端根本不存在（用户要的是"导出到文件夹"，那是 `file_selector`）。pubspec 里两处都写了"为什么删、什么时候加回来"。**顺带抓到一个包体悄悄变大的坑**：删完依赖重新构建后 `Release/` 里**仍然有** `share_plus_plugin.dll` —— Flutter 不清理 `build/` 里已删除插件的产物，它们会一直跟着包发出去。删 `app/build` 重建后 32.83 MB/45 文件 → **32.60 MB/42 文件** |
 | 2026-03-16 | ✅ **M6 的 F9 数据导出完成**（`services/library/library_exporter.dart` + `features/settings/settings_page.dart`）。每题一个 `.md`，走同一个 `ProblemMarkdownSerializer`（与事实源同源，不可能格式漂移）；用户状态以 `my_` 前缀并入 frontmatter（只读快照，有测试断言**不**修改事实源）；图片按引用复制、目录结构一致 → 相对路径仍成立。设置页新增导出入口与三条数据路径，文案如实写明"只读快照"与"复习进度只在本机数据库"。**验证时靠肉眼核对真样本抓到一条断言抓不到的 bug**：索引页 wiki 链接文字里的 `$` 会被 Obsidian 当数学定界符，把链接吃掉一半 —— 那正是用户第一眼看到、用来点击的地方。**435 测试全绿** |
+| 2026-09-18 | 🐛 **修掉导出 PDF 的"排版混乱、换行过多"**（用户反馈）。两个叠在一起的原因：① 每个切分片段各渲染成一个块，一句带 6 个行内公式的题干被拆成 7 行 —— 改为 `groupPieces()` 把连续行内内容并成一个 `RichText`，公式走 `WidgetSpan`；② `pdf` 的 `WidgetSpan.baseline` 锚的是控件**底边**（与 Flutter 文档语义相反），于是每个公式整体浮高一个图片高度 —— 换算成 `img.baseline - img.height`。第②条单元测试测不出来，为此新增 `test/support/pdf_geometry.dart`：**解压内容流量出文字基线与图片框**，断言数学基线落在文字基线上（把换算改回去立刻报差 12.21pt）。换算后实测残差 0.1pt。**621 测试全绿** |

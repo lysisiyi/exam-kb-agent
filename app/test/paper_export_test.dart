@@ -38,6 +38,7 @@ import 'package:kaoyan_math_agent/services/paper/paper_composer.dart';
 import 'package:kaoyan_math_agent/services/paper/paper_pdf_exporter.dart';
 import 'package:kaoyan_math_agent/services/paper/paper_repository.dart';
 
+import 'support/pdf_geometry.dart';
 import 'support/test_env.dart';
 import 'support/test_fonts.dart';
 
@@ -387,6 +388,187 @@ void main() {
       // ignore: avoid_print
       print('[pdf-sample] 打开看看：中文有没有正常显示、公式清不清楚、'
           '试卷版式有没有留够演算空间');
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  group('PDF 排版：一句话题干不能被拆成好几行', () {
+    // ## 这一组守的是用户反馈的"换行过多"
+    //
+    // 早先 `_markdown` 把每个片段都渲染成**独立的块**：文字一段、公式一张图、
+    // 再文字一段…… 于是一句
+    //
+    // ```
+    // 设函数 $f(x)$ 在闭区间 $[a,b]$ 上连续。
+    // ```
+    //
+    // 会变成 5 个上下堆叠的块，每个各占一行 —— 排版碎得没法读。
+    //
+    // 分组逻辑（`groupPieces`）是纯函数，所以这件事**不用渲染 PDF 就能断言**：
+    // 块的数量就是行数。
+
+    int inlineRuns(List<PdfBlock> blocks) =>
+        blocks.whereType<InlineRun>().length;
+
+    /// 把片段拼回 Markdown 源码，用来断言"一个字都没丢"。
+    String rebuild(List<MarkdownPiece> pieces) => pieces.map((p) {
+          switch (p) {
+            case TextPiece(:final text):
+              return text;
+            case FormulaPiece(:final tex, :final display):
+              return display ? '\$\$$tex\$\$' : '\$$tex\$';
+          }
+        }).join();
+
+    test('一句话里的行内公式不会把段落切开', () {
+      const stem = r'设函数 $f(x)$ 在闭区间 $[a,b]$ 上连续，'
+          r'在开区间 $(a,b)$ 内可导，且 $f(a)=f(b)$。';
+
+      final blocks = groupPieces(splitMarkdownPieces(stem));
+
+      expect(inlineRuns(blocks), 1,
+          reason: '整句应当只有**一个**段落块；'
+              '块数 > 1 就是"公式各占一行"那个毛病又回来了');
+      // 片段拼回去要等于原文 —— 一个字符都不能丢、也不能被多切一刀
+      final pieces = (blocks.single as InlineRun).pieces;
+      expect(pieces.whereType<FormulaPiece>().length, 4,
+          reason: 'f(x) / [a,b] / (a,b) / f(a)=f(b)');
+      expect(rebuild(pieces), stem);
+    });
+
+    test('片段之间的空格要保留（否则会挤成"设函数f(x)在"）', () {
+      final blocks = groupPieces(splitMarkdownPieces(r'设函数 $f(x)$ 在区间上'));
+      final pieces = (blocks.single as InlineRun).pieces;
+
+      final texts = [
+        for (final p in pieces)
+          if (p is TextPiece) p.text,
+      ];
+      // 第一段以空格结尾、第二段以空格开头 —— 渲染时不能 trim 掉
+      expect(texts.first.endsWith(' '), isTrue);
+      expect(texts.last.startsWith(' '), isTrue);
+    });
+
+    test('两个行内公式之间的空格要保留（否则会挤成 ab）', () {
+      final blocks = groupPieces(splitMarkdownPieces(r'$a$ $b$'));
+      final pieces = (blocks.single as InlineRun).pieces;
+
+      expect(pieces.length, 3);
+      expect((pieces[1] as TextPiece).text, ' ');
+      expect(rebuild(pieces), r'$a$ $b$');
+    });
+
+    test('独立公式仍然单独成块（它本来就该居中独占一行）', () {
+      const src = r'前面 $a$ 中间 $$b$$ 后面 $c$ 结尾';
+      final blocks = groupPieces(splitMarkdownPieces(src));
+
+      expect(blocks.whereType<DisplayFormula>().length, 1);
+      expect(inlineRuns(blocks), 2, reason: '独立公式前后的行内内容各成一段');
+      expect((blocks[0] as InlineRun).pieces, isNotEmpty);
+      expect((blocks[1] as DisplayFormula).tex, 'b');
+    });
+
+    test('段落两端的空白片段不产生空行', () {
+      final blocks = groupPieces(splitMarkdownPieces('   \n  \$x\$  '));
+      expect(inlineRuns(blocks), 1);
+      final pieces = (blocks.single as InlineRun).pieces;
+      expect(pieces.length, 1, reason: '两端空白都该被丢掉');
+      expect(pieces.single, isA<FormulaPiece>());
+    });
+
+    test('原文里的空行是段落分隔，不能被当成"多余空白"删掉', () {
+      final blocks = groupPieces(splitMarkdownPieces('第一段。\n\n第二段。'));
+      final pieces = (blocks.single as InlineRun).pieces;
+      expect(pieces.length, 1);
+      expect((pieces.single as TextPiece).text, '第一段。\n\n第二段。');
+    });
+
+    test('整段没有公式时也是一个段落', () {
+      final blocks = groupPieces(splitMarkdownPieces('就是一句纯文字'));
+      expect(inlineRuns(blocks), 1);
+      expect((blocks.single as InlineRun).pieces.single, isA<TextPiece>());
+    });
+
+    test('公式图片带上了基线（否则行内公式会浮起或下沉）', () async {
+      final img = await FormulaRasterizer().rasterize(r'f(x)', fontSize: 10.5);
+      expect(img, isNotNull);
+      // 基线必须在图片内部：0 < baseline < height
+      expect(img!.baseline, greaterThan(0));
+      expect(img.baseline, lessThan(img.height),
+          reason: 'baseline=${img.baseline} 越出图片高度 ${img.height}');
+    });
+
+    // ## 这一条量的是**导出的 PDF**，不是内存里的对象
+    //
+    // 上面那些断言都只能证明"分组对了"。而行内公式**摆得正不正**取决于
+    // `pdf` 包 `WidgetSpan.baseline` 的锚点约定 —— 那里锚的是控件**底边**
+    // （底边放在 `文字基线 + baseline` 处），和 Flutter 文档说的
+    // "顶到自己基线的距离"不是一回事。约定用错**不报错**：
+    // 公式只是整体浮高一个图片高度（约 12pt，正好一行）。
+    //
+    // 所以这里导出真 PDF，再从内容流里量出文字基线与图片框，直接断言
+    // "公式的数学基线落在文字基线上"。量法见 `support/pdf_geometry.dart`。
+    test('行内公式的数学基线与文字基线重合（量导出的 PDF）', () async {
+      await seedProblems(env, [
+        // 只放一个公式，且解析留空 —— 全文只有这一张图，好找
+        const SeedProblem(id: 'al-1', stem: r'设函数 $f(x)$ 在区间上连续。'),
+      ]);
+
+      final file = File('${outDir.path}${Platform.pathSeparator}align.pdf');
+      await exporter().export(
+        paper: _result(items: [
+          PaperItem(
+            seat: _template().seats[1],
+            problemId: 'al-1',
+            stemText: '对齐探针',
+            actualDifficulty: 2,
+          ),
+        ]),
+        layout: PaperLayout.answers,
+        target: file,
+      );
+
+      final img = await FormulaRasterizer().rasterize(r'f(x)', fontSize: 10.5);
+      expect(img, isNotNull);
+
+      final pages = measurePdf(await file.readAsBytes());
+      final boxes = [for (final p in pages) ...p.images];
+      expect(boxes, hasLength(1),
+          reason: '题干里只有一个公式，画面上就应当只有一张图 —— '
+              '数量不对说明题目没读到（会退化成摘要文本），先修这里');
+      final box = boxes.single;
+
+      // pdf 的 `Image` 会按 `BoxFit.contain` 把位图塞进给定的宽高，而位图的
+      // 像素尺寸是 `ceil()` 过的，宽高比与逻辑尺寸差百分之几 ——
+      // 所以画面上的框比 `img.height` 小约 1%。量对齐时按比例缩一下。
+      expect((box.height - img!.height).abs(), lessThan(0.3),
+          reason: '这张图的尺寸不像 $img.height 那张，可能量的不是同一个公式');
+      final drawn = box.height / img.height;
+
+      final lines = [for (final p in pages) ...p.lines];
+      expect(lines, isNotEmpty);
+
+      // 取"离图片底边最近的那条文字行"：公式和它所在的那行文字共用一个
+      // 容器，底边离本行基线只有几个 pt，而邻行在 12pt 以外。
+      final line = lines.reduce((a, b) =>
+          (a.baselineY - box.bottom).abs() <= (b.baselineY - box.bottom).abs()
+              ? a
+              : b);
+
+      // 数学基线 = 图片顶边往下 `img.baseline`（位图被缩放过，同比例缩）
+      final mathBaseline = box.top - img.baseline * drawn;
+      expect(
+        (mathBaseline - line.baselineY).abs(),
+        lessThan(0.6),
+        reason: '公式数学基线 ${mathBaseline.toStringAsFixed(2)} 与文字基线 '
+            '${line.baselineY.toStringAsFixed(2)} 差了 '
+            '${(mathBaseline - line.baselineY).toStringAsFixed(2)}pt —— '
+            '差一个图片高度（${img.height.toStringAsFixed(2)}pt）就是 '
+            'WidgetSpan.baseline 的锚点又用错了',
+      );
+
+      // 顺带守住"图片不许压到下一行"：它的底边不该沉到文字基线以下
+      expect(box.bottom, greaterThan(line.baselineY - 10));
     });
   });
 
