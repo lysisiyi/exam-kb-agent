@@ -337,7 +337,7 @@ LLM 客户端与错误分类、平台能力抽象。
 > 必要时构建，然后启动 App。
 >
 > ```powershell
-> git clone https://github.com/lysiyi/exam-kb-agent.git
+> git clone https://github.com/lysisiyi/exam-kb-agent.git
 > cd exam-kb-agent
 > .\run_app.bat
 > ```
