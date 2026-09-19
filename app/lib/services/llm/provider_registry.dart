@@ -148,29 +148,30 @@ class ProviderSpec {
   /// 那需要走 Files + Responses API，V1 不做。
   final bool acceptsPdf;
 
-  /// 单次请求的**输出上限**（token）。null = 服务商没这个硬限制。
+  /// 单次请求的**输出上限**（token）。null = 这家没有已知的硬限制。
   ///
-  /// ## 为什么必须当成数据放在这里
+  /// ## 优先用按模型的表
   ///
-  /// 真机实测（2026-09-18，智谱 `glm-4v-flash`）：
+  /// 实测（2026-09-18）智谱 `glm-4v-flash`：
   ///
   /// ```
   /// {max_tokens: 8192} → 400 {"error":{"code":"1210",
   ///   "message":"max_tokens参数非法：限制数值范围[1,1024]"}}
   /// ```
   ///
-  /// 而批量导入写死了 `maxTokens: 8192`（为了一页多题留足输出空间）。
-  /// 两者一撞，**智谱上的批量导入一次都跑不通**，用户只看到"请求不合法"。
-  /// 同一家的文本模型 `glm-4-flash` 收 8192 没问题 —— 所以这个限制是
-  /// **按模型**来的，只能当数据描述 + 用实测校准：
+  /// 而批量导入写死了 `maxTokens: 8192`，两者一撞**智谱上的批量导入
+  /// 一次都跑不通**。这个限制是**按模型**来的：
   ///
-  /// | 服务商 | 模型 | 上限 | 实测 |
-  /// |---|---|---|---|
-  /// | zhipu | `glm-4v-flash` | **1024** | 8192 → 400 code 1210 |
-  /// | zhipu | `glm-4-flash` | ≥ 8192 | 4096 / 8192 均通过 |
+  /// | 模型 | 上限 | 实测 |
+  /// |---|---|---|
+  /// | `glm-4v-flash` | **1024** | 8192 → 400 code 1210 |
+  /// | `glm-4.6v-flash` | ≥ 8192 | 8192 → 200 |
+  /// | `glm-4-flash`（文本） | ≥ 8192 | 4096 / 8192 → 200 |
   ///
-  /// 取最保守值：宁可输出空间小一点，也不能让整个服务商用不了。
-  /// 代价如实告诉用户 —— 见 `estimateIngest` 的 `maxOutputTokens` 提示。
+  /// 所以按模型的上限记在 [kMaxOutputTokensByModel]，这里只留
+  /// "整家都受限"的情况（目前没有）。**不要**为了"保险"把整家压到
+  /// 最小模型的数字上 —— 那会给出一个服务商并不存在的限制，
+  /// 代价是一页多题时被截断（实测 660 线代 p23 / p67）。
   final int? maxOutputTokens;
 
   const ProviderSpec({
@@ -291,10 +292,10 @@ abstract final class LlmProviders {
       ],
       note: '国内直连，glm-4-flash 有免费额度。批量导入请选带 4v 的视觉模型',
       helpUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
-      // 实测（2026-09-18）：glm-4v-flash 的 max_tokens 只接受 [1,1024]，
-      // 发 8192 直接 400 code 1210；而同家的 glm-4-flash 收 8192 没问题。
-      // 取最保守的 1024，否则智谱上的批量导入一次都跑不通。
-      maxOutputTokens: 1024,
+      // 上限**不能**写在服务商这一层：实测（2026-09-18/19）同一家的模型
+      // 上限并不一样，写在这里会把能收 8192 的模型一起压到 1024 ——
+      // 那是**假限制**，代价是一页多题时输出被截断（实测 p23/p67）。
+      // 真正的按模型上限见 `kMaxOutputTokensByModel`。
     ),
     ProviderSpec(
       id: 'openai',
@@ -391,6 +392,27 @@ abstract final class LlmProviders {
   static ProviderSpec get defaultProvider => all.first;
 }
 
+/// **实测过**的按模型输出上限（模型名片段 → 上限 token）。
+///
+/// 匹配用 `contains`，所以列表按"长的在前"排列，避免
+/// `glm-4v` 这种短片段把 `glm-4.6v-flash` 也吃掉。
+///
+/// ## 只登记量过的
+///
+/// 猜一个上限会给出服务商并不存在的规则，而且提示里会把它说成
+/// "服务商硬限制"——那是假话。没量过的模型一律不限：
+/// 真被服务商拒绝时，错误消息会带上服务商原话（"max_tokens参数非法：
+/// 限制数值范围[1,1024]"），照它改就行。
+///
+/// | 模型 | 上限 | 实测（2026-09-19） |
+/// |---|---|---|
+/// | `glm-4v-flash` | 1024 | 8192 → 400 code 1210 |
+/// | `glm-4.6v-flash` | 不限 | 8192 → 200 |
+/// | `glm-4-flash`（文本） | 不限 | 4096 / 8192 → 200 |
+const List<(String, int)> kMaxOutputTokensByModel = [
+  ('glm-4v-flash', 1024),
+];
+
 /// 一次标注请求使用的模型配置。
 class LlmConfig {
   final String providerId;
@@ -424,6 +446,23 @@ class LlmConfig {
   }
 
   ModelTier get tier => spec?.tier ?? ModelTier.recommended;
+
+  /// 本次调用**实际**允许的输出上限（token），null = 不限。
+  ///
+  /// 先按模型名查表（[kMaxOutputTokensByModel]），没有命中再退回
+  /// 服务商级的 [ProviderSpec.maxOutputTokens]。
+  ///
+  /// ⚠️ 顺序不能反：服务商级是"整家都受限"的兜底，粒度太粗。
+  /// 早先把智谱整家压到 1024，于是 `glm-4.6v-flash`（实测收 8192）
+  /// 也被压到 1024 —— 一页多题时输出被截断，而用户看到的提示却是
+  /// "服务商硬限制"，等于把我们的**假限制**说成服务商的规则。
+  int? get maxOutputTokens {
+    final m = model.toLowerCase();
+    for (final (pattern, cap) in kMaxOutputTokensByModel) {
+      if (m.contains(pattern)) return cap;
+    }
+    return spec?.maxOutputTokens;
+  }
 
   /// 该模型能用于标注时的置信度门槛。
   double get confidenceThreshold => tier.confidenceThreshold;

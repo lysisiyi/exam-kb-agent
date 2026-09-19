@@ -631,18 +631,21 @@ class LlmClient {
     return parts;
   }
 
-  /// 把输出上限收进服务商允许的范围。
+  /// 把输出上限收进**这个模型**允许的范围。
   ///
   /// ## 为什么必须有这一步
   ///
   /// 真机实测（2026-09-18）：智谱 `glm-4v-flash` 的 `max_tokens` 只接受
   /// `[1,1024]`，而批量导入为了"一页多题"写死了 8192 ——
   /// 于是**智谱上的批量导入一次都跑不通**，返回 400 code 1210，
-  /// 用户只看到一句"请求不合法"。上限写在 `ProviderSpec.maxOutputTokens`。
+  /// 用户只看到一句"请求不合法"。
   ///
-  /// 收窄而不是报错：输出空间小一点，总好过整个服务商不可用。
+  /// 上限的取法见 [LlmConfig.maxOutputTokens]（按模型，不按服务商 ——
+  /// 同家的 `glm-4.6v-flash` 实测就收 8192）。
+  ///
+  /// 收窄而不是报错：输出空间小一点，总好过整个模型不可用。
   int _clampMaxTokens(int want) {
-    final cap = config.spec?.maxOutputTokens;
+    final cap = config.maxOutputTokens;
     if (cap == null || want <= cap) return want;
     return cap;
   }

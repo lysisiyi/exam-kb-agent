@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/data/markdown/problem_markdown.dart';
+import 'package:kaoyan_math_agent/data/markdown/problem_store.dart';
 import 'package:kaoyan_math_agent/domain/fingerprint.dart';
 
 void main() {
@@ -84,6 +85,40 @@ tags: [真题, 证明题]
       expect(parser.parse(md('proof')).problem!.qtype, QuestionType.proof);
       // 未知题型降级为 solve
       expect(parser.parse(md('weird')).problem!.qtype, QuestionType.solve);
+    });
+
+    // `needs_review` 曾经是**只写不读**的：序列化会写它，解析却不读它，
+    // 于是"读进来再存回去"（编辑一次、批量维护一次）就把它静默清掉了。
+    // 实测（2026-09-19）：一次批量维护清掉了 201 道导入题的待确认标记。
+    group('needs_review 必须能被读回来', () {
+      String md({required bool review}) => '---\nid: t\n'
+          'subject: math1\nneeds_review: $review\n'
+          '---\n\n## 题干\n\n内容';
+
+      test('写了 true 就是 true（哪怕没有解析警告）', () {
+        final r = parser.parse(md(review: true));
+        expect(r.problem!.needsReview, isTrue);
+        expect(r.problem!.warnings, isEmpty, reason: '这不是"解析有问题"，是显式标记');
+      });
+
+      test('写了 false 就是 false（显式字段优先）', () {
+        expect(parser.parse(md(review: false)).problem!.needsReview, isFalse);
+      });
+
+      test('序列化后再解析，标记不丢（往返一致）', () {
+        final p = parser.parse(md(review: true)).problem!;
+        final again = parser
+            .parse(ProblemMarkdownSerializer.serialize(p))
+            .problem!;
+        expect(again.needsReview, isTrue,
+            reason: '往返会丢标记的话，用户编辑一次题就脱离了待确认队列');
+      });
+
+      test('没写这个字段时，仍按解析警告推导', () {
+        // 缺 frontmatter 会产生警告 → 需要人工确认
+        final r = parser.parse('设 \$x\$ 连续。');
+        expect(r.problem!.needsReview, isTrue);
+      });
     });
   });
 

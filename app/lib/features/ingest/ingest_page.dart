@@ -111,7 +111,7 @@ class _IngestPageState extends ConsumerState<IngestPage> {
         _sources,
         model: cfg?.model ?? '',
         // 带上服务商的输出上限：偏低时要如实提示"一页题多会被截断"
-        maxOutputTokens: cfg?.spec?.maxOutputTokens,
+        maxOutputTokens: cfg?.maxOutputTokens,
       );
 
   bool get _hasPdf => _sources.any((s) => s.isPdf);

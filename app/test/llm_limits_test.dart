@@ -107,6 +107,57 @@ void main() {
       expect(http.lastBody['max_tokens'], 8192);
     });
 
+    // 上限是**按模型**的，不是按服务商。早先写在服务商上，于是
+    // 智谱整家被压到 1024 —— 把能收 8192 的模型也一起限死，
+    // 而提示里还把这说成"服务商硬限制"。
+    test('同一家的另一个模型不受 1024 牵连（实测 glm-4.6v-flash 收 8192）',
+        () async {
+      final http = RecordHttp([okOpenAi()]);
+      final client = LlmClient(
+        config: const LlmConfig(
+          providerId: 'zhipu',
+          apiKey: 'k',
+          modelOverride: 'glm-4.6v-flash',
+        ),
+        http: http,
+        sleep: (_) async {},
+      );
+      await client.chat(const ChatRequest(system: 's', user: 'u', maxTokens: 8192));
+      expect(http.lastBody['max_tokens'], 8192,
+          reason: '按服务商压到 1024 会凭空截断一页多题的输出');
+    });
+
+    test('智谱的文本模型也不受牵连（实测 glm-4-flash 收 8192）', () async {
+      final http = RecordHttp([okOpenAi()]);
+      final client = LlmClient(
+        config: const LlmConfig(
+          providerId: 'zhipu',
+          apiKey: 'k',
+          modelOverride: 'glm-4-flash',
+        ),
+        http: http,
+        sleep: (_) async {},
+      );
+      await client.chat(const ChatRequest(system: 's', user: 'u', maxTokens: 8192));
+      expect(http.lastBody['max_tokens'], 8192,
+          reason: '打标走的是文本模型，被压到 1024 会让标注输出也截断');
+    });
+
+    test('模型名匹配不会串台：glm-4v-flash 仍被收到 1024', () {
+      const cap = LlmConfig(
+        providerId: 'zhipu',
+        apiKey: 'k',
+        modelOverride: 'glm-4v-flash',
+      );
+      const big = LlmConfig(
+        providerId: 'zhipu',
+        apiKey: 'k',
+        modelOverride: 'glm-4.6v-flash',
+      );
+      expect(cap.maxOutputTokens, 1024);
+      expect(big.maxOutputTokens, isNull, reason: 'glm-4.6v-flash 不含 glm-4v-flash');
+    });
+
     test('没给 maxTokens 时不塞这个字段（OpenAI 兼容）', () async {
       final http = RecordHttp([okOpenAi()]);
       final client = LlmClient(

@@ -15,6 +15,7 @@ library;
 import '../../data/markdown/problem_markdown.dart';
 import '../llm/robust_json.dart';
 import 'ingest_models.dart';
+import 'latex_repair.dart';
 
 /// 一次提炼的解析结果。
 class ExtractionOutcome {
@@ -181,7 +182,10 @@ abstract final class IngestExtractor {
     List<String> warnings, {
     required int index,
   }) {
-    final stem = _stemOf(j);
+    // 题干先修 LaTeX 再构造：`ExtractedProblem` 的指纹是**从 stem 现算**的，
+    // 所以修复必须在构造之前 —— 否则指纹是按坏文本算的，
+    // 以后拿修好的文本再导入同一页就查不出重复。
+    final stem = repairLatex(_stemOf(j));
     if (stem.isEmpty) {
       warnings.add('第 ${index + 1} 条没有题干，已丢弃');
       return null;
@@ -191,8 +195,8 @@ abstract final class IngestExtractor {
         (RobustJson.stringField(j, 'completeness') ?? '').toLowerCase();
     final partial = completeness == 'partial';
 
-    var answer = _clean(RobustJson.stringField(j, 'answer'));
-    var solution = _clean(RobustJson.stringField(j, 'solution'));
+    var answer = _repairLatex(_clean(RobustJson.stringField(j, 'answer')));
+    var solution = _repairLatex(_clean(RobustJson.stringField(j, 'solution')));
 
     // ── 防编造：answer_from_source ──────────────────────────────────────
     //
@@ -231,7 +235,7 @@ abstract final class IngestExtractor {
       solution: solution,
       qtype: _qtypeOf(j),
       difficulty: _difficultyOf(j),
-      options: _optionsOf(j),
+      options: _optionsOf(j).map(repairLatex).toList(),
       source: _clean(RobustJson.stringField(j, 'source')),
       sourceType: _sourceTypeOf(j),
       sourceYear: RobustJson.intField(j, 'source_year'),
@@ -240,6 +244,9 @@ abstract final class IngestExtractor {
       // 不传 fingerprint：由构造函数从 stem 现算，避免"忘了传就静默不查重"
     );
   }
+
+  /// null 安全的 LaTeX 修复。
+  static String? _repairLatex(String? s) => s == null ? null : repairLatex(s);
 
   /// 题型。认中英文两种写法。
   static QuestionType _qtypeOf(Map<String, dynamic> j) {

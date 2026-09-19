@@ -363,7 +363,17 @@ class ProblemMarkdownParser {
 
     // 知识点约束：有且仅有一个 primary
     final primaryCount = knowledge.where((k) => k.isPrimary).length;
-    var needsReview = warnings.isNotEmpty;
+
+    // ⚠️ frontmatter 里**显式写了**就听它的。
+    //
+    // 早先这里完全不读 `needs_review`，只按解析警告推导 —— 于是这个字段
+    // 是**只写不读**的：任何"读进来再存回去"（编辑、批量维护）都会把
+    // 待人工确认标记静默清掉，导入的题再也不出现在待确认列表里。
+    // 实测（2026-09-19）：一次批量维护就这样清掉了 201 道导入题上的标记。
+    final explicitReview = meta['needs_review'];
+    var needsReview =
+        explicitReview is bool ? explicitReview : warnings.isNotEmpty;
+
     if (knowledge.isNotEmpty && primaryCount == 0) {
       warnings.add('缺少 primary 知识点');
       needsReview = true;
