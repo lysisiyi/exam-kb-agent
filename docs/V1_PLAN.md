@@ -1,4 +1,4 @@
-# 考研数学错题 Agent · Windows V1 开发计划
+# 考试知识库 Agent · Windows V1 开发计划
 
 > 版本 v1.0 · 2026-03-15
 > 平台范围：**Windows 桌面端**（Flutter），架构预留 Android / iPadOS / macOS / iOS 扩展位

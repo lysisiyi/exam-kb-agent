@@ -29,7 +29,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   Win32Window::Size size(1280, 720);
   // 窗口标题用产品名，而不是工程名（`kaoyan_math_agent`）。
   // 依赖 runner/CMakeLists.txt 里的 `/utf-8`，否则 MSVC 会按 GBK 读这串 UTF-8。
-  if (!window.Create(L"考研数学错题 Agent", origin, size)) {
+  if (!window.Create(L"考试知识库 Agent", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

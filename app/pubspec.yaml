@@ -1,5 +1,5 @@
 name: kaoyan_math_agent
-description: 考研数学错题 AI 分类管理 Agent（Windows 版 V1）
+description: 考试知识库 Agent（exam-kb-agent）：本地优先的错题与知识库整理工具，BYOK、Markdown 为事实源（Windows 版 V1，现支持考研数学一/二/三）
 publish_to: "none"
 version: 0.1.0+1
 

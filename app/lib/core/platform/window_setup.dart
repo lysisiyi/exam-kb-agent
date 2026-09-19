@@ -93,7 +93,7 @@ const WindowOptions _windowOptions = WindowOptions(
   size: kPreferredWindowSize,
   center: true,
   minimumSize: kMinWindowSize,
-  title: '考研数学错题 Agent',
+  title: '考试知识库 Agent',
 );
 
 /// 默认实现：等窗口就绪 → 显示 → 聚焦。

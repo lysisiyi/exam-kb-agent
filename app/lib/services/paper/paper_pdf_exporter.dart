@@ -215,7 +215,7 @@ class PaperPdfExporter {
 
     final doc = pw.Document(
       title: title ?? paper.template.name,
-      author: '考研数学错题 Agent',
+      author: '考试知识库 Agent',
       // 中文走 [fontFallback]，拉丁字母与数字**仍然用 Helvetica**：
       // 后者是 PDF 的标准 14 字体之一，不嵌入、只引用，文件更小
       // 且字形比中文字体里的拉丁部分好看。
@@ -321,7 +321,7 @@ class PaperPdfExporter {
   pw.Widget _footer(pw.Context ctx) => pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text('考研数学错题 Agent',
+          pw.Text('考试知识库 Agent',
               style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600)),
           pw.Text('第 ${ctx.pageNumber} / ${ctx.pagesCount} 页',
               style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600)),

@@ -283,7 +283,7 @@ class LibraryExporter {
 $kExportMarker
 # 如何在 Obsidian 里打开这个题库
 
-这是「考研数学错题 Agent」的导出快照：**$problems 道题、$images 张图片**。
+这是「考试知识库 Agent」的导出快照：**$problems 道题、$images 张图片**。
 
 ## 打开步骤
 

@@ -90,6 +90,33 @@ def id_depth(node_id: str) -> int:
     return len(node_id.split("."))
 
 
+def leaf_ids_under(subject: str, node_id: str) -> list[str]:
+    """[node_id] 子树下所有叶子的 id（按 id 排序）。
+
+    ⚠️ 这个函数曾经**漏了定义**，而 `main()` 一直在调它 ——
+    也就是说 `python tools/data/knowledge_tree.py` 直接 `NameError` 崩掉，
+    而 README 与管线文档都把它列为"改完 data/ 之后要跑的自检"。
+    脚本没被跑过，所以没坏过事；但也正因如此没人发现。
+    """
+    index = build_index(load_nodes(subject))
+    out: list[str] = []
+
+    def walk(nid: str, depth: int = 0) -> None:
+        if depth > 10:
+            return
+        node = index["by_id"].get(nid)
+        if node is None:
+            return
+        if node.get("is_leaf"):
+            out.append(nid)
+            return
+        for cid in index["children"].get(nid, []):
+            walk(cid, depth + 1)
+
+    walk(node_id)
+    return sorted(out)
+
+
 def chapters_of(subject: str) -> list[str]:
     """返回该科目**考频数据应覆盖的粒度层** id 列表。
 

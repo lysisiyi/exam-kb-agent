@@ -1,4 +1,4 @@
-/// 考研数学错题 Agent —— 应用入口。
+/// 考试知识库 Agent（exam-kb-agent）—— 应用入口。
 ///
 /// 启动顺序（每一步都可能失败，因此都要能优雅降级）：
 /// 1. 绑定 Flutter engine
@@ -92,7 +92,7 @@ Future<void> main() async {
   _launchProbe('渲染器已注入');
 
   _launchProbe('准备 runApp');
-  runApp(ProviderScope(child: KaoyanApp(initialTab: _initialTabFromEnv())));
+  runApp(ProviderScope(child: ExamKbApp(initialTab: _initialTabFromEnv())));
   _launchProbe('runApp 已返回');
 }
 
@@ -188,15 +188,15 @@ int _initialTabFromEnv() {
   return n;
 }
 
-class KaoyanApp extends StatelessWidget {
+class ExamKbApp extends StatelessWidget {
   final int initialTab;
 
-  const KaoyanApp({super.key, this.initialTab = 0});
+  const ExamKbApp({super.key, this.initialTab = 0});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '考研数学错题 Agent',
+      title: '考试知识库 Agent',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       home: DevShell(initialIndex: initialTab),
