@@ -11,9 +11,19 @@
 /// | 前后带解释文字 | 弱模型、未开 JSON mode 时 |
 /// | 单引号、尾随逗号 | 小模型 |
 /// | 中文全角标点 | 中文模型偶发 |
+/// | **顶层是数组而不是对象** | 智谱 `glm-4v-flash`（实测） |
 ///
 /// 而标注流程是**批量**的（可能一次跑几百道题），
 /// 单次解析失败不应该让整批任务失败。所以这里做层层降级。
+///
+/// ## 顶层是数组：静默丢数据的坑
+///
+/// 让模型"把这一页的题都转写成 JSON"，它可能给
+/// `{"problems": [...]}`，也可能**直接给 `[{...}, {...}]`**。
+/// 后者如果只按对象解析，降级路径会取到"第一个平衡的 `{...}`" ——
+/// 结果是**一页只进来第一道题，其余静默消失**，还报一句
+/// "模型没有用 problems 包一层"。所以数组必须被显式识别，
+/// 而不是靠"取第一个对象"蒙过去。
 ///
 /// ## 设计原则
 /// **宁可返回"部分结果 + 警告"，也不要直接抛异常。**
@@ -23,9 +33,24 @@ library;
 import 'dart:convert';
 
 /// 一次 JSON 提取的结果。
+///
+/// ## `ok` 只管对象
+///
+/// [value]（对象）与 [listValue]（数组）最多一个非空。
+/// [ok] 仍然只表示"拿到了对象" —— 这是为了不改动已有的调用方语义
+/// （标注器要的就是对象）。需要接受数组的调用方显式传
+/// `acceptArray: true`，然后看 [hasList]。
 class JsonExtraction {
-  /// 解析出的对象。null 表示彻底失败。
+  /// 解析出的对象。null 表示没拿到对象。
   final Map<String, dynamic>? value;
+
+  /// 顶层是 JSON 数组时，元素放在这里（此时 [value] 为 null）。
+  ///
+  /// ⚠️ 真实踩过的坑：智谱 `glm-4v-flash` 面对"一页多题"的图片时
+  /// **不写 `{"problems": [...]}` 包层，直接给一个数组**。
+  /// 早先只认对象，于是解析降级成"取第一个平衡的 `{...}`"，
+  /// 一页 3 道题只进来 1 道，还报"模型没用 problems 包一层"（误诊）。
+  final List<dynamic>? listValue;
 
   /// 使用的策略标识，用于统计各服务商的输出质量。
   final String strategy;
@@ -33,12 +58,19 @@ class JsonExtraction {
   /// 过程中产生的问题（不致命）。
   final List<String> warnings;
 
-  /// 是否成功。
+  /// 是否拿到了 JSON **对象**。
   bool get ok => value != null;
+
+  /// 是否拿到的是 JSON **数组**。
+  bool get hasList => listValue != null;
+
+  /// 对象与数组都没拿到。
+  bool get isEmpty => value == null && listValue == null;
 
   const JsonExtraction._({
     required this.value,
     required this.strategy,
+    this.listValue,
     this.warnings = const [],
   });
 
@@ -49,12 +81,26 @@ class JsonExtraction {
   }) =>
       JsonExtraction._(value: v, strategy: strategy, warnings: warnings);
 
+  /// 顶层是数组时的成功结果（[value] 为 null，[ok] 为 false）。
+  factory JsonExtraction.successList(
+    List<dynamic> v,
+    String strategy, {
+    List<String> warnings = const [],
+  }) =>
+      JsonExtraction._(
+        value: null,
+        listValue: v,
+        strategy: strategy,
+        warnings: warnings,
+      );
+
   factory JsonExtraction.failure(String strategy, List<String> warnings) =>
       JsonExtraction._(value: null, strategy: strategy, warnings: warnings);
 
   @override
   String toString() =>
-      'JsonExtraction(${ok ? "ok" : "fail"}, strategy=$strategy'
+      'JsonExtraction(${ok ? "ok" : (hasList ? "list" : "fail")}, '
+      'strategy=$strategy'
       '${warnings.isEmpty ? "" : ", warnings=${warnings.length}"})';
 }
 
@@ -63,7 +109,15 @@ abstract final class RobustJson {
   const RobustJson._();
 
   /// 依次尝试多种策略，返回第一个成功的。
-  static JsonExtraction extract(String raw) {
+  ///
+  /// [acceptArray]：顶层就是 JSON 数组时算不算成功。
+  /// - 默认 `false`：数组**不算**成功，返回
+  ///   [JsonExtraction.failure]，警告里说明"是数组不是对象"。
+  ///   标注器就用这个默认值 —— 它要的是对象，而且**绝不能**
+  ///   悄悄拿数组的第一个元素当结果。
+  /// - 传 `true`：数组装进 [JsonExtraction.listValue]。
+  ///   批量导入要这个：实测模型经常直接给题目数组。
+  static JsonExtraction extract(String raw, {bool acceptArray = false}) {
     final warnings = <String>[];
 
     if (raw.trim().isEmpty) {
@@ -71,36 +125,49 @@ abstract final class RobustJson {
     }
 
     // 策略 1：直接解析（最理想，多数情况命中）
-    final direct = _tryParse(raw);
-    if (direct != null) {
-      return JsonExtraction.success(direct, 'direct');
-    }
+    final direct = _tryParseAny(raw);
+    if (direct != null) return _fromAny(direct, 'direct', warnings, acceptArray);
 
     // 策略 2：剥掉 ```json ... ``` 围栏
     final fenced = _stripCodeFence(raw);
     if (fenced != null && fenced != raw) {
-      final v = _tryParse(fenced);
+      final v = _tryParseAny(fenced);
       if (v != null) {
-        return JsonExtraction.success(v, 'code-fence');
+        return _fromAny(v, 'code-fence', warnings, acceptArray);
       }
       warnings.add('剥离代码围栏后仍不是合法 JSON');
     }
 
-    // 策略 3：取第一个平衡的 {...} 块
-    final braced = _firstBalancedObject(raw);
-    if (braced != null) {
-      final v = _tryParse(braced);
+    // 策略 3：取第一个平衡的 {...} / [...] 块
+    final block = _firstBalancedAny(raw);
+    if (block != null) {
+      final isArray = block.startsWith('[');
+      final v = _tryParseAny(block);
       if (v != null) {
-        return JsonExtraction.success(v, 'balanced-braces',
-            warnings: warnings);
+        return _fromAny(
+          v,
+          isArray ? 'balanced-array' : 'balanced-braces',
+          warnings,
+          acceptArray,
+        );
       }
       // 策略 4：修常见瑕疵后再试
-      final repaired = _repairCommonIssues(braced);
-      final vr = _tryParse(repaired);
+      final repaired = _repairCommonIssues(block);
+      final vr = _tryParseAny(repaired);
       if (vr != null) {
         warnings.add('修复了 JSON 中的常见格式瑕疵（尾随逗号/单引号等）');
-        return JsonExtraction.success(vr, 'repaired',
-            warnings: warnings);
+        return _fromAny(vr, 'repaired', warnings, acceptArray);
+      }
+      // 数组被截断（`[{...},{...` 这种）：把里面已经完整的对象救回来。
+      // 没闭合的那个对象只能丢 —— 半截题干比没有题干更糟。
+      if (acceptArray && isArray) {
+        final objs = _balancedObjects(block);
+        if (objs.isNotEmpty) {
+          warnings.add('模型输出的数组被截断，'
+              '已救回其中 ${objs.length} 个完整条目（后面可能还有遗漏）');
+          return JsonExtraction.successList(objs, 'array-salvage',
+              warnings: warnings);
+        }
       }
       warnings.add('提取到花括号块但无法解析为 JSON');
     } else {
@@ -111,13 +178,12 @@ abstract final class RobustJson {
     final normalized = _normalizeFullWidth(raw);
     if (normalized != raw) {
       final fenced2 = _stripCodeFence(normalized) ?? normalized;
-      final braced2 = _firstBalancedObject(fenced2);
-      if (braced2 != null) {
-        final v = _tryParse(_repairCommonIssues(braced2));
+      final block2 = _firstBalancedAny(fenced2);
+      if (block2 != null) {
+        final v = _tryParseAny(_repairCommonIssues(block2));
         if (v != null) {
           warnings.add('归一化全角标点后解析成功');
-          return JsonExtraction.success(v, 'fullwidth-normalized',
-              warnings: warnings);
+          return _fromAny(v, 'fullwidth-normalized', warnings, acceptArray);
         }
       }
     }
@@ -126,6 +192,28 @@ abstract final class RobustJson {
       ...warnings,
       '原始内容前 200 字符：${_preview(raw)}',
     ]);
+  }
+
+  /// 把"解析出来的东西"（对象或数组）变成结果。
+  static JsonExtraction _fromAny(
+    Object v,
+    String strategy,
+    List<String> warnings,
+    bool acceptArray,
+  ) {
+    final w = List<String>.of(warnings);
+    if (v is Map) {
+      return JsonExtraction.success(v.cast<String, dynamic>(), strategy,
+          warnings: w);
+    }
+    final list = (v as List).cast<dynamic>();
+    if (!acceptArray) {
+      return JsonExtraction.failure('array-not-object', [
+        ...w,
+        '模型返回的是 JSON 数组而不是对象（${list.length} 个元素）',
+      ]);
+    }
+    return JsonExtraction.successList(list, strategy, warnings: w);
   }
 
   /// 从结果里取字符串字段（容忍类型意外的值）。
@@ -219,11 +307,18 @@ abstract final class RobustJson {
   // ───────────────────────────────────────────────────────────────────────
 
   static Map<String, dynamic>? _tryParse(String s) {
+    final v = _tryParseAny(s);
+    return v is Map ? v.cast<String, dynamic>() : null;
+  }
+
+  /// 解析成对象**或**数组。失败的返回 null。
+  static Object? _tryParseAny(String s) {
     final t = s.trim();
     if (t.isEmpty) return null;
     try {
       final decoded = jsonDecode(t);
       if (decoded is Map) return decoded.cast<String, dynamic>();
+      if (decoded is List) return decoded;
       return null;
     } catch (_) {
       return null;
@@ -240,13 +335,36 @@ abstract final class RobustJson {
     return null;
   }
 
-  /// 找出第一个**花括号平衡**的 `{...}` 片段。
+  /// 找出第一个**花括号或方括号平衡**的块，`{...}` 与 `[...]` 谁先出现取谁。
   ///
-  /// 用计数而非正则 —— 正则处理不了嵌套对象与字符串里的花括号。
-  /// 同时要正确跳过字符串字面量里的 `{` `}`。
-  static String? _firstBalancedObject(String s) {
-    final start = s.indexOf('{');
-    if (start < 0) return null;
+  /// 用计数而非正则 —— 正则处理不了嵌套对象与字符串里的括号。
+  /// 同时要正确跳过字符串字面量里的括号。
+  ///
+  /// 返回的片段**可能是不平衡的**（多半是被截断）：这时返回从起点到末尾的
+  /// 剩余内容，让调用方去尝试修复或救回其中的完整条目。
+  static String? _firstBalancedAny(String s) {
+    final brace = s.indexOf('{');
+    final bracket = s.indexOf('[');
+    int start;
+    if (brace < 0 && bracket < 0) return null;
+    if (brace < 0) {
+      start = bracket;
+    } else if (bracket < 0) {
+      start = brace;
+    } else {
+      start = brace < bracket ? brace : bracket;
+    }
+    return _balancedFrom(s, start);
+  }
+
+  /// 从 [start]（必须是 `{` 或 `[`）开始扫描到匹配的闭合符。
+  ///
+  /// 不平衡时返回 `s.substring(start)`。
+  static String? _balancedFrom(String s, int start) {
+    if (start < 0 || start >= s.length) return null;
+    final open = s[start];
+    if (open != '{' && open != '[') return null;
+    final close = open == '{' ? '}' : ']';
 
     var depth = 0;
     var inString = false;
@@ -266,20 +384,37 @@ abstract final class RobustJson {
         continue;
       }
 
-      switch (c) {
-        case '"':
-          inString = true;
-        case '{':
-          depth++;
-        case '}':
-          depth--;
-          if (depth == 0) {
-            return s.substring(start, i + 1);
-          }
+      if (c == '"') {
+        inString = true;
+      } else if (c == open) {
+        depth++;
+      } else if (c == close) {
+        depth--;
+        if (depth == 0) return s.substring(start, i + 1);
       }
     }
     // 不平衡（多半是被截断）
     return depth > 0 ? s.substring(start) : null;
+  }
+
+  /// 从一个（可能被截断的）数组片段里救出**所有完整**的对象。
+  ///
+  /// 只收真正闭合、且能解析成对象的片段；半截对象直接丢。
+  static List<Map<String, dynamic>> _balancedObjects(String s) {
+    final out = <Map<String, dynamic>>[];
+    var from = 0;
+    while (from < s.length) {
+      final start = s.indexOf('{', from);
+      if (start < 0) break;
+      final blk = _balancedFrom(s, start);
+      if (blk == null) break;
+      // 不平衡的片段不以 `}` 收尾，不能当成一个完整对象
+      if (!blk.endsWith('}')) break;
+      final v = _tryParse(blk);
+      if (v != null) out.add(v);
+      from = start + blk.length;
+    }
+    return out;
   }
 
   /// 修复常见 JSON 瑕疵。

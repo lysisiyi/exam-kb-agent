@@ -46,13 +46,22 @@ class FakeHttp implements HttpAdapter {
   }
 
   /// OpenAI 兼容的成功响应。
-  static HttpResponse ok(String content, {int inTok = 100, int outTok = 50}) =>
+  ///
+  /// [finishReason] 传 `'length'` 可以造出"被输出上限截断"的响应
+  /// （见 `llm_limits_test.dart` 的截断一组）。
+  static HttpResponse ok(
+    String content, {
+    int inTok = 100,
+    int outTok = 50,
+    String? finishReason,
+  }) =>
       HttpResponse(
         statusCode: 200,
         body: jsonEncode({
           'choices': [
             {
               'message': {'role': 'assistant', 'content': content},
+              if (finishReason != null) 'finish_reason': finishReason,
             }
           ],
           'usage': {'prompt_tokens': inTok, 'completion_tokens': outTok},
@@ -65,20 +74,21 @@ class FakeHttp implements HttpAdapter {
   ///
   /// 用错形状的假响应会让测试在"解析响应"那一步就失败，
   /// 于是断言根本走不到请求体 —— 等于什么都没测。
-  static HttpResponse okAnthropic(String text, {int inTok = 100, int outTok = 50}) =>
+  static HttpResponse okAnthropic(String text, {int inTok = 100, int outTok = 50, String? stopReason}) =>
       HttpResponse(
         statusCode: 200,
         body: jsonEncode({
           'content': [
             {'type': 'text', 'text': text},
           ],
+          if (stopReason != null) 'stop_reason': stopReason,
           'usage': {'input_tokens': inTok, 'output_tokens': outTok},
         }),
       );
 
   /// Gemini 的成功响应：`candidates[].content.parts[].text` +
   /// `usageMetadata`。
-  static HttpResponse okGemini(String text, {int inTok = 100, int outTok = 50}) =>
+  static HttpResponse okGemini(String text, {int inTok = 100, int outTok = 50, String? finishReason}) =>
       HttpResponse(
         statusCode: 200,
         body: jsonEncode({
@@ -89,6 +99,7 @@ class FakeHttp implements HttpAdapter {
                   {'text': text},
                 ],
               },
+              if (finishReason != null) 'finishReason': finishReason,
             },
           ],
           'usageMetadata': {
@@ -365,6 +376,58 @@ void main() {
       expect(r.problems.length, 1);
     });
 
+    // ── 顶层就是数组：实测智谱 glm-4v-flash 就是这样 ──────────────────────
+    //
+    // 这是**真实丢题**的元凶：660 线代 p4-p6 每页 3 道题，
+    // 只进来 1 道（第一道）。当时报的是"模型没有用 problems 包一层"。
+    group('模型直接给题目数组', () {
+      test('数组里的每一道都要进来（曾经只进第一道）', () {
+        final r = parse(jsonEncode([
+          _oneProblem,
+          {..._oneProblem, 'stem': '第二题'},
+          {..._oneProblem, 'stem': '第三题'},
+        ]));
+        expect(r.problems.length, 3,
+            reason: '早先只认对象，降级成"取第一个 {...}"，另外两道静默消失');
+        expect(r.problems.map((p) => p.stem).toList(), [
+          _oneProblem['stem'],
+          '第二题',
+          '第三题',
+        ]);
+        expect(r.warnings, isEmpty, reason: '数组是合法输出，不该记警告');
+      });
+
+      test('数组带解释文字 / 代码围栏也能认出来', () {
+        final second = Map<String, dynamic>.of(_oneProblem)..['stem'] = 'B';
+        final inner = jsonEncode([_oneProblem, second]);
+        final r = parse('好的，我抄完了：\n```json\n$inner\n```\n以上。');
+        expect(r.problems.length, 2);
+      });
+
+      test('数组里的非对象元素跳过并记账', () {
+        final r = parse('[1, ${jsonEncode(_oneProblem)}, "x"]');
+        expect(r.problems.length, 1);
+        expect(r.warnings.any((w) => w.contains('2 个元素不是题目对象')), isTrue,
+            reason: '静默跳过和静默丢题一样有害');
+      });
+
+      test('空数组仍然是"这页没有题"', () {
+        final r = parse('[]');
+        expect(r.problems, isEmpty);
+        expect(r.warnings, isEmpty);
+      });
+
+      test('数组被截断：救回完整的条目并说明有遗漏', () {
+        // 第 2 个对象只写到一半
+        const raw = '[{"stem":"甲","answer":null,"solution":null,'
+            '"answer_from_source":true},{"stem":"乙","ans';
+        final r = parse(raw);
+        expect(r.problems.length, 1, reason: '半截题干比没有题干更糟，只能丢');
+        expect(r.problems.single.stem, '甲');
+        expect(r.warnings.any((w) => w.contains('被截断')), isTrue);
+      });
+    });
+
     test('模型没用 problems 包一层时按单题处理', () {
       final r = parse(jsonEncode(_oneProblem));
       expect(r.problems.length, 1);
@@ -496,6 +559,61 @@ void main() {
       expect(session.items[1].status, IngestStatus.failed);
       // 失败原因必须带可执行建议，不能只丢一句"调用失败"
       expect(session.items[1].error, contains('建议'));
+    });
+
+    // ── 截断：真实发生过，而且**当初被误诊** ──────────────────────────────
+    //
+    // 实测（2026-09-18，智谱 glm-4v-flash，输出上限 1024）：
+    // 一页 3 道矩阵题只导进来 1 道，提示却是"模型没有用 problems 包一层"。
+    // 真因是 `finish_reason == 'length'`。
+    test('被截断：题目进来了也要报，不能当成正常成功', () async {
+      final http = FakeHttp([
+        FakeHttp.ok(_payload([_oneProblem]), finishReason: 'length'),
+      ]);
+      final session = IngestSession(
+        client: _client(http),
+        loadAttachment: FakeLoader().call,
+        sources: [_src('a.png')],
+      );
+
+      await session.run();
+      final item = session.items.single;
+      expect(item.isDone, isTrue);
+      expect(item.problems, hasLength(1), reason: '救回来的题仍然要保留');
+      expect(item.error, contains('截断'),
+          reason: '截断是静默丢题的元凶，必须显式告诉用户');
+      expect(item.error, contains('拆成多张图'),
+          reason: '只说"截断了"没用，要给可执行的做法');
+    });
+
+    test('没被截断时不能凭空报警', () async {
+      final http = FakeHttp([FakeHttp.ok(_payload([_oneProblem]))]);
+      final session = IngestSession(
+        client: _client(http),
+        loadAttachment: FakeLoader().call,
+        sources: [_src('a.png')],
+      );
+
+      await session.run();
+      expect(session.items.single.error, isNull);
+    });
+
+    test('截断到半截 JSON：真实原因排在解析层提示前面', () async {
+      // 这就是模型说到一半被砍断的样子
+      const cut = '{"problems":[{"stem":"第一题","answer":"1",'
+          '"solution":"略","answer_from_source":true},{"stem":"第二';
+      final http = FakeHttp([FakeHttp.ok(cut, finishReason: 'length')]);
+      final session = IngestSession(
+        client: _client(http),
+        loadAttachment: FakeLoader().call,
+        sources: [_src('a.png')],
+      );
+
+      await session.run();
+      final lines = session.items.single.error!.split('\n');
+      expect(lines.first, contains('截断'),
+          reason: '解析层的"无法解析为 JSON"是表象，截断才是原因');
+      expect(session.items.single.error, contains('无法解析为 JSON'));
     });
 
     test('读不出来的文件标记为失败，不发出请求', () async {
@@ -630,6 +748,21 @@ void main() {
       );
       expect(e.notes.any((n) => n.contains('超过单文件上限')), isTrue);
       expect(e.notes.any((n) => n.contains('不会发送')), isTrue);
+    });
+
+    test('图片导入要交代 token 口径差异（估算比实际低 5 倍）', () {
+      final e = estimateIngest([_src('a.png')], model: 'glm-4v-flash');
+      // 实测智谱一张 200 dpi 数学页约 5919 输入 token，而常数按 1200/页算
+      expect(e.notes.any((n) => n.contains('5900')), isTrue);
+      expect(e.notes.any((n) => n.contains('真实用量')), isTrue,
+          reason: '不能把一个差 5 倍的数当成准的展示给用户');
+
+      // 纯 PDF 清单不涉及图片口径
+      final pdf = estimateIngest(
+        [_src('a.pdf', kind: IngestSourceKind.pdf)],
+        model: 'glm-4v-flash',
+      );
+      expect(pdf.notes.any((n) => n.contains('5900')), isFalse);
     });
 
     test('价目表里没有的模型：费用为未知而不是 0', () {

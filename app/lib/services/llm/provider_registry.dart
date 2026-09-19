@@ -148,6 +148,31 @@ class ProviderSpec {
   /// 那需要走 Files + Responses API，V1 不做。
   final bool acceptsPdf;
 
+  /// 单次请求的**输出上限**（token）。null = 服务商没这个硬限制。
+  ///
+  /// ## 为什么必须当成数据放在这里
+  ///
+  /// 真机实测（2026-09-18，智谱 `glm-4v-flash`）：
+  ///
+  /// ```
+  /// {max_tokens: 8192} → 400 {"error":{"code":"1210",
+  ///   "message":"max_tokens参数非法：限制数值范围[1,1024]"}}
+  /// ```
+  ///
+  /// 而批量导入写死了 `maxTokens: 8192`（为了一页多题留足输出空间）。
+  /// 两者一撞，**智谱上的批量导入一次都跑不通**，用户只看到"请求不合法"。
+  /// 同一家的文本模型 `glm-4-flash` 收 8192 没问题 —— 所以这个限制是
+  /// **按模型**来的，只能当数据描述 + 用实测校准：
+  ///
+  /// | 服务商 | 模型 | 上限 | 实测 |
+  /// |---|---|---|---|
+  /// | zhipu | `glm-4v-flash` | **1024** | 8192 → 400 code 1210 |
+  /// | zhipu | `glm-4-flash` | ≥ 8192 | 4096 / 8192 均通过 |
+  ///
+  /// 取最保守值：宁可输出空间小一点，也不能让整个服务商用不了。
+  /// 代价如实告诉用户 —— 见 `estimateIngest` 的 `maxOutputTokens` 提示。
+  final int? maxOutputTokens;
+
   const ProviderSpec({
     required this.id,
     required this.label,
@@ -161,6 +186,7 @@ class ProviderSpec {
     this.helpUrl,
     this.note = '',
     this.acceptsPdf = false,
+    this.maxOutputTokens,
   });
 
   bool get isOpenAiCompatible => protocol == LlmProtocol.openAiCompatible;
@@ -265,6 +291,10 @@ abstract final class LlmProviders {
       ],
       note: '国内直连，glm-4-flash 有免费额度。批量导入请选带 4v 的视觉模型',
       helpUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
+      // 实测（2026-09-18）：glm-4v-flash 的 max_tokens 只接受 [1,1024]，
+      // 发 8192 直接 400 code 1210；而同家的 glm-4-flash 收 8192 没问题。
+      // 取最保守的 1024，否则智谱上的批量导入一次都跑不通。
+      maxOutputTokens: 1024,
     ),
     ProviderSpec(
       id: 'openai',

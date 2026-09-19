@@ -216,10 +216,33 @@ class IngestSession {
       // 一页可能有 2–3 道大题，每题含题干+答案+解析。
       // 给足输出空间，避免 JSON 被截断（截断会表现为"解析失败"，
       // 而真实原因是 max_tokens 太小 —— 那种误诊很费时间）
+      //
+      // ⚠️ 实际发出去的值会被 `LlmClient` 收进服务商的硬上限
+      // （见 `ProviderSpec.maxOutputTokens`）：智谱视觉模型只收 1024。
       maxTokens: 8192,
     ));
 
     final outcome = IngestExtractor.parse(resp.text, sourceName: source.name);
+    final warnings = [...outcome.warnings];
+
+    // 输出被截断：一条**真实的静默丢题**通道。
+    //
+    // 截断本身不报错，`RobustJson` 会救回能解析的部分，于是表现为
+    // "这一页只有 1 道题"外加一句解析层的提示。所以先把真实原因说清楚，
+    // 再让解析层的提示跟在后面。
+    //
+    // ⚠️ 实测（2026-09-18，智谱 glm-4v-flash，660 线代 p4-p6）每页只进来
+    // 1 道题，但 `finish_reason` 是 `stop`、输出只用了 567/1024 token ——
+    // 那批数据丢失的真因是**顶层数组被当成单题**（见 `IngestExtractor`
+    // 传的 `acceptArray`）。截断是另一条通道，同样要报，
+    // 但不该拿它解释那批数据。
+    if (resp.truncated) {
+      warnings.insert(
+        0,
+        '模型输出被截断（达到输出上限），这一页可能还有题没导入。'
+        '建议换输出上限更大的模型，或把一页拆成多张图分别导入。',
+      );
+    }
 
     var problems = outcome.problems;
     if (problems.isNotEmpty) {
@@ -235,8 +258,8 @@ class IngestSession {
 
     // 解析层的问题（丢弃了没有题干的条目、模型没声明答案来源……）
     // 归到这一条上，让用户在它旁边就能看到
-    if (outcome.warnings.isNotEmpty) {
-      return item.copyWith(error: outcome.warnings.join('\n'));
+    if (warnings.isNotEmpty) {
+      return item.copyWith(error: warnings.join('\n'));
     }
     return item;
   }

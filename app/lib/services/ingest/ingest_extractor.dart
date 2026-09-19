@@ -63,8 +63,11 @@ abstract final class IngestExtractor {
   }) {
     final warnings = <String>[];
 
-    final extracted = RobustJson.extract(raw);
-    if (!extracted.ok) {
+    // `acceptArray: true` 是必须的：实测模型经常不写 `{"problems": [...]}`
+    // 包层，直接给一个题目数组。早先不认数组，降级路径会取到数组里
+    // **第一个**对象 —— 一页 3 道题只进来 1 道，其余静默消失。
+    final extracted = RobustJson.extract(raw, acceptArray: true);
+    if (extracted.isEmpty) {
       final detail = extracted.warnings.isEmpty
           ? ''
           : '：${extracted.warnings.take(2).join('；')}';
@@ -74,13 +77,16 @@ abstract final class IngestExtractor {
       );
     }
 
-    final root = extracted.value!;
     warnings.addAll(extracted.warnings);
 
-    final rawItems = _findProblemList(root);
+    final root = extracted.value;
+    final rawItems = root != null
+        ? _findProblemList(root)
+        : _arrayItems(extracted.listValue!, warnings);
+
     if (rawItems == null) {
       // 整个对象本身可能就"是一道题"（模型没用 problems 包一层）
-      if (_hasStem(root)) {
+      if (root != null && _hasStem(root)) {
         warnings.add('模型没有用 problems 包一层，已按单题处理');
         final one = _one(root, sourceName, warnings, index: 0);
         return ExtractionOutcome(
@@ -136,6 +142,25 @@ abstract final class IngestExtractor {
       }
     }
     return null;
+  }
+
+  /// 模型直接给数组时（`[{...}, {...}]`），数组本身就是题目列表。
+  ///
+  /// 数组里的非对象元素（数字、字符串）会被跳过并记账 ——
+  /// 静默跳过和静默丢题一样有害。
+  static List<Map<String, dynamic>> _arrayItems(
+    List<dynamic> list,
+    List<String> warnings,
+  ) {
+    final maps = list
+        .whereType<Map<Object?, Object?>>()
+        .map((e) => e.cast<String, dynamic>())
+        .toList();
+    final skipped = list.length - maps.length;
+    if (skipped > 0) {
+      warnings.add('模型输出的数组里有 $skipped 个元素不是题目对象，已跳过');
+    }
+    return maps;
   }
 
   static bool _hasStem(Map<String, dynamic> j) => _stemOf(j).isNotEmpty;

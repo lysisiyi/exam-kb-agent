@@ -431,10 +431,15 @@ const int kTokensPerExtractedProblem = 500;
 /// 按来源清单估算。
 ///
 /// [model] 用于查价目表；[textPromptTokens] 是提示词本身的固定开销。
+/// [maxOutputTokens] 是**该服务商允许的单次输出上限**（见
+/// `ProviderSpec.maxOutputTokens`）—— 传入后，上限偏低会额外给一条提示：
+/// 一页题多、解析长时输出会被截断，而截断表现为"解析失败"，
+/// 用户不知道是模型限制导致的。
 IngestEstimate estimateIngest(
   List<IngestSource> sources, {
   required String model,
   int textPromptTokens = 900,
+  int? maxOutputTokens,
 }) {
   var images = 0;
   var pdfs = 0;
@@ -476,6 +481,26 @@ IngestEstimate estimateIngest(
   }
   if (oversize > 0) {
     notes.add('有 $oversize 个文件超限，不会发送，也不会计费。');
+  }
+
+  // token 口径：真话比好看的数字重要。
+  //
+  // 实测（2026-09-18）同一张 200 dpi 的数学书页：
+  // 智谱 `glm-4v-flash` 报 **5919** 输入 token，而这里的常数按
+  // `kTokensPerImagePage`（1200）算 —— 差 5 倍。Gemini 更低（按图固定 258）。
+  // 既然差价能到几十倍，就不能让用户以为那个数字是准的。
+  if (images > 0) {
+    notes.add('token 是按每页 $kTokensPerImagePage 的通用口径估的：'
+        '实测同一张 200 dpi 数学页，智谱报约 5900 输入 token、'
+        'Gemini 按图固定约 258 —— 各家差异很大。'
+        '这个数只用来判断量级，真实用量以服务商返回的统计为准（会记进台账）。');
+  }
+
+  // 输出上限偏低的模型：一页题多时会被截断，而且**看起来像"解析失败"**
+  if (maxOutputTokens != null && maxOutputTokens < 2048) {
+    notes.add('这个模型单次最多输出 $maxOutputTokens token'
+        '（服务商硬限制），一页题多或解析较长时会被截断 —— '
+        '建议一次只导一页、并核对题数；或换一个输出上限更大的模型。');
   }
 
   final input = textPromptTokens * sources.length + pages * kTokensPerImagePage;

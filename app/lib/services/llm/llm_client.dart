@@ -402,12 +402,39 @@ class ChatResponse {
   /// 尝试了几次（含首次）。
   final int attempts;
 
+  /// 服务商给的停止原因（OpenAI `finish_reason` / Anthropic `stop_reason` /
+  /// Gemini `finishReason`）。取不到时为 null。
+  final String? finishReason;
+
   const ChatResponse({
     required this.text,
     required this.usage,
     this.providerId = '',
     this.attempts = 1,
+    this.finishReason,
   });
+
+  /// 输出是否**因为达到上限被截断**。
+  ///
+  /// ## 为什么这个字段重要
+  ///
+  /// 截断不会报错：JSON 只是少了一截，`RobustJson` 会把**能解析的前几个
+  /// 对象**救回来。批量导入于是"成功"了，只是少导了几道题，
+  /// 而提示会是"模型没有用 problems 包一层"之类（误诊）。
+  /// 这个字段此前全项目**没有读过**，所以截断完全不可见。
+  ///
+  /// ⚠️ 别把它当成"少导题"的唯一解释：实测（2026-09-18，智谱
+  /// `glm-4v-flash`，660 线代 p4）一页 3 道题只进来 1 道，
+  /// 但 `finish_reason` 是 `stop`、只用了 567/1024 token ——
+  /// 真因是模型给的是**顶层数组**而解析器只认对象（见
+  /// `RobustJson.extract` 的 `acceptArray`）。
+  ///
+  /// 三家协议的"截断"标记分别是 `length` / `max_tokens` / `MAX_TOKENS`。
+  bool get truncated {
+    final r = finishReason?.toLowerCase();
+    if (r == null) return false;
+    return r == 'length' || r == 'max_tokens' || r == 'maxtokens';
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -549,7 +576,9 @@ class LlmClient {
       'temperature': req.temperature,
       'stream': false,
     };
-    if (req.maxTokens != null) body['max_tokens'] = req.maxTokens;
+    if (req.maxTokens != null) {
+      body['max_tokens'] = _clampMaxTokens(req.maxTokens!);
+    }
 
     // JSON mode 的支持面很广但不统一：
     // - OpenAI / DeepSeek / 通义 / 智谱 支持 response_format
@@ -602,9 +631,24 @@ class LlmClient {
     return parts;
   }
 
+  /// 把输出上限收进服务商允许的范围。
+  ///
+  /// ## 为什么必须有这一步
+  ///
+  /// 真机实测（2026-09-18）：智谱 `glm-4v-flash` 的 `max_tokens` 只接受
+  /// `[1,1024]`，而批量导入为了"一页多题"写死了 8192 ——
+  /// 于是**智谱上的批量导入一次都跑不通**，返回 400 code 1210，
+  /// 用户只看到一句"请求不合法"。上限写在 `ProviderSpec.maxOutputTokens`。
+  ///
+  /// 收窄而不是报错：输出空间小一点，总好过整个服务商不可用。
+  int _clampMaxTokens(int want) {
+    final cap = config.spec?.maxOutputTokens;
+    if (cap == null || want <= cap) return want;
+    return cap;
+  }
+
   /// Anthropic Messages API。
-  HttpRequest _buildAnthropic(ChatRequest req) {
-    // Anthropic 把 system 放在顶层字段而非 messages 里
+  HttpRequest _buildAnthropic(ChatRequest req) {    // Anthropic 把 system 放在顶层字段而非 messages 里
     final body = <String, dynamic>{
       'model': config.model,
       'system': req.system,
@@ -612,7 +656,7 @@ class LlmClient {
         {'role': 'user', 'content': _anthropicUserContent(req)},
       ],
       'temperature': req.temperature,
-      'max_tokens': req.maxTokens ?? 4096,
+      'max_tokens': _clampMaxTokens(req.maxTokens ?? 4096),
     };
     return HttpRequest(
       url: '${config.baseUrl}/messages',
@@ -657,7 +701,8 @@ class LlmClient {
       ],
       'generationConfig': {
         'temperature': req.temperature,
-        if (req.maxTokens != null) 'maxOutputTokens': req.maxTokens,
+        if (req.maxTokens != null)
+          'maxOutputTokens': _clampMaxTokens(req.maxTokens!),
         if (req.jsonMode) 'responseMimeType': 'application/json',
       },
     };
@@ -745,7 +790,35 @@ class LlmClient {
       usage: usage,
       providerId: config.providerId,
       attempts: attempt,
+      finishReason: _extractFinishReason(decoded, spec?.protocol),
     );
+  }
+
+  /// 取出停止原因，只用来判断"是不是被截断了"（见 [ChatResponse.truncated]）。
+  ///
+  /// 三家字段名不同；取不到就返回 null —— 宁可漏报截断，也不要凭空报警。
+  String? _extractFinishReason(
+    Map<dynamic, dynamic> j,
+    LlmProtocol? protocol,
+  ) {
+    switch (protocol) {
+      case LlmProtocol.anthropic:
+        return j['stop_reason']?.toString();
+      case LlmProtocol.gemini:
+        final candidates = j['candidates'];
+        if (candidates is! List || candidates.isEmpty) return null;
+        final first = candidates.first;
+        if (first is! Map) return null;
+        return first['finishReason']?.toString();
+      default:
+        final choices = j['choices'];
+        if (choices is! List || choices.isEmpty) return null;
+        final first = choices.first;
+        if (first is! Map) return null;
+        final r = first['finish_reason'];
+        // 老版 completions 用 stop_reason
+        return (r ?? first['stop_reason'])?.toString();
+    }
   }
 
   String? _extractOpenAiText(Map<dynamic, dynamic> j) {
@@ -835,6 +908,10 @@ class LlmClient {
     final code = resp.statusCode;
     final body = resp.body.toLowerCase();
 
+    // 服务商自己说的话（有就带上）
+    final pm = _providerMessage(resp.body);
+    final tail = pm == null ? '' : '：$pm';
+
     // 先看业务错误码（很多国产服务商用 200 之外的码 + 特定 message）
     if (body.contains('insufficient') ||
         body.contains('quota') ||
@@ -843,7 +920,7 @@ class LlmClient {
         body.contains('欠费')) {
       return LlmException(
         LlmErrorKind.insufficientBalance,
-        '余额或配额不足',
+        '余额或配额不足$tail',
         statusCode: code,
         rawBody: _truncate(resp.body),
       );
@@ -854,7 +931,7 @@ class LlmClient {
         body.contains('频率')) {
       return LlmException(
         LlmErrorKind.rateLimited,
-        '触发频率限制',
+        '触发频率限制$tail',
         statusCode: code,
         rawBody: _truncate(resp.body),
       );
@@ -863,48 +940,79 @@ class LlmClient {
     return switch (code) {
       401 || 403 => LlmException(
           LlmErrorKind.invalidKey,
-          'API Key 无效或无权访问',
+          'API Key 无效或无权访问$tail',
           statusCode: code,
           rawBody: _truncate(resp.body),
         ),
       402 => LlmException(
           LlmErrorKind.insufficientBalance,
-          '需要付费',
+          '需要付费$tail',
           statusCode: code,
           rawBody: _truncate(resp.body),
         ),
       404 => LlmException(
           LlmErrorKind.modelNotFound,
-          '模型或接口不存在',
+          '模型或接口不存在$tail',
           statusCode: code,
           rawBody: _truncate(resp.body),
         ),
       429 => LlmException(
           LlmErrorKind.rateLimited,
-          '请求过于频繁',
+          '请求过于频繁$tail',
           statusCode: code,
           rawBody: _truncate(resp.body),
         ),
       >= 500 => LlmException(
           LlmErrorKind.serverError,
-          '服务商返回 $code',
+          '服务商返回 $code$tail',
           statusCode: code,
           rawBody: _truncate(resp.body),
         ),
       400 => LlmException(
           LlmErrorKind.badRequest,
-          '请求不合法',
+          // ⚠️ 一定要带上服务商的原话。
+          //
+          // 早先这里只有"请求不合法"，于是"max_tokens 超出上限"这种**一眼
+          // 能修**的问题，用户（和当时的我）只能靠手写一个原始请求去猜。
+          // 服务商的 message 才是可操作的那部分。
+          '请求不合法$tail',
           statusCode: code,
           rawBody: _truncate(resp.body),
         ),
       _ => LlmException(
           LlmErrorKind.unknown,
-          'HTTP $code',
+          'HTTP $code$tail',
           statusCode: code,
           rawBody: _truncate(resp.body),
         ),
     };
   }
+
+  /// 从服务商的错误响应里挖出"人话"。
+  ///
+  /// 各家形状高度一致 —— OpenAI / 智谱 / Gemini / Anthropic 都是
+  /// `{"error":{"message":"...","code":"..."}}`，少数是顶层 `message`。
+  /// 取不到就返回 null：**不要把整段 body 塞进面向用户的消息**，
+  /// 那可能是几百字的 HTML 网关页。
+  static String? _providerMessage(String body) {
+    try {
+      final j = jsonDecode(body);
+      if (j is Map) {
+        final e = j['error'];
+        if (e is Map) {
+          final m = e['message']?.toString().trim();
+          if (m != null && m.isNotEmpty) return _short(m);
+        }
+        final m = j['message']?.toString().trim();
+        if (m != null && m.isNotEmpty) return _short(m);
+      }
+    } catch (_) {
+      // 不是 JSON（网关 HTML、纯文本）：不猜
+    }
+    return null;
+  }
+
+  static String _short(String s) => s.length <= 200 ? s : '${s.substring(0, 200)}…';
 
   static LlmErrorKind _classifyTransport(HttpTransportException e) {
     final m = e.message.toLowerCase();

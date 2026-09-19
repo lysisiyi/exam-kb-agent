@@ -409,6 +409,25 @@ void main() {
     test('数组而非对象时失败（我们只接受对象）', () {
       final r = RobustJson.extract('[1, 2, 3]');
       expect(r.ok, isFalse);
+      expect(r.hasList, isFalse, reason: '默认不接受数组');
+      expect(r.warnings.any((w) => w.contains('数组')), isTrue,
+          reason: '重试提示要说出真实原因，否则模型会一直重复同样的形状');
+    });
+
+    test('数组里的对象不能被当成"第一个对象"悄悄用掉', () {
+      // 标注器要的是一个对象。如果数组被降级成"取第一个 {...}"，
+      // 就会出现"只标注了第一道题、其余静默丢掉"。必须整体拒绝。
+      final r = RobustJson.extract('[{"primary":"kp-1"},{"primary":"kp-2"}]');
+      expect(r.ok, isFalse);
+      expect(r.value, isNull);
+    });
+
+    test('acceptArray: true 时数组装进 listValue', () {
+      final r = RobustJson.extract('[{"a":1},{"a":2}]', acceptArray: true);
+      expect(r.hasList, isTrue);
+      expect(r.listValue, hasLength(2));
+      expect(r.ok, isFalse, reason: 'ok 只表示拿到了对象');
+      expect(r.isEmpty, isFalse);
     });
 
     // ── 字段抽取的容错 ──
