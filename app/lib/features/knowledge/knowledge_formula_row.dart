@@ -36,9 +36,16 @@ import '../../core/theme/app_theme.dart';
 
 /// 缩到这个比例还不放得下，就改成横向滚动（而不是继续缩）。
 ///
-/// 0.72 的来源：正文 12.5px × 0.72 ≈ 9px，是有立体感的显示器上仍能读清
-/// 上下标的下限；再小就属于"能看见但读不了"。
-const double kFormulaMinScale = 0.72;
+/// 0.85 的来源：正文基础 14px 时，KaTeX 的上下标只有它的 **70%**（9.8px）——
+/// 再乘 0.85 就只剩 8.3px，已经在"能看见但读不了"的边缘。早先这个下限是
+/// 0.72（上下标 ≈ 7px），用户反馈"公式太小不利于阅读"就是它。
+const double kFormulaMinScale = 0.85;
+
+/// 知识点详情里公式的基础字号。
+///
+/// 为什么是 14 而不是 12.5：上下标按 70% 渲染，14px → 9.8px（可读）；
+/// 12.5px → 8.8px（偏小）。见 KaTeX 的 script style 比例。
+const double kFormulaFontSize = 14;
 
 /// 公式宽度的缓存。键是 `字号|tex`。
 ///
@@ -65,22 +72,26 @@ double? formulaWidth(String tex, double fontSize) {
 @visibleForTesting
 void resetFormulaWidthCache() => _widthCache.clear();
 
-/// 一行公式。
-class KnowledgeFormulaRow extends StatelessWidget {
-  /// 已经按顶层 `\quad` 拆好的**单个**片段。
+/// 一条**不会被裁**的公式（三分支排版）。
+///
+/// 抽成独立组件是因为它有两个使用场景：详情卡的公式行，以及
+/// 召回别名里的**符号别名**（那 182 条 LaTeX 别名也要按同一套规则排，
+/// 否则又会出现"被裁掉且没提示"）。
+class FittedFormula extends StatelessWidget {
+  /// LaTeX 源码。
   final String tex;
 
-  /// 公式序号（从 1 起）。null 表示这条公式是上一条的续行。
-  final int? index;
-
-  /// 字号（逻辑像素 / em）。
+  /// 基础字号（pixels per em）。
   final double fontSize;
 
-  const KnowledgeFormulaRow({
+  /// 需要横向拖动时是否显示提示文字。默认显示。
+  final bool showScrollHint;
+
+  const FittedFormula({
     super.key,
     required this.tex,
-    this.index,
-    this.fontSize = 12.5,
+    this.fontSize = kFormulaFontSize,
+    this.showScrollHint = true,
   });
 
   @override
@@ -92,32 +103,26 @@ class KnowledgeFormulaRow extends StatelessWidget {
 
         // 量不出来（非法 LaTeX）：交给渲染器降级，别在这里猜
         if (need == null || need <= avail) {
-          return _row(context, _math());
+          return _math();
         }
         if (need <= avail / kFormulaMinScale) {
-          return _row(
-            context,
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: _math(),
-            ),
-            // 缩过了：如实标一下，免得用户以为公式本来就小
-            shrunkTo: (avail / need).clamp(0.0, 1.0),
+          return FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: _math(),
           );
         }
 
         // 超太多：原字号 + 横向拖动，并**明确告知**
-        return _row(
-          context,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SingleChildScrollView(
-                key: ValueKey('formula-scroll-$tex'),
-                scrollDirection: Axis.horizontal,
-                child: _math(),
-              ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SingleChildScrollView(
+              key: ValueKey('formula-scroll-$tex'),
+              scrollDirection: Axis.horizontal,
+              child: _math(),
+            ),
+            if (showScrollHint) ...[
               const SizedBox(height: 3),
               Row(
                 key: ValueKey('formula-scroll-hint-$tex'),
@@ -132,7 +137,7 @@ class KnowledgeFormulaRow extends StatelessWidget {
                 ],
               ),
             ],
-          ),
+          ],
         );
       },
     );
@@ -143,8 +148,29 @@ class KnowledgeFormulaRow extends StatelessWidget {
         style: MathStyle.inline,
         options: MathRenderOptions(fontSize: fontSize),
       );
+}
 
-  Widget _row(BuildContext context, Widget child, {double? shrunkTo}) {
+/// 详情卡里的一行公式：序号 + 公式 + 复制按钮。
+class KnowledgeFormulaRow extends StatelessWidget {
+  /// 已经按顶层 `\quad` 拆好的**单个**片段。
+  final String tex;
+
+  /// 公式序号（从 1 起）。null 表示这条公式是上一条的续行，
+  /// 或者是"别名公式"这类不需要编号的场合。
+  final int? index;
+
+  /// 字号（逻辑像素 / em）。
+  final double fontSize;
+
+  const KnowledgeFormulaRow({
+    super.key,
+    required this.tex,
+    this.index,
+    this.fontSize = kFormulaFontSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
       child: Row(
@@ -160,7 +186,7 @@ class KnowledgeFormulaRow extends StatelessWidget {
                     child: Text(
                       '$index',
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primaryStrong,
                         fontFeatures: [FontFeature.tabularFigures()],
@@ -168,16 +194,10 @@ class KnowledgeFormulaRow extends StatelessWidget {
                     ),
                   ),
           ),
-          Expanded(child: child),
+          Expanded(
+            child: FittedFormula(tex: tex, fontSize: fontSize),
+          ),
           _CopyButton(tex: tex),
-          if (shrunkTo != null && shrunkTo < 0.999)
-            Tooltip(
-              message: '公式较宽，已缩小到 ${(shrunkTo * 100).round()}% 显示',
-              child: const Padding(
-                padding: EdgeInsets.only(left: 2, top: 2),
-                child: Icon(Icons.zoom_out_map, size: 12, color: AppColors.ink3),
-              ),
-            ),
         ],
       ),
     );

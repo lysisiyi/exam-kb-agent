@@ -18,7 +18,15 @@ abstract final class AppColors {
 
   static const warning = Color(0xFFE8850C);
   static const warningWeak = Color(0xFFFFF4E5);
-  static const warningInk = Color(0xFFB96A05);
+
+  /// 警示文字色。
+  ///
+  /// ⚠️ 这个值由**对比度**定，不是审美定的：早先是 `#B96A05`，在卡片底色
+  /// (`bg`) 上只有 **3.82:1**、白底上 4.10:1，都低于 WCAG AA 对正文的
+  /// 4.5:1 —— 而它承载的是"常见陷阱""导出注意事项"这类**必须读**的内容。
+  /// 现取 `#9A5604`：bg 上 5.28:1、白底 5.67:1、`warningWeak` 上 5.21:1。
+  /// 由 `test/knowledge_palette_test.dart` 守着。
+  static const warningInk = Color(0xFF9A5604);
 
   static const danger = Color(0xFFE03131);
   static const dangerWeak = Color(0xFFFFEBEB);

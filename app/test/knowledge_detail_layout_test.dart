@@ -269,7 +269,41 @@ void main() {
       final pieces = [
         for (final f in leaf.formulas) ...splitTopLevelQuad(f),
       ];
-      expect(find.byIcon(Icons.copy_all_outlined), findsNWidgets(pieces.length));
+      // 逐行按 key 定位：别名里的 LaTeX 现在也会渲染成公式行（也带复制按钮），
+      // 所以只数"核心公式"这几行的 key，不用图标总数
+      for (var i = 0; i < pieces.length; i++) {
+        expect(find.byKey(ValueKey('formula-${leaf.id}-$i')), findsOneWidget,
+            reason: '第 ${i + 1} 条核心公式缺行');
+      }
+      expect(find.byIcon(Icons.copy_all_outlined),
+          findsAtLeastNWidgets(pieces.length));
+    });
+
+    testWidgets('LaTeX 别名渲染成公式，不再给用户看源码', (tester) async {
+      if (!hasData) {
+        markTestSkipped('数据文件不存在');
+        return;
+      }
+      // 数列极限的别名里有 \lim_{n\to\infty}a_n 这类符号写法
+      final leaf = kb.byId['math1.calc.limit.seq']!;
+      final latexAliases = [
+        for (final a in leaf.aliases)
+          if (a.contains(r'\') || a.contains('_') || a.contains('^')) a,
+      ];
+      expect(latexAliases, isNotEmpty, reason: '这个知识点应当有符号别名');
+
+      await pumpCard(tester, leaf: leaf, width: 900);
+      for (final a in latexAliases) {
+        expect(
+          find.byKey(ValueKey('alias-formula-${leaf.id}-$a')),
+          findsOneWidget,
+          reason: '符号别名没有按公式渲染：$a',
+        );
+      }
+      // 纯文字别名仍然走 chip（不出现 alias-formula- 前缀的行）
+      for (final a in leaf.aliases.where((a) => !latexAliases.contains(a))) {
+        expect(find.byKey(ValueKey('alias-formula-${leaf.id}-$a')), findsNothing);
+      }
     });
   });
 }

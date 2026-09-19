@@ -224,6 +224,8 @@ class _OutlineRowTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final node = row.node;
     final kind = graphKindOf(node);
+    // 名字/编号/圆点全部走**与图谱同一份**语义色板 —— 见 knowledge_node_style.dart
+    final theme = nodeThemeOf(kind);
     final isBranch = !node.isLeaf;
 
     return Material(
@@ -250,13 +252,13 @@ class _OutlineRowTile extends StatelessWidget {
                               ? Icons.keyboard_arrow_down
                               : Icons.keyboard_arrow_right,
                           size: 18,
-                          color: AppColors.ink3,
+                          color: kSecondaryInk,
                         )
-                      : Icon(Icons.circle,
-                          size: 5, color: nodeFill(kind)),
+                      : Icon(Icons.circle, size: 5, color: theme.accent),
                 ),
                 const SizedBox(width: 4),
                 // 层级编号：教材里"第几章第几节"的那种，方便口头引用
+                // ⚠️ 叶子编号早先用 ink3（3.2:1，低于 AA），现在与名字同档
                 SizedBox(
                   width: 58,
                   child: Text(
@@ -264,7 +266,7 @@ class _OutlineRowTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
-                      color: isBranch ? AppColors.primaryStrong : AppColors.ink3,
+                      color: theme.accent,
                       fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -274,10 +276,12 @@ class _OutlineRowTile extends StatelessWidget {
                     node.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    // 名字色**与图谱节点同源**（theme.textInk）：同一个叶子
+                    // 在两个视图里深浅一致，层级靠字重 + accent 表达
                     style: TextStyle(
                       fontSize: isBranch ? 13 : 12.5,
                       fontWeight: isBranch ? FontWeight.w700 : FontWeight.w400,
-                      color: isBranch ? AppColors.ink1 : AppColors.ink2,
+                      color: theme.textInk,
                     ),
                   ),
                 ),
@@ -285,14 +289,14 @@ class _OutlineRowTile extends StatelessWidget {
                 if (isBranch)
                   Text(
                     row.childCount == 0 ? '空' : '${row.leafCount} 个考点',
-                    style: AppTypography.caption,
+                    style: const TextStyle(fontSize: 11.5, color: kSecondaryInk),
                   )
                 else
                   Text(
                     node.examYears.isEmpty
                         ? '暂无考频'
                         : '考过 ${node.examYears.length} 次',
-                    style: AppTypography.caption,
+                    style: const TextStyle(fontSize: 11.5, color: kSecondaryInk),
                   ),
                 const SizedBox(width: 8),
                 SizedBox(
@@ -305,11 +309,7 @@ class _OutlineRowTile extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
-                            color: node.examWeight! >= 0.85
-                                ? AppColors.danger
-                                : node.examWeight! >= 0.6
-                                    ? AppColors.warningInk
-                                    : AppColors.ink3,
+                            color: weightInk(node.examWeight),
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),

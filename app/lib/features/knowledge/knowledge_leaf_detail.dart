@@ -21,6 +21,7 @@ import '../../core/math/math_renderer.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import 'knowledge_formula_row.dart';
+import 'knowledge_node_style.dart';
 
 /// 知识点详情：定义 / 核心公式 / 常见陷阱 / 考频 / 别名。
 class KnowledgeLeafDetail extends StatelessWidget {
@@ -44,6 +45,15 @@ class KnowledgeLeafDetail extends StatelessWidget {
     // 公式先按顶层 \quad 拆开，再逐条渲染 —— 见 splitTopLevelQuad 的说明
     final formulas = <String>[
       for (final f in leaf.formulas) ...splitTopLevelQuad(f),
+    ];
+    // 别名分两类：含 LaTeX 记号的要渲染成公式，纯文字保持 chip
+    final latexAliases = [
+      for (final a in leaf.aliases)
+        if (_looksLikeLatex(a)) a,
+    ];
+    final textAliases = [
+      for (final a in leaf.aliases)
+        if (!_looksLikeLatex(a)) a,
     ];
     final crumbs = [
       if (sectionName != null && sectionName!.isNotEmpty) sectionName!,
@@ -131,28 +141,40 @@ class KnowledgeLeafDetail extends StatelessWidget {
           // ── 别名 ──────────────────────────────────────────────────────
           if (leaf.aliases.isNotEmpty) ...[
             _SectionTitle('召回别名', count: leaf.aliases.length),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 5),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
               child: Text(
                 '题干里可能这样写 —— 别名命中也会把这个考点召回给 AI',
-                style: TextStyle(fontSize: 10.5, color: AppColors.ink3),
+                style: _secondary(11),
               ),
             ),
-            Wrap(
-              spacing: 5,
-              runSpacing: 5,
-              children: [
-                for (final a in leaf.aliases.take(12)) _AliasChip(text: a),
-                if (leaf.aliases.length > 12)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 3),
-                    child: Text(
-                      '+${leaf.aliases.length - 12}',
-                      style: AppTypography.caption,
+            // 文字别名（「极值」「二重积分」这类）用 chip 排；
+            // **符号别名是 LaTeX**（实测 768 条里 182 条含 `\`/`_`/`^`），
+            // 早先按普通文字显示 = 给用户看源码。现在按公式渲染，
+            // 并且走同一套"不会被裁"的排版。
+            if (textAliases.isNotEmpty)
+              Wrap(
+                spacing: 5,
+                runSpacing: 5,
+                children: [
+                  for (final a in textAliases.take(12)) _AliasChip(text: a),
+                  if (textAliases.length > 12)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text('+${textAliases.length - 12}',
+                          style: _secondary(11)),
                     ),
-                  ),
-              ],
-            ),
+                ],
+              ),
+            if (latexAliases.isNotEmpty) ...[
+              if (textAliases.isNotEmpty) const SizedBox(height: 8),
+              for (final a in latexAliases)
+                KnowledgeFormulaRow(
+                  key: ValueKey('alias-formula-${leaf.id}-$a'),
+                  tex: a,
+                  fontSize: 13,
+                ),
+            ],
           ],
         ],
       ),
@@ -167,6 +189,21 @@ String _qtypeLabel(String q) => switch (q) {
       'proof' => '证明',
       _ => q,
     };
+
+/// 这条别名看起来是 LaTeX 吗？
+///
+/// 判据取保守方向：出现反斜杠命令、上下标、或 `$` 就按公式渲染。
+/// 误判成公式的后果只是"多渲染一条"（文字改名也能被 katex 排出来），
+/// 而**漏判**的后果是用户又看到一串源码 —— 两害相权取其轻。
+bool _looksLikeLatex(String s) =>
+    s.contains(r'\') || s.contains('_') || s.contains('^') || s.contains(r'$');
+
+/// 卡片里的次要文字：比 `AppTypography.caption` 深一档。
+///
+/// `caption` 用的是 `ink3`，白底上只有 **3.2:1**，低于 AA 的 4.5:1；
+/// 卡片里的面包屑、说明、计数都属于"要读的文字"，所以显式用 ink2。
+TextStyle _secondary(double size) =>
+    TextStyle(fontSize: size, color: kSecondaryInk);
 
 /// 从本体里取出该考点的面包屑（学科分段 › 章节）。
 ///

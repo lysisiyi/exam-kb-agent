@@ -439,15 +439,16 @@ class _Legend extends StatelessWidget {
                     width: 9,
                     height: 9,
                     decoration: BoxDecoration(
-                      color: nodeFill(k),
+                      color: nodeThemeOf(k).fill,
                       borderRadius: BorderRadius.circular(2.5),
-                      border: Border.all(color: nodeBorder(k)),
+                      border: Border.all(color: nodeThemeOf(k).border),
                     ),
                   ),
                   const SizedBox(width: 5),
                   Text(
                     nodeKindLabel(k),
-                    style: const TextStyle(fontSize: 11, color: AppColors.ink2),
+                    // 图例也是要读的文字：用 ink2（ink3 只有 3.2:1）
+                    style: const TextStyle(fontSize: 11, color: kSecondaryInk),
                   ),
                 ],
               ),
@@ -479,7 +480,8 @@ class _GraphNodeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final kind = node.kind;
-    final ink = nodeInk(kind);
+    final theme = nodeThemeOf(kind);
+    final ink = theme.onFillInk;
     final w = node.point.examWeight;
 
     return Opacity(
@@ -494,10 +496,10 @@ class _GraphNodeCard extends StatelessWidget {
             borderRadius: AppRadius.rSm,
             child: Container(
               decoration: BoxDecoration(
-                color: nodeFill(kind),
+                color: theme.fill,
                 borderRadius: AppRadius.rSm,
                 border: Border.all(
-                  color: selected ? AppColors.warning : nodeBorder(kind),
+                  color: selected ? AppColors.warning : theme.border,
                   width: selected ? 2 : 1,
                 ),
               ),
@@ -511,7 +513,7 @@ class _GraphNodeCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 12.5,
                         fontWeight: kind == GraphNodeKind.leaf
                             ? FontWeight.w500
                             : FontWeight.w700,
@@ -524,13 +526,9 @@ class _GraphNodeCard extends StatelessWidget {
                     Text(
                       w.toStringAsFixed(2),
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.w700,
-                        color: w >= 0.85
-                            ? AppColors.danger
-                            : w >= 0.6
-                                ? AppColors.warningInk
-                                : AppColors.ink3,
+                        color: weightInk(w),
                       ),
                     ),
                   ],
