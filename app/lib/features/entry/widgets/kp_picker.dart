@@ -340,10 +340,12 @@ class _MatchTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final kp = match.point;
-    // 面包屑：章节名，帮助用户确认"是不是我理解的那个"
+    // 面包屑：章节名，帮助用户确认"是不是我理解的那个"。
+    // 判据用 id 段数而不是 `level`：三科树深不同（数三多一层「节」），
+    // 而 level 字段历史上与树深不一致（见 KnowledgePoint.level 的说明）。
     final path = kb.pathTo(kp.id);
     final crumbs = path
-        .where((n) => n.level >= 2 && n.id != kp.id)
+        .where((n) => n.idDepth >= 2 && n.id != kp.id)
         .map((n) => n.name)
         .join(' › ');
 

@@ -15,7 +15,13 @@ class KnowledgePoint {
 
   final String name;
 
-  /// 层级：1 科目 · 2 学科分段 · 3 章节 · 4 知识点。
+  /// 层级 = **在树里的深度**（科目根为 1）。
+  ///
+  /// ⚠️ 三科树的深度并不一样：数一/数二是「科目 → 分段 → 章节 → 叶子」4 层，
+  /// 数三多一层「节」，是 5 层。所以 `level` 表示"第几层"，**不表示"是什么"** ——
+  /// 别再用 `level == 3` 判断"是不是章节"（那个写法曾在数一上得到 0 章，
+  /// 因为它的章节历史上标成了 level 2）。结构判断一律用 [idDepth] 或
+  /// [KnowledgeBase.chapters]。
   final int level;
 
   /// 父节点 id。根节点为 null。
@@ -92,6 +98,22 @@ class KnowledgePoint {
     final parts = id.split('.');
     return parts.length >= 3 ? parts.take(3).join('.') : id;
   }
+
+  /// id 段数 = 这个节点在树里的深度（科目根为 1）。
+  ///
+  /// 这是**结构判断唯一可靠的依据** —— `level` 字段历史上与树深不一致
+  /// （见 [level] 的说明），而 id 段数是数据本身的性质。
+  int get idDepth => id.split('.').length;
+
+  /// 是不是「学科分段」（如 `math1.calc`）。
+  bool get isSection => !isLeaf && idDepth == 2;
+
+  /// 是不是「章节」（如 `math1.calc.limit`）。
+  ///
+  /// 判据是 **id 第 3 段**，与 [chapterId] 完全一致 —— 画像按 [chapterId]
+  /// 聚合，导航按本判据分章，两处必须同义，否则会出现"画像里有这一章、
+  /// 目录里找不到"。
+  bool get isChapter => !isLeaf && idDepth == 3;
 
   /// 考频的年数。用于 UI 展示"近 15 年考了 N 次"。
   int get examCount => examYears.length;
@@ -196,11 +218,67 @@ class KnowledgeBase {
       nodes.where((n) => n.isLeaf).toList(growable: false);
 
   /// 全部章节节点。
-  late final List<KnowledgePoint> chapters =
-      nodes.where((n) => !n.isLeaf && n.level == 3).toList(growable: false);
+  ///
+  /// ⚠️ 判据是 **id 段数为 3 的非叶节点**，不是 `level == 3`。
+  ///
+  /// 早先用的是 `level == 3`，而数一的章节在数据里标成了 level 2 ——
+  /// 于是这一页显示「章节 0」，而标注引擎的「章节保底」也**静默失效**
+  /// （它遍历的就是这个列表）。测试没发现，因为测试夹具用的是
+  /// "文档里的约定"（章节 level 3），与真实数据不一致。
+  ///
+  /// 现在锚在 id 上，三科分别是 19 / 11 / 20 章，且与 [KnowledgePoint.chapterId]
+  /// 同义。数据侧的校验见 `tools/data/normalize_ontology.py --check`。
+  ///
+  /// 按 id 排序而不是按文件里的出现顺序：本体文件的节点顺序**不是**拓扑序
+  /// （出现过 `math1.calc.limit` 排在 `math1.calc` 前面），而 id 的书写顺序
+  /// 才是考纲顺序 —— 与 [childrenOf] 的排序口径保持一致。
+  late final List<KnowledgePoint> chapters = nodes.where((n) => n.isChapter).toList()
+    ..sort((a, b) => a.id.compareTo(b.id));
+
+  /// 顶层节点（学科分段），按 id 排序。
+  ///
+  /// 正常情况就是科目根的直接子节点。留一层兜底：万一某个科目的分段没有
+  /// 挂在根上（数据缺陷），也照样能把树画出来，而不是显示空白。
+  late final List<KnowledgePoint> topLevel = _topLevel();
+
+  List<KnowledgePoint> _topLevel() {
+    final underRoot = childrenOf[subject];
+    if (underRoot != null && underRoot.isNotEmpty) return underRoot;
+    final orphans = nodes
+        .where((n) => n.id != subject && byId[n.parentId] == null)
+        .toList()
+      ..sort((a, b) => a.id.compareTo(b.id));
+    return orphans;
+  }
 
   /// 根节点。
   KnowledgePoint? get root => byId[subject];
+
+  /// 树的最大深度（叶子所在的深度）。
+  late final int maxDepth = leaves.isEmpty
+      ? 1
+      : leaves.map((n) => n.idDepth).reduce((a, b) => a > b ? a : b);
+
+  /// 遍历的起点 —— 图谱与大纲都从这里开始走。
+  ///
+  /// 正常是科目根；但根**存在却没有子节点**时（数据缺陷：math3 曾经有一个
+  /// 空壳根，三个分段是游离的）就退到 [topLevel]，否则整棵树会渲染成
+  /// 一个孤零零的根节点、界面上看起来就是"什么都没了"。
+  late final List<KnowledgePoint> traversalRoots = () {
+    final r = root;
+    if (r != null && (childrenOf[r.id]?.isNotEmpty ?? false)) {
+      return <KnowledgePoint>[r];
+    }
+    return topLevel;
+  }();
+
+  /// 某节点下挂着的叶子数（含更深层）。
+  int leafCountUnder(String nodeId) {
+    final self = byId[nodeId];
+    if (self == null) return 0;
+    if (self.isLeaf) return 1;
+    return leafIdsUnder(nodeId).length;
+  }
 
   /// 从根到该节点的路径（含自身）。
   List<KnowledgePoint> pathTo(String id) {

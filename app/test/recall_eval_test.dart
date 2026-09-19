@@ -279,7 +279,19 @@ void main() {
             ? 0.0
             : report.items.map((i) => i.recalled.length).reduce((a, b) => a + b) /
                 report.items.length;
-        expect(avg, lessThanOrEqualTo(25.0));
+
+        // 上限 25 是硬上限，但**长期贴在上限**说明有东西在灌水。
+        //
+        // 实测过的教训：章节判据修好之前，「章节保底」对数一完全没生效
+        // （它的章节标成了 level 2，而判据取 level == 3）。判据一修好，
+        // 19 章 × 每章保底 2 个 = 38 个候选，把候选表**每一题都塞满到 25**
+        // （实测平均候选 9.1 → 25.0）。所以给了保底一道闸门
+        // （`RecallConfig.floorTriggerHits`：真命中少于 5 个才启用）。
+        //
+        // 现在实测 9.1–17.2。卡在 18 是为了拦住"又回到每题都塞满"。
+        expect(avg, lessThanOrEqualTo(18.0),
+            reason: '平均候选数 ${avg.toStringAsFixed(1)} 偏高 —— '
+                '多半是章节保底又在无差别灌候选（见 RecallConfig.floorTriggerHits）');
       });
     }
   });

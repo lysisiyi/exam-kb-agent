@@ -863,6 +863,26 @@ void main() {
       expect(r.chapterFloorAdded, greaterThan(0));
     });
 
+    test('章节保底有闸门：命中够多时不该再来灌候选', () {
+      // 数一有 19 章，每章保底 2 个就是 38 个 —— 而候选上限只有 25。
+      // 没有闸门的话，保底会把**每一题**的候选表塞满（实测平均候选
+      // 从 9.1 涨到 25.0），而 T17 的 Top-1 是在 9–15 个候选下测的。
+      final problem = buildProblem(stem: '求极限');
+      final gated = KnowledgeRecall(
+        knowledge: kb,
+        config: const RecallConfig(minPerChapter: 2, floorTriggerHits: 0),
+      ).recall(problem);
+      expect(gated.chapterFloorAdded, 0,
+          reason: 'floorTriggerHits=0 表示闸门始终关闭，不应加保底候选');
+
+      // 反过来：闸门开着（默认 5）时，"什么都没匹配上"的题仍然拿得到保底
+      final unmatched = KnowledgeRecall(
+        knowledge: kb,
+        config: const RecallConfig(minPerChapter: 2, floorTriggerHits: 5),
+      ).recall(buildProblem(stem: 'zzz qqq 无关内容'));
+      expect(unmatched.chapterFloorAdded, greaterThan(0));
+    });
+
     test('排序稳定：同分时按考频再按 id', () {
       final problem = buildProblem(stem: '求极限');
       final r1 = KnowledgeRecall(knowledge: kb).recall(problem);

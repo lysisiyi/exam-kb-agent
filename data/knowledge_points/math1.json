@@ -44,7 +44,7 @@
     {
       "id": "math1.calc.limit",
       "name": "极限与连续",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.calc",
       "is_leaf": false,
       "exam_weight": 0.92
@@ -558,7 +558,7 @@
     {
       "id": "math1.calc.diff",
       "name": "一元函数微分学",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.calc",
       "is_leaf": false,
       "exam_weight": 0.99
@@ -859,7 +859,7 @@
     {
       "id": "math1.calc.integral",
       "name": "一元函数积分学",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.calc",
       "is_leaf": false,
       "exam_weight": 1.0
@@ -1224,7 +1224,7 @@
     {
       "id": "math1.calc.multidiff",
       "name": "多元函数微分学",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.calc",
       "is_leaf": false,
       "exam_weight": 0.75
@@ -1591,7 +1591,7 @@
     {
       "id": "math1.calc.multiintegral",
       "name": "二重积分与三重积分",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.calc",
       "is_leaf": false,
       "exam_weight": 0.71
@@ -1914,7 +1914,7 @@
     {
       "id": "math1.calc.curvesurface",
       "name": "曲线积分与曲面积分",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.calc",
       "is_leaf": false,
       "exam_weight": 0.75
@@ -2316,7 +2316,7 @@
     {
       "id": "math1.calc.series",
       "name": "无穷级数",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.calc",
       "is_leaf": false,
       "exam_weight": 0.62
@@ -2683,7 +2683,7 @@
     {
       "id": "math1.calc.ode",
       "name": "常微分方程",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.calc",
       "is_leaf": false,
       "exam_weight": 0.6
@@ -2963,7 +2963,7 @@
     {
       "id": "math1.linalg.det",
       "name": "行列式",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.linalg",
       "is_leaf": false,
       "exam_weight": 0.17
@@ -3227,7 +3227,7 @@
     {
       "id": "math1.linalg.matrix",
       "name": "矩阵",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.linalg",
       "is_leaf": false,
       "exam_weight": 0.41
@@ -3607,7 +3607,7 @@
     {
       "id": "math1.linalg.vector",
       "name": "向量",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.linalg",
       "is_leaf": false,
       "exam_weight": 0.29
@@ -3935,7 +3935,7 @@
     {
       "id": "math1.linalg.system",
       "name": "线性方程组",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.linalg",
       "is_leaf": false,
       "exam_weight": 0.6
@@ -4245,7 +4245,7 @@
     {
       "id": "math1.linalg.eigen",
       "name": "特征值与二次型",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.linalg",
       "is_leaf": false,
       "exam_weight": 0.71
@@ -4543,7 +4543,7 @@
     {
       "id": "math1.prob.events",
       "name": "随机事件与概率",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.prob",
       "is_leaf": false,
       "exam_weight": 0.25
@@ -4695,7 +4695,7 @@
     {
       "id": "math1.prob.rv1",
       "name": "一维随机变量及其分布",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.prob",
       "is_leaf": false,
       "exam_weight": 0.47
@@ -4984,7 +4984,7 @@
     {
       "id": "math1.prob.rv2",
       "name": "多维随机变量及其分布",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.prob",
       "is_leaf": false,
       "exam_weight": 0.57
@@ -6293,7 +6293,7 @@
     {
       "id": "math1.prob.numchar",
       "name": "随机变量的数字特征",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.prob",
       "is_leaf": false,
       "exam_weight": 0.4
@@ -6463,7 +6463,7 @@
     {
       "id": "math1.prob.lln",
       "name": "大数定律与中心极限定理",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.prob",
       "is_leaf": false,
       "exam_weight": 0.19
@@ -6509,7 +6509,7 @@
     {
       "id": "math1.prob.stat",
       "name": "数理统计",
-      "level": 2,
+      "level": 3,
       "parent_id": "math1.prob",
       "is_leaf": false,
       "exam_weight": 0.53

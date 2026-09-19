@@ -1,31 +1,64 @@
-/// 知识库页面 —— V1 开发期的「地基验收页」。
+/// 知识库页面：**图谱**与**大纲**两种查看方式。
 ///
-/// 这一页的用途不是最终形态，而是**证明数据层真的跑通了**：
-/// 知识点本体能载入、能按层级展开、考频权重能读出来。
+/// ## 两种视图各自回答什么
 ///
-/// M2 完成后，它会被真正的「知识点图谱」页面替换。
+/// | 视图 | 回答的问题 | 交互 |
+/// |---|---|---|
+/// | 图谱 | 「这一科长什么样」—— 层级、分布、哪些考点考频高 | 滚轮缩放、拖动平移、点节点看详情 |
+/// | 大纲 | 「第几章第几节讲了什么」—— 按考纲顺序逐行读 | 逐级展开、点考点看定义与公式 |
+///
+/// 数据是同一份本体，两种视图都**从树结构出发**（`KnowledgeBase.childrenOf`），
+/// 不依赖 `level` 字段 —— 那个字段历史上与树深不一致，曾让这里显示「章节 0」。
+///
+/// ## 为什么页头不再放大卡片
+///
+/// 图谱要占满剩余高度（它的平移手势不能与页面滚动打架），所以页头压成
+/// 一行统计 + 视图切换；「高频考点 Top 10」搬到大纲视图里 —— 它本来就是
+/// "读目录"这件事的一部分。
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/layout/breakpoints.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
 import '../../domain/knowledge/knowledge_point.dart';
+import 'knowledge_graph_view.dart';
+import 'knowledge_outline_view.dart';
 
-class KnowledgePage extends ConsumerWidget {
+/// 查看方式。
+enum KnowledgeViewMode {
+  graph('图谱', Icons.account_tree_outlined),
+  outline('大纲', Icons.format_list_bulleted);
+
+  const KnowledgeViewMode(this.label, this.icon);
+  final String label;
+  final IconData icon;
+}
+
+class KnowledgePage extends ConsumerStatefulWidget {
   const KnowledgePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<KnowledgePage> createState() => _KnowledgePageState();
+}
+
+class _KnowledgePageState extends ConsumerState<KnowledgePage> {
+  KnowledgeViewMode _mode = KnowledgeViewMode.graph;
+
+  @override
+  Widget build(BuildContext context) {
     final kbAsync = ref.watch(knowledgeBaseProvider);
 
     return kbAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, st) => _ErrorView(error: e),
-      data: (kb) => _LoadedView(kb: kb),
+      data: (kb) => _LoadedView(
+        kb: kb,
+        mode: _mode,
+        onModeChanged: (m) => setState(() => _mode = m),
+      ),
     );
   }
 }
@@ -51,414 +84,185 @@ class _ErrorView extends ConsumerWidget {
   }
 }
 
-class _LoadedView extends ConsumerWidget {
+class _LoadedView extends StatelessWidget {
   final KnowledgeBase kb;
-  const _LoadedView({required this.kb});
+  final KnowledgeViewMode mode;
+  final ValueChanged<KnowledgeViewMode> onModeChanged;
+
+  const _LoadedView({
+    required this.kb,
+    required this.mode,
+    required this.onModeChanged,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bp = BreakpointScope.of(context);
-    final wide = bp.showTwoPane;
-
-    final header = SliverToBoxAdapter(child: _Summary(kb: kb));
-    final list = _ChapterList(kb: kb);
-
-    return CustomScrollView(
-      slivers: [
-        header,
-        if (wide)
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-            sliver: list,
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-            sliver: list,
-          ),
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Header(kb: kb, mode: mode, onModeChanged: onModeChanged),
+        const Divider(height: 1),
+        Expanded(
+          child: switch (mode) {
+            KnowledgeViewMode.graph => KnowledgeGraphView(kb: kb),
+            KnowledgeViewMode.outline => KnowledgeOutlineView(kb: kb),
+          },
+        ),
       ],
     );
   }
 }
 
-class _Summary extends StatelessWidget {
+class _Header extends StatelessWidget {
   final KnowledgeBase kb;
-  const _Summary({required this.kb});
+  final KnowledgeViewMode mode;
+  final ValueChanged<KnowledgeViewMode> onModeChanged;
+
+  const _Header({
+    required this.kb,
+    required this.mode,
+    required this.onModeChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final stats = <({String label, String value})>[
-      (label: '章节', value: '${kb.chapters.length}'),
-      (label: '知识点', value: '${kb.leaves.length}'),
-      (
-        label: '含公式',
-        value: '${kb.leaves.where((l) => l.formulas.isNotEmpty).length}'
-      ),
-      (
-        label: '有考频数据',
-        value: '${kb.leaves.where((l) => l.examYears.isNotEmpty).length}'
-      ),
-    ];
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(kb.subjectName, style: AppTypography.pageTitle),
-          const SizedBox(height: 6),
-          Text(
-            '知识点本体 v${kb.version} · 这是 AI 标注的受控词表',
-            style: AppTypography.caption,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        kb.subjectName,
+                        style: AppTypography.pageTitle,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('本体 v${kb.version}', style: AppTypography.caption),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 4,
+                  children: [
+                    _Stat(label: '章节', value: '${kb.chapters.length}'),
+                    _Stat(label: '知识点', value: '${kb.leaves.length}'),
+                    _Stat(
+                      label: '含公式',
+                      value:
+                          '${kb.leaves.where((l) => l.formulas.isNotEmpty).length}',
+                    ),
+                    _Stat(
+                      label: '有考频数据',
+                      value:
+                          '${kb.leaves.where((l) => l.examYears.isNotEmpty).length}',
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 18),
-          LayoutBuilder(
-            builder: (ctx, c) {
-              final cols = c.maxWidth > 720 ? 4 : 2;
-              return GridView.count(
-                crossAxisCount: cols,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 11,
-                crossAxisSpacing: 11,
-                childAspectRatio: 1.9,
-                children: [
-                  for (final s in stats) _StatTile(label: s.label, value: s.value),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 20),
-          const Divider(),
-          const SizedBox(height: 14),
-          const Text('高频考点 Top 10（按考频权重）',
-              style: AppTypography.sectionTitle),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 7,
-            runSpacing: 7,
-            children: [
-              for (final kp in kb.leavesByWeight(limit: 10))
-                _WeightChip(kp: kp),
-            ],
-          ),
+          const SizedBox(width: 12),
+          _ModeSwitch(mode: mode, onChanged: onModeChanged),
         ],
       ),
     );
   }
 }
 
-class _StatTile extends StatelessWidget {
+class _Stat extends StatelessWidget {
   final String label;
   final String value;
-  const _StatTile({required this.label, required this.value});
+  const _Stat({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      // key 是给测试用的：页面上"3"和"章节"都可能在别处出现（图例里也有
+      // "章节"两个字），断言必须能定位到这一格
+      key: ValueKey('stat-$label'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: AppColors.ink1,
+            fontFeatures: [FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: AppTypography.caption),
+      ],
+    );
+  }
+}
+
+class _ModeSwitch extends StatelessWidget {
+  final KnowledgeViewMode mode;
+  final ValueChanged<KnowledgeViewMode> onChanged;
+
+  const _ModeSwitch({required this.mode, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.surface2,
         borderRadius: AppRadius.rMd,
-        boxShadow: AppShadows.s1,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 21,
-              fontWeight: FontWeight.w700,
-              height: 1.1,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(label, style: AppTypography.caption),
-        ],
-      ),
-    );
-  }
-}
-
-class _WeightChip extends StatelessWidget {
-  final KnowledgePoint kp;
-  const _WeightChip({required this.kp});
-
-  @override
-  Widget build(BuildContext context) {
-    final w = kp.examWeight ?? 0;
-    final color = w >= 0.85
-        ? AppColors.danger
-        : w >= 0.6
-            ? AppColors.warning
-            : AppColors.ink2;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(7),
-      ),
+      padding: const EdgeInsets.all(3),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            kp.name,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            w.toStringAsFixed(2),
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-              color: color.withValues(alpha: 0.75),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 章节 → 知识点 的两级列表。
-class _ChapterList extends StatelessWidget {
-  final KnowledgeBase kb;
-  const _ChapterList({required this.kb});
-
-  @override
-  Widget build(BuildContext context) {
-    // 学科分段 → 章节
-    final sections = kb.childrenOf[kb.subject] ?? const <KnowledgePoint>[];
-
-    return SliverList.builder(
-      itemCount: sections.length,
-      itemBuilder: (ctx, i) => _SectionBlock(kb: kb, section: sections[i]),
-    );
-  }
-}
-
-class _SectionBlock extends StatelessWidget {
-  final KnowledgeBase kb;
-  final KnowledgePoint section;
-  const _SectionBlock({required this.kb, required this.section});
-
-  @override
-  Widget build(BuildContext context) {
-    final chapters = kb.childrenOf[section.id] ?? const <KnowledgePoint>[];
-    final leafCount = chapters.fold<int>(
-      0,
-      (sum, c) => sum + kb.leafIdsUnder(c.id).length,
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: AppRadius.rLg,
-          boxShadow: AppShadows.s1,
-        ),
-        // ⚠️ 必须给 ExpansionTile 一个**自己的 Material 祖先**。
-        //
-        // ExpansionTile 内部就是 ListTile，而 ListTile 会把背景与水波纹
-        // 画在"最近的 Material 祖先"上。这里的 Container 带白底，
-        // 直接包着它就会让水波纹被压在下面 —— Flutter 会因此抛出断言：
-        //
-        //   ListTile background color or ink splashes may be invisible.
-        //   The ListTile is wrapped in a DecoratedBox that has a background color.
-        //
-        // 断言抛出后整棵子树会被替换成错误框（真机上表现为"这块是空的"）。
-        // `MaterialType.transparency` 不引入新底色，只是把 Material 祖先
-        // 挪到 DecoratedBox 内层，于是水波纹画在白底之上、可见。
-        child: Material(
-          type: MaterialType.transparency,
-          child: Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              initiallyExpanded: false,
-              tilePadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              title: Text(section.name, style: AppTypography.sectionTitle),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 3),
-                child: Text(
-                  '${chapters.length} 章 · $leafCount 个知识点',
-                  style: AppTypography.caption,
-                ),
-              ),
-              children: [
-                for (final ch in chapters) _ChapterBlock(kb: kb, chapter: ch),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ChapterBlock extends StatelessWidget {
-  final KnowledgeBase kb;
-  final KnowledgePoint chapter;
-  const _ChapterBlock({required this.kb, required this.chapter});
-
-  @override
-  Widget build(BuildContext context) {
-    final leaves = (kb.childrenOf[chapter.id] ?? const <KnowledgePoint>[])
-        .where((n) => n.isLeaf)
-        .toList();
-
-    // 同样需要自己的 Material 祖先：章节块嵌在学科分段的白色卡片里，
-    // 而 ExpansionTile 内部是 ListTile（原因见 _SectionBlock 的注释）。
-    return Material(
-      type: MaterialType.transparency,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 8),
-          childrenPadding: const EdgeInsets.only(left: 8, right: 4, bottom: 8),
-          title: Text(
-            chapter.name,
-            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: Row(
-              children: [
-                Text('${leaves.length} 个考点', style: AppTypography.caption),
-                const SizedBox(width: 10),
-                _WeightPill(weight: chapter.examWeight),
-              ],
-            ),
-          ),
-          children: [
-            for (final leaf in leaves) _LeafTile(leaf: leaf),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WeightPill extends StatelessWidget {
-  final double? weight;
-  const _WeightPill({this.weight});
-
-  @override
-  Widget build(BuildContext context) {
-    if (weight == null) return const SizedBox.shrink();
-    final w = weight!;
-    final color = w >= 0.85
-        ? AppColors.danger
-        : w >= 0.6
-            ? AppColors.warning
-            : AppColors.ink3;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Text(
-        '考频 ${w.toStringAsFixed(2)}',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-
-class _LeafTile extends StatelessWidget {
-  final KnowledgePoint leaf;
-  const _LeafTile({required this.leaf});
-
-  @override
-  Widget build(BuildContext context) {
-    final qtypes = leaf.typicalQtypes.join(' · ');
-    final years = leaf.examYears.isEmpty
-        ? '暂无考频'
-        : '考过 ${leaf.examYears.length} 次 · 最近 ${leaf.examYears.last}';
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.bg,
-          borderRadius: AppRadius.rMd,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    leaf.name,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+          for (final m in KnowledgeViewMode.values)
+            Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: () => onChanged(m),
+                borderRadius: AppRadius.rSm,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: m == mode ? AppColors.surface : null,
+                    borderRadius: AppRadius.rSm,
+                    boxShadow: m == mode ? AppShadows.s1 : null,
                   ),
-                ),
-                _WeightPill(weight: leaf.examWeight),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              [if (qtypes.isNotEmpty) qtypes, years].join(' · '),
-              style: AppTypography.caption,
-            ),
-            if (leaf.definition != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                leaf.definition!,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  height: 1.7,
-                  color: AppColors.ink2,
-                ),
-              ),
-            ],
-            if (leaf.commonTraps.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 13, color: AppColors.warning),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: Text(
-                      leaf.commonTraps.first.replaceAll('★ ', ''),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        height: 1.6,
-                        color: AppColors.warningInk,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        m.icon,
+                        size: 16,
+                        color: m == mode ? AppColors.primaryStrong : AppColors.ink3,
                       ),
-                    ),
+                      const SizedBox(width: 6),
+                      Text(
+                        m.label,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight:
+                              m == mode ? FontWeight.w700 : FontWeight.w500,
+                          color:
+                              m == mode ? AppColors.primaryStrong : AppColors.ink2,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ],
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

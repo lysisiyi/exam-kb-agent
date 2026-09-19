@@ -95,6 +95,30 @@ class RecallConfig {
   /// 每个章节至少保留的候选数（章节保底）。
   final int minPerChapter;
 
+  /// **真命中少于这个数**时才启用章节保底。
+  ///
+  /// ## 为什么需要这道闸门
+  ///
+  /// 保底的设计目的是兜住"全盘召回失败"（题干和任何知识点名都没有共同
+  /// 子串），而不是给每次标注垫底。而数学一有 **19 章**：每章保底 2 个
+  /// 就是 38 个，而 [maxCandidates] 只有 25 —— 保底会把候选表**永远塞满**。
+  ///
+  /// 这个后果一直没被发现，因为章节判据过去取的是 `level == 3`，
+  /// 而数一的章节标的是 level 2 → 保底对数一**完全没生效**（见
+  /// `KnowledgeBase.chapters`）。判据修好之后实测（67 道金标准题）：
+  ///
+  /// | | 平均候选数 |
+  /// |---|---|
+  /// | 保底不生效（修复前） | 9.1 – 14.5 |
+  /// | 保底生效且无闸门 | **25.0（顶到上限）** |
+  ///
+  /// 而 T17 的 Top-1 准确率正是在 9–15 个候选下测出来的。没有闸门，
+  /// 每次标注的 prompt 会涨两三倍，且把十几个低相关候选塞给模型。
+  ///
+  /// 有了闸门：正常题目（命中 ≥ 5 个）回到实测条件，
+  /// 只有"几乎什么都没匹配上"的题目才拿到保底候选。
+  final int floorTriggerHits;
+
   /// 公式匹配的权重。
   final double formulaWeight;
 
@@ -128,6 +152,7 @@ class RecallConfig {
   const RecallConfig({
     this.maxCandidates = 25,
     this.minPerChapter = 2,
+    this.floorTriggerHits = 5,
     this.formulaWeight = 3.0,
     this.nameWeight = 4.0,
     this.aliasWeight = 3.0,
@@ -329,7 +354,7 @@ class KnowledgeRecall {
     var floorAdded = 0;
     final selectedIds = <String>{for (final c in scored) c.point.id};
 
-    if (config.minPerChapter > 0) {
+    if (config.minPerChapter > 0 && scored.length < config.floorTriggerHits) {
       // 按章节遍历所有叶子，补齐每章不足的部分
       for (final chapter in knowledge.chapters) {
         final chapterLeafIds = knowledge.leafIdsUnder(chapter.id);

@@ -43,8 +43,8 @@
     {
       "id": "math3.calc",
       "name": "高等数学",
-      "level": 1,
-      "parent_id": null,
+      "level": 2,
+      "parent_id": "math3",
       "is_leaf": false,
       "exam_weight": 0.85,
       "exam_scope_note": "数学（三）高数不考曲线积分、曲面积分、三重积分、空间解析几何、傅里叶级数、欧拉方程；无穷级数要求低于数学（一），但须掌握一阶差分方程与经济应用。"
@@ -52,7 +52,7 @@
     {
       "id": "math3.calc.limit",
       "name": "函数、极限与连续",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.calc",
       "is_leaf": false,
       "exam_weight": 0.95
@@ -60,7 +60,7 @@
     {
       "id": "math3.calc.limit.seq",
       "name": "数列极限",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.limit",
       "is_leaf": false,
       "exam_weight": 0.49
@@ -68,7 +68,7 @@
     {
       "id": "math3.calc.limit.seq.existence",
       "name": "数列极限的存在准则",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.limit.seq",
       "is_leaf": true,
       "definition": "两个准则：① 夹逼准则——若 y_n≤x_n≤z_n 且 lim y_n=lim z_n=A，则 lim x_n=A；② 单调有界准则——单调有界数列必收敛。后者是处理递推数列 x_{n+1}=f(x_n) 的标准工具：先证有界与单调，再对递推式两边取极限解方程。",
@@ -111,7 +111,7 @@
     {
       "id": "math3.calc.limit.seq.sum",
       "name": "n 项和的极限与定积分定义",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.limit.seq",
       "is_leaf": true,
       "definition": "形如 lim_{n→∞}(1/n)∑_{k=1}^{n} f(k/n) 的 n 项和极限，可用定积分定义化为 ∫_0^1 f(x)dx 计算。识别要点：各项能写成 f(k/n) 的『同构』形式且前面配好 1/n 因子；若配不上标准形式，则改用夹逼准则放缩，或用裂项相消求和后再取极限。",
@@ -155,7 +155,7 @@
     {
       "id": "math3.calc.limit.funclimit",
       "name": "函数极限",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.limit",
       "is_leaf": false,
       "exam_weight": 0.8
@@ -163,7 +163,7 @@
     {
       "id": "math3.calc.limit.funclimit.infinitesimal",
       "name": "无穷小的比较与阶",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.limit.funclimit",
       "is_leaf": true,
       "definition": "若 lim(α/β)=0，称 α 是比 β 高阶的无穷小；若 lim(α/β)=∞，称 α 是比 β 低阶的；若 lim(α/β)=c≠0，称二者同阶；特别地 c=1 时称等价无穷小。若 lim(α/β^k)=c≠0，称 α 是 β 的 k 阶无穷小。求阶数时系数必须归一化。",
@@ -204,7 +204,7 @@
     {
       "id": "math3.calc.limit.funclimit.equivalent",
       "name": "等价无穷小替换",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.limit.funclimit",
       "is_leaf": true,
       "definition": "当 x→0 时，若 α~α'、β~β'，则在**乘除**运算中可将 α 换成 α'、β 换成 β'，极限值不变。核心限制：只能用于乘除因子，不能用于加减项；加减场景须改用泰勒展开。使用前必须先验证极限过程确实是 x→0（或其他可代换的标准过程）。",
@@ -252,7 +252,7 @@
     {
       "id": "math3.calc.limit.funclimit.lhopital",
       "name": "洛必达法则",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.limit.funclimit",
       "is_leaf": true,
       "definition": "处理 0/0 或 ∞/∞ 型未定式：若 f、g 在 x₀ 某去心邻域可导、g'(x)≠0，且 lim f'/g' 存在（或为 ∞），则 lim f/g=lim f'/g'。三个条件缺一不可，其中『导数之比的极限必须存在』最易被忽略。其他类型的未定式须先化为这两种。",
@@ -296,7 +296,7 @@
     {
       "id": "math3.calc.limit.funclimit.taylor",
       "name": "泰勒公式求极限",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.limit.funclimit",
       "is_leaf": true,
       "definition": "将函数在某点展成幂级数，用多项式逼近。求极限时把分子分母都展开到『恰好能判定首项非零』的阶数，是处理加减型未定式最可靠的方法。核心技巧是展开阶数的选择：一般展到分子分母中最低次幂相消后的下一项。",
@@ -344,7 +344,7 @@
     {
       "id": "math3.calc.diff",
       "name": "一元函数微分学",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.calc",
       "is_leaf": false,
       "exam_weight": 1
@@ -352,7 +352,7 @@
     {
       "id": "math3.calc.diff.derivative",
       "name": "导数与微分",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.diff",
       "is_leaf": false,
       "exam_weight": 0.66
@@ -360,7 +360,7 @@
     {
       "id": "math3.calc.diff.derivative.def",
       "name": "导数的定义与可导性",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.diff.derivative",
       "is_leaf": true,
       "definition": "f 在 x₀ 可导指极限 lim_{Δx→0}[f(x₀+Δx)-f(x₀)]/Δx 存在，其值记为 f'(x₀)。可导必连续，连续未必可导。判断分段函数在分界点是否可导，必须用定义分别求左右导数并比较。",
@@ -405,7 +405,7 @@
     {
       "id": "math3.calc.diff.derivative.rules",
       "name": "求导法则与高阶导数",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.diff.derivative",
       "is_leaf": true,
       "definition": "四则运算、复合函数链式法则、反函数与隐函数求导是对一元函数求导的基本工具。高阶导数 f^{(n)}(x) 是逐阶求导的结果；求 f^{(n)}(0) 时常用泰勒展开或莱布尼茨公式，而不是逐阶硬算。",
@@ -450,7 +450,7 @@
     {
       "id": "math3.calc.diff.theorem",
       "name": "微分中值定理",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.diff",
       "is_leaf": false,
       "exam_weight": 0.78
@@ -458,7 +458,7 @@
     {
       "id": "math3.calc.diff.theorem.mvt",
       "name": "罗尔定理与拉格朗日中值定理",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.diff.theorem",
       "is_leaf": true,
       "definition": "罗尔定理：f 在 [a,b] 连续、(a,b) 可导且 f(a)=f(b)，则存在 ξ∈(a,b) 使 f'(ξ)=0。拉格朗日中值定理：f 在 [a,b] 连续、(a,b) 可导，则存在 ξ∈(a,b) 使 f(b)-f(a)=f'(ξ)(b-a)。证明题的关键是构造满足条件的辅助函数。",
@@ -502,7 +502,7 @@
     {
       "id": "math3.calc.diff.theorem.cauchy",
       "name": "柯西中值定理与泰勒中值定理",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.diff.theorem",
       "is_leaf": true,
       "definition": "柯西中值定理：f、g 在 [a,b] 连续、(a,b) 可导且 g'(x)≠0，则存在 ξ∈(a,b) 使 [f(b)-f(a)]/[g(b)-g(a)]=f'(ξ)/g'(ξ)。泰勒中值定理给出带拉格朗日余项的展开式，常用于证明不等式与估计误差。",
@@ -545,7 +545,7 @@
     {
       "id": "math3.calc.diff.apply",
       "name": "导数的应用",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.diff",
       "is_leaf": false,
       "exam_weight": 0.75
@@ -553,7 +553,7 @@
     {
       "id": "math3.calc.diff.apply.concave_inflection",
       "name": "凹凸性与拐点",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.diff.apply",
       "is_leaf": true,
       "definition": "凸（下凸、凹向上）指曲线位于其切线上方，等价于 f''(x)≥0；凹（上凸）等价于 f''(x)≤0。拐点是凹凸性改变的点，必要条件是该点处 f''=0 或 f'' 不存在，且必须校验左右两侧 f'' 变号。凸函数还有一个不依赖二阶可导的弦定义。",
@@ -597,7 +597,7 @@
     {
       "id": "math3.calc.diff.apply.asymptote_curve",
       "name": "渐近线与函数作图",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.diff.apply",
       "is_leaf": true,
       "definition": "渐近线三类：① 水平渐近线 y=b，当 lim_{x→±∞}f(x)=b；② 铅直渐近线 x=x₀，当 lim_{x→x₀}f(x)=∞；③ 斜渐近线 y=ax+b，当 a=lim_{x→∞}f(x)/x 与 b=lim_{x→∞}[f(x)-ax] 均存在且 a≠0。函数作图须综合定义域、奇偶性、单调性、凹凸性、渐近线与关键点。",
@@ -641,7 +641,7 @@
     {
       "id": "math3.calc.integral",
       "name": "一元函数积分学",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.calc",
       "is_leaf": false,
       "exam_weight": 0.95
@@ -649,7 +649,7 @@
     {
       "id": "math3.calc.integral.indefinite",
       "name": "不定积分",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.integral",
       "is_leaf": false,
       "exam_weight": 0.66
@@ -657,7 +657,7 @@
     {
       "id": "math3.calc.integral.indefinite.basic",
       "name": "基本积分表与凑微分法",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.integral.indefinite",
       "is_leaf": true,
       "definition": "基本积分表是积分运算的底层工具，必须熟记到条件反射。凑微分法（第一类换元法）本质是反向使用链式法则：把被积式中的一部分凑成 du 的形式，使积分化为 ∫f(u)du。熟练的标志是能一眼看出 d(ln x)=dx/x、d(arctan x)=dx/(1+x²) 这类常见凑法。",
@@ -705,7 +705,7 @@
     {
       "id": "math3.calc.integral.indefinite.substitution",
       "name": "第二类换元积分法",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.integral.indefinite",
       "is_leaf": true,
       "definition": "当被积函数含根式时，通过变量代换 x=φ(t) 把根式消去，算出关于 t 的积分后再回代。三类标准代换：含 √(a²-x²) 令 x=a sin t；含 √(a²+x²) 令 x=a tan t；含 √(x²-a²) 令 x=a sec t。三角有理式万能代换 t=tan(x/2) 也是第二类换元的特例。",
@@ -744,7 +744,7 @@
     {
       "id": "math3.calc.integral.indefinite.parts",
       "name": "分部积分法",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.integral.indefinite",
       "is_leaf": true,
       "definition": "∫u dv=uv-∫v du，用于被积函数是两类不同函数乘积的情形。选取 u 的口诀是『反、对、幂、指、三』优先顺序（反三角、对数、幂、指数、三角），排在前的取作 u。对数与反三角函数类积分几乎必须用分部积分。",
@@ -787,7 +787,7 @@
     {
       "id": "math3.calc.integral.definite",
       "name": "定积分",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.integral",
       "is_leaf": false,
       "exam_weight": 1.0
@@ -795,7 +795,7 @@
     {
       "id": "math3.calc.integral.definite.concept",
       "name": "定积分的定义与性质",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.integral.definite",
       "is_leaf": true,
       "definition": "定积分 ∫_a^b f(x)dx 是黎曼和的极限，是一个确定的数，与积分变量记号无关。可积的充分条件是 f 在 [a,b] 上有界且只有有限个间断点。定积分对区间有可加性，且有保号性、估值定理与积分中值定理。",
@@ -841,7 +841,7 @@
     {
       "id": "math3.calc.integral.definite.ftc",
       "name": "变限积分与牛顿-莱布尼茨公式",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.integral.definite",
       "is_leaf": true,
       "definition": "变限积分 Φ(x)=∫_a^x f(t)dt 当 f 连续时可导且 Φ'(x)=f(x)，它是 f 的一个原函数，因此连续函数必存在原函数。牛顿-莱布尼茨公式把定积分化为原函数在端点的差值，是计算定积分的主通道。变限积分与极限、导数结合的题目是数三高频题型。",
@@ -891,7 +891,7 @@
     {
       "id": "math3.calc.integral.definite.improper",
       "name": "反常积分的敛散性",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.integral.definite",
       "is_leaf": true,
       "definition": "反常积分分两类：无穷区间上的积分与无界函数的积分（瑕积分）。用极限定义其收敛性，收敛才是一个数。两个基准结论必须背熟：∫_1^{+∞}dx/x^p 当 p>1 收敛、p≤1 发散；∫_0^1 dx/x^p 当 p<1 收敛、p≥1 发散。",
@@ -936,7 +936,7 @@
     {
       "id": "math3.calc.integral.apply",
       "name": "定积分的应用",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.integral",
       "is_leaf": false,
       "exam_weight": 0.6
@@ -944,7 +944,7 @@
     {
       "id": "math3.calc.integral.apply.area_volume",
       "name": "平面图形面积与旋转体体积",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.integral.apply",
       "is_leaf": true,
       "definition": "直角坐标下平面图形面积用 ∫|f(x)-g(x)|dx 或对 y 积分；极坐标下用 (1/2)∫r²(θ)dθ。旋转体体积有两种算法：绕 x 轴的圆盘法 V=π∫f²(x)dx，已知截面的柱壳法 V=2π∫x|f(x)|dx。选择哪种算法取决于旋转轴与积分方向是否匹配。",
@@ -989,7 +989,7 @@
     {
       "id": "math3.calc.multidiff",
       "name": "多元函数微分学",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.calc",
       "is_leaf": false,
       "exam_weight": 0.8
@@ -997,7 +997,7 @@
     {
       "id": "math3.calc.multidiff.basic",
       "name": "多元函数的基本概念",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.multidiff",
       "is_leaf": false,
       "exam_weight": 0.35
@@ -1005,7 +1005,7 @@
     {
       "id": "math3.calc.multidiff.basic.limit",
       "name": "二元函数的极限与连续",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.multidiff.basic",
       "is_leaf": true,
       "definition": "二元函数极限 lim_{(x,y)→(x₀,y₀)}f(x,y)=A 要求点以**任意方式**趋近时极限都存在且相等，这是与一元极限最本质的差别。若沿两条不同路径趋近得到不同极限，即可断定极限不存在。连续要求极限值等于函数值。",
@@ -1049,7 +1049,7 @@
     {
       "id": "math3.calc.multidiff.basic.differentiable",
       "name": "全微分与可微性判定",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.multidiff.basic",
       "is_leaf": true,
       "definition": "若 Δz=AΔx+BΔy+o(ρ)（ρ=√(Δx²+Δy²)），称 z 在 (x₀,y₀) 可微，此时 dz=AΔx+BΔy=f_x dx+f_y dy。判定可微的标准流程：先求 f_x、f_y，再验证 lim_{ρ→0}[Δz-f_xΔx-f_yΔy]/ρ=0。可微 ⟹ 偏导存在且连续，但反之均不成立。",
@@ -1094,7 +1094,7 @@
     {
       "id": "math3.calc.multidiff.derivative",
       "name": "多元函数求导法则",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.multidiff",
       "is_leaf": false,
       "exam_weight": 0.56
@@ -1102,7 +1102,7 @@
     {
       "id": "math3.calc.multidiff.derivative.composite",
       "name": "多元复合函数求导",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.multidiff.derivative",
       "is_leaf": true,
       "definition": "链式法则的实质是沿所有中间变量的路径求和：z=f(u,v)，u=u(x,y)，v=v(x,y)，则 ∂z/∂x=f_u·u_x+f_v·v_x。做题前应先画变量关系树，确认从自变量到因变量有几条路径、每条路径经过哪些中间变量，避免漏项或多乘。",
@@ -1145,7 +1145,7 @@
     {
       "id": "math3.calc.multidiff.derivative.implicit",
       "name": "隐函数求导",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.multidiff.derivative",
       "is_leaf": true,
       "definition": "由 F(x,y)=0 确定 y=y(x)，则 dy/dx=-F_x/F_y（F_y≠0）。由 F(x,y,z)=0 确定 z=z(x,y)，则 ∂z/∂x=-F_x/F_z、∂z/∂y=-F_y/F_z。注意这三个公式都有固定位置：分母是『被确定的那个变量』的偏导，分子是其余对应变量的偏导，前面带负号。",
@@ -1187,7 +1187,7 @@
     {
       "id": "math3.calc.multidiff.extremum",
       "name": "多元函数的极值",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.multidiff",
       "is_leaf": false,
       "exam_weight": 0.71
@@ -1195,7 +1195,7 @@
     {
       "id": "math3.calc.multidiff.extremum.lagrange",
       "name": "条件极值与拉格朗日乘数法",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.multidiff.extremum",
       "is_leaf": true,
       "definition": "求 z=f(x,y) 在约束 φ(x,y)=0 下的极值，构造拉格朗日函数 L=f(x,y)+λφ(x,y)，解方程组 L_x=0、L_y=0、L_φ=0（即 L_λ=0）。经济应用题中约束常为预算线或产出约束，目标函数为效用或利润函数。",
@@ -1238,7 +1238,7 @@
     {
       "id": "math3.calc.multidiff.extremum.econ",
       "name": "多元函数的经济应用",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.multidiff.extremum",
       "is_leaf": true,
       "definition": "数三特色考点，包括：交叉价格弹性（一种商品需求量对另一种商品价格的弹性）、柯布-道格拉斯生产函数 Q=AL^αK^β 的规模报酬判定、以及多元情形下的利润最大化。判定规模报酬看 α+β 与 1 的关系：大于 1 递增、等于 1 不变、小于 1 递减。",
@@ -1281,7 +1281,7 @@
     {
       "id": "math3.calc.multiintegral",
       "name": "二重积分",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.calc",
       "is_leaf": false,
       "exam_weight": 0.85
@@ -1289,7 +1289,7 @@
     {
       "id": "math3.calc.multiintegral.rect",
       "name": "直角坐标下的计算",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.multiintegral",
       "is_leaf": false,
       "exam_weight": 0.67
@@ -1297,7 +1297,7 @@
     {
       "id": "math3.calc.multiintegral.rect.change_order",
       "name": "交换积分次序",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.multiintegral.rect",
       "is_leaf": true,
       "definition": "当内层积分的原函数求不出时，交换次序往往能打开局面。标准步骤：① 由原累次积分写出区域 D 的不等式；② 画出 D 的草图；③ 按另一种类型重新描述 D，得到新的上下限。交换次序的实质是换一个方向切割同一区域。",
@@ -1337,7 +1337,7 @@
     {
       "id": "math3.calc.multiintegral.polar",
       "name": "极坐标下的计算",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.multiintegral",
       "is_leaf": false,
       "exam_weight": 0.75
@@ -1345,7 +1345,7 @@
     {
       "id": "math3.calc.multiintegral.polar.transform",
       "name": "极坐标变换与雅可比因子",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.multiintegral.polar",
       "is_leaf": true,
       "definition": "令 x=r cosθ、y=r sinθ，则 dσ=r dr dθ，其中 r 是雅可比行列式的绝对值。极坐标适用于积分区域为圆、扇形、圆环，或被积函数含 x²+y² 的情形。区域用 θ 的范围与 r 的上下限（一般是 θ 的函数）描述。",
@@ -1392,7 +1392,7 @@
     {
       "id": "math3.calc.multiintegral.polar.symmetry",
       "name": "对称性与轮换对称性的利用",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.multiintegral.polar",
       "is_leaf": true,
       "definition": "若积分区域 D 关于 x 轴对称，则被积函数对 y 为奇函数时积分为零，为偶函数时等于 2 倍上半区域积分；关于 y 轴对称同理。轮换对称性指 D 关于直线 y=x 对称时，把 f(x,y) 中的 x、y 互换积分值不变，常用于处理 ∫∫x²dσ 与 ∫∫y²dσ 的组合。",
@@ -1436,7 +1436,7 @@
     {
       "id": "math3.calc.series",
       "name": "无穷级数",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.calc",
       "is_leaf": false,
       "exam_weight": 0.75,
@@ -1445,7 +1445,7 @@
     {
       "id": "math3.calc.series.number",
       "name": "常数项级数",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.series",
       "is_leaf": false,
       "exam_weight": 0.39
@@ -1453,7 +1453,7 @@
     {
       "id": "math3.calc.series.number.positive",
       "name": "正项级数判别法",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.series.number",
       "is_leaf": true,
       "definition": "正项级数收敛的充要条件是部分和有界。常用判别法：比较判别法及其极限形式、比值判别法（达朗贝尔）、根值判别法（柯西）、积分判别法。使用顺序一般是：先看通项是否趋于零，再考虑比值/根值，含 n 次幂或阶乘时优先用比值法。",
@@ -1501,7 +1501,7 @@
     {
       "id": "math3.calc.series.number.alternating",
       "name": "交错级数与绝对收敛",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.series.number",
       "is_leaf": true,
       "definition": "莱布尼茨判别法：交错级数 ∑(-1)^{n-1}u_n（u_n>0）若 {u_n} 单调递减且 u_n→0，则级数收敛。若 ∑|u_n| 收敛称绝对收敛；∑u_n 收敛而 ∑|u_n| 发散称条件收敛。绝对收敛的级数必定收敛，且可任意重排求和次序。",
@@ -1547,7 +1547,7 @@
     {
       "id": "math3.calc.series.power",
       "name": "幂级数",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.series",
       "is_leaf": false,
       "exam_weight": 0.49
@@ -1555,7 +1555,7 @@
     {
       "id": "math3.calc.series.power.convergence",
       "name": "幂级数的收敛半径与收敛域",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.series.power",
       "is_leaf": true,
       "definition": "幂级数 ∑a_n x^n 的收敛半径 R 由 R=lim|a_n/a_{n+1}| 给出（或由根值法 R=1/lim√[n]{|a_n|}）。在 (-R,R) 内绝对收敛，在 |x|>R 处发散，端点 x=±R 必须单独代入判定。收敛域是收敛区间与收敛端点的并。",
@@ -1603,7 +1603,7 @@
     {
       "id": "math3.calc.series.power.expansion",
       "name": "函数展开为幂级数",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.series.power",
       "is_leaf": true,
       "definition": "函数在 x₀=0 处展开即麦克劳林级数，常用五个基本展开式必须背熟。间接展开法利用四则运算、逐项求导与逐项积分，把待展函数化归为基本展开式。展开的区间必须与原展开式的收敛区间取交集。",
@@ -1651,7 +1651,7 @@
     {
       "id": "math3.calc.ode",
       "name": "常微分方程",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.calc",
       "is_leaf": false,
       "exam_weight": 0.7,
@@ -1660,7 +1660,7 @@
     {
       "id": "math3.calc.ode.first_order",
       "name": "一阶微分方程",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.ode",
       "is_leaf": false,
       "exam_weight": 0.49
@@ -1668,7 +1668,7 @@
     {
       "id": "math3.calc.ode.first_order.linear",
       "name": "一阶线性微分方程",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.ode.first_order",
       "is_leaf": true,
       "definition": "形如 y'+P(x)y=Q(x) 的方程，通解公式为 y=e^{-∫P dx}[∫Q e^{∫P dx}dx+C]。当 Q(x)≡0 时方程齐次，通解为 y=Ce^{-∫P dx}。使用公式前必须把方程化成 y' 的系数为 1 的标准形式。",
@@ -1712,7 +1712,7 @@
     {
       "id": "math3.calc.ode.higher_order",
       "name": "高阶与二阶常系数方程",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.ode",
       "is_leaf": false,
       "exam_weight": 0.56
@@ -1720,7 +1720,7 @@
     {
       "id": "math3.calc.ode.higher_order.constant_coeff",
       "name": "二阶常系数线性微分方程",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.ode.higher_order",
       "is_leaf": true,
       "definition": "对 y''+py'+qy=f(x)，先解特征方程 r²+pr+q=0 得齐次通解：两不等实根 r₁≠r₂ 时 y=C₁e^{r₁x}+C₂e^{r₂x}；重根时 y=(C₁+C₂x)e^{rx}；共轭复根 α±βi 时 y=e^{αx}(C₁cos βx+C₂sin βx)。非齐次方程的通解=齐次通解+一个特解。",
@@ -1767,7 +1767,7 @@
     {
       "id": "math3.calc.ode.difference",
       "name": "差分方程",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.ode",
       "is_leaf": false,
       "exam_weight": 0.16,
@@ -1776,7 +1776,7 @@
     {
       "id": "math3.calc.ode.difference.first_order",
       "name": "一阶常系数线性差分方程",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.ode.difference",
       "is_leaf": true,
       "definition": "形如 y_{t+1}-a y_t=f(t)（a≠0）的差分方程。当 f(t)=0 时通解为 y_t=C a^t；当 a=1 时通解为 y_t=C。求非齐次方程特解时，f(t)=P_m(t) 设 y*=t^k Q_m(t)，k 由 a 是否为 1 决定；f(t)=b^t P_m(t) 时 k 由 b 是否等于 a 决定。",
@@ -1819,7 +1819,7 @@
     {
       "id": "math3.calc.econ",
       "name": "经济应用",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.calc",
       "is_leaf": false,
       "exam_weight": 0.6,
@@ -1828,7 +1828,7 @@
     {
       "id": "math3.calc.econ.margin",
       "name": "边际分析",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.econ",
       "is_leaf": false,
       "exam_weight": 0.31
@@ -1836,7 +1836,7 @@
     {
       "id": "math3.calc.econ.margin.functions",
       "name": "边际函数与成本收益",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.econ.margin",
       "is_leaf": true,
       "definition": "边际成本 MC=C'(Q)，边际收益 MR=R'(Q)，边际利润 ML=L'(Q)=MR-MC。利润最大化的一阶条件是 MR=MC（边际收益等于边际成本）。由边际函数求总量函数须做积分，并加上初始条件（如固定成本 C(0)）。",
@@ -1879,7 +1879,7 @@
     {
       "id": "math3.calc.econ.elasticity",
       "name": "弹性分析",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.econ",
       "is_leaf": false,
       "exam_weight": 0.24
@@ -1887,7 +1887,7 @@
     {
       "id": "math3.calc.econ.elasticity.demand",
       "name": "需求弹性与收益的关系",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.econ.elasticity",
       "is_leaf": true,
       "definition": "需求弹性（点弹性）η=-(dQ/dP)·(P/Q)，取绝对值表示价格上升 1% 引起需求量下降的百分比。η 与 1 比较决定收益变化方向：η>1（富有弹性）时降价使收益增加，η<1（缺乏弹性）时降价使收益减少，η=1 时收益不变。",
@@ -1933,7 +1933,7 @@
     {
       "id": "math3.calc.econ.interest",
       "name": "复利与贴现",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.calc.econ",
       "is_leaf": false,
       "exam_weight": 0.12
@@ -1941,8 +1941,8 @@
     {
       "id": "math3.linalg",
       "name": "线性代数",
-      "level": 1,
-      "parent_id": null,
+      "level": 2,
+      "parent_id": "math3",
       "is_leaf": false,
       "exam_weight": 0.75,
       "exam_scope_note": "数学（三）线性代数与数学（一）要求基本一致，但不考向量空间、基与坐标变换等抽象内容；重点在行列式、矩阵、向量组线性相关性、线性方程组、特征值与二次型。"
@@ -1950,7 +1950,7 @@
     {
       "id": "math3.linalg.det",
       "name": "行列式",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.linalg",
       "is_leaf": false,
       "exam_weight": 0.7
@@ -1958,7 +1958,7 @@
     {
       "id": "math3.linalg.det.definition",
       "name": "行列式的定义与性质",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.linalg.det",
       "is_leaf": false,
       "exam_weight": 0.16
@@ -1966,7 +1966,7 @@
     {
       "id": "math3.linalg.det.definition.n_order",
       "name": "n 阶行列式的定义与基本性质",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.det.definition",
       "is_leaf": true,
       "definition": "n 阶行列式是 n! 项的代数和，每项取自不同行不同列的 n 个元素之积，符号由列标排列的逆序数决定。基本性质：转置不变、两行互换变号、某行乘 k 则行列式乘 k、两行成比例则为零、某行加上另一行的 k 倍值不变。这些性质是化简计算的全部依据。",
@@ -2011,7 +2011,7 @@
     {
       "id": "math3.linalg.det.computation",
       "name": "行列式的计算",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.linalg.det",
       "is_leaf": false,
       "exam_weight": 0.21
@@ -2019,7 +2019,7 @@
     {
       "id": "math3.linalg.det.computation.special",
       "name": "特殊行列式与范德蒙德行列式",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.det.computation",
       "is_leaf": true,
       "definition": "常见特殊行列式包括：上（下）三角行列式等于主对角线元素之积；副对角线三角行列式需乘 (-1)^{n(n-1)/2}；范德蒙德行列式等于所有 x_j-x_i（i<j）之积；分块三角行列式 |A O; C B|=|A||B|。这些结论应熟记以避免每次展开。",
@@ -2063,7 +2063,7 @@
     {
       "id": "math3.linalg.matrix",
       "name": "矩阵",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.linalg",
       "is_leaf": false,
       "exam_weight": 0.85
@@ -2071,7 +2071,7 @@
     {
       "id": "math3.linalg.matrix.operation",
       "name": "矩阵运算",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.linalg.matrix",
       "is_leaf": false,
       "exam_weight": 0.28
@@ -2079,7 +2079,7 @@
     {
       "id": "math3.linalg.matrix.inverse",
       "name": "逆矩阵与伴随矩阵",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.linalg.matrix",
       "is_leaf": false,
       "exam_weight": 0.47
@@ -2087,7 +2087,7 @@
     {
       "id": "math3.linalg.matrix.inverse.rank_inverse",
       "name": "矩阵的秩与可逆性",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.matrix.inverse",
       "is_leaf": true,
       "definition": "矩阵的秩 r(A) 是最高阶非零子式的阶数，也等于行阶梯形中非零行的个数。对 n 阶方阵 A，可逆的充要条件是 r(A)=n，也等价于 |A|≠0、方程组 Ax=0 只有零解、A 的列（行）向量组线性无关。秩的常用不等式是解题核心工具。",
@@ -2136,7 +2136,7 @@
     {
       "id": "math3.linalg.matrix.inverse.adjoint",
       "name": "伴随矩阵",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.matrix.inverse",
       "is_leaf": true,
       "definition": "伴随矩阵 A* 是由 |A| 的全部代数余子式转置排列而成的 n 阶矩阵，满足 AA*=A*A=|A|E。当 |A|≠0 时 A^{-1}=A*/|A|。伴随矩阵的秩有著名的三分结论，是选择题的高频考点。",
@@ -2183,7 +2183,7 @@
     {
       "id": "math3.linalg.vector",
       "name": "向量",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.linalg",
       "is_leaf": false,
       "exam_weight": 0.8
@@ -2191,7 +2191,7 @@
     {
       "id": "math3.linalg.vector.independence",
       "name": "向量组的线性相关性",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.linalg.vector",
       "is_leaf": false,
       "exam_weight": 0.47
@@ -2199,7 +2199,7 @@
     {
       "id": "math3.linalg.vector.independence.definition",
       "name": "线性相关与线性无关",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.vector.independence",
       "is_leaf": true,
       "definition": "向量组 α₁,…,α_s 线性相关指存在不全为零的系数 k₁,…,k_s 使 ∑k_iα_i=0；否则称线性无关。判定的标准手段是以向量组为列构造矩阵 A，若 Ax=0 有非零解（即 r(A)<s）则相关。含零向量或成比例的向量组的向量组必相关。",
@@ -2245,7 +2245,7 @@
     {
       "id": "math3.linalg.vector.independence.rank_maximal",
       "name": "向量组的秩与最大无关组",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.vector.independence",
       "is_leaf": true,
       "definition": "向量组的秩是其最大线性无关组所含向量的个数，等于以这些向量为列构成的矩阵的秩。最大无关组不唯一，但所含向量个数唯一。求最大无关组的方法：把向量按列排成矩阵，做初等行变换化为行阶梯形，主元所在的列对应的原向量即构成一个最大无关组。",
@@ -2292,7 +2292,7 @@
     {
       "id": "math3.linalg.system",
       "name": "线性方程组",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.linalg",
       "is_leaf": false,
       "exam_weight": 0.9
@@ -2300,7 +2300,7 @@
     {
       "id": "math3.linalg.system.solvability",
       "name": "线性方程组的解的判定",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.linalg.system",
       "is_leaf": false,
       "exam_weight": 0.73
@@ -2308,7 +2308,7 @@
     {
       "id": "math3.linalg.system.solvability.criteria",
       "name": "解的判定定理与解的结构",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.system.solvability",
       "is_leaf": true,
       "definition": "对 Ax=b：r(A)<r(A,b) 时无解；r(A)=r(A,b)=n 时有唯一解；r(A)=r(A,b)<n 时有无穷多解，通解为特解加齐次通解的任意线性组合。对 Ax=0，解空间维数为 n-r(A)，其基础解系含 n-r(A) 个线性无关的解向量。",
@@ -2358,7 +2358,7 @@
     {
       "id": "math3.linalg.system.solvability.fundamental",
       "name": "基础解系与通解的求法",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.system.solvability",
       "is_leaf": true,
       "definition": "求 Ax=0 基础解系的标准流程：对 A 做初等行变换化为行最简形，确定主元列与自由未知量，令自由未知量依次取单位向量，解出主元变量，得到 n-r(A) 个解向量。求 Ax=b 的通解时，先求齐次基础解系，再取一组特解，相加即得。",
@@ -2404,7 +2404,7 @@
     {
       "id": "math3.linalg.eigen",
       "name": "矩阵的特征值与特征向量",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.linalg",
       "is_leaf": false,
       "exam_weight": 0.9
@@ -2412,7 +2412,7 @@
     {
       "id": "math3.linalg.eigen.computation",
       "name": "特征值与特征向量的计算",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.linalg.eigen",
       "is_leaf": false,
       "exam_weight": 0.65
@@ -2420,7 +2420,7 @@
     {
       "id": "math3.linalg.eigen.computation.definition",
       "name": "特征值与特征向量的定义与性质",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.eigen.computation",
       "is_leaf": true,
       "definition": "对 n 阶方阵 A，若存在数 λ 与非零向量 α 使 Aα=λα，则称 λ 为 A 的特征值、α 为属于 λ 的特征向量。特征值是特征方程 |λE-A|=0 的根；属于同一特征值的特征向量的非零线性组合仍是特征向量。特征值的和等于矩阵的迹，积等于行列式。",
@@ -2470,7 +2470,7 @@
     {
       "id": "math3.linalg.eigen.computation.similar",
       "name": "相似矩阵与可对角化",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.eigen.computation",
       "is_leaf": true,
       "definition": "若存在可逆矩阵 P 使 P^{-1}AP=B，称 A 与 B 相似。相似矩阵有相同的特征多项式、特征值、迹与行列式、相同的秩。n 阶矩阵可对角化的充要条件是它有 n 个线性无关的特征向量；充分条件是 n 个特征值互不相同；对每个重根 λ_i，要求其几何重数 n-r(λ_iE-A) 等于代数重数。",
@@ -2518,7 +2518,7 @@
     {
       "id": "math3.linalg.eigen.real_symmetric",
       "name": "实对称矩阵的对角化",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.linalg.eigen",
       "is_leaf": false,
       "exam_weight": 0.38
@@ -2526,7 +2526,7 @@
     {
       "id": "math3.linalg.quadratic",
       "name": "二次型",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.linalg",
       "is_leaf": false,
       "exam_weight": 0.75
@@ -2534,7 +2534,7 @@
     {
       "id": "math3.linalg.quadratic.standard",
       "name": "二次型的标准形与规范形",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.linalg.quadratic",
       "is_leaf": false,
       "exam_weight": 0.38
@@ -2542,7 +2542,7 @@
     {
       "id": "math3.linalg.quadratic.standard.inertia",
       "name": "惯性指数与正定性",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.quadratic.standard",
       "is_leaf": true,
       "definition": "标准形中正平方项的个数 p 称正惯性指数，负平方项的个数 q 称负惯性指数，p-q 称符号差，p+q=r(A)。惯性定理指出 p、q 由二次型本身唯一确定，与所用的非退化线性替换无关。f 正定的充要条件是 p=n，等价于 A 的各阶顺序主子式全大于零。",
@@ -2593,8 +2593,8 @@
     {
       "id": "math3.prob",
       "name": "概率论与数理统计",
-      "level": 1,
-      "parent_id": null,
+      "level": 2,
+      "parent_id": "math3",
       "is_leaf": false,
       "exam_weight": 0.8,
       "exam_scope_note": "数学（三）概率论与数理统计约占 22% 分值。不考假设检验与区间估计的深入内容，但随机变量及其分布、二维随机变量、数字特征、大数定律与中心极限定理、抽样分布均为必考。"
@@ -2602,7 +2602,7 @@
     {
       "id": "math3.prob.event",
       "name": "随机事件与概率",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.prob",
       "is_leaf": false,
       "exam_weight": 0.85
@@ -2610,7 +2610,7 @@
     {
       "id": "math3.prob.event.probability",
       "name": "概率的定义与计算公式",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.event",
       "is_leaf": false,
       "exam_weight": 0.3
@@ -2618,7 +2618,7 @@
     {
       "id": "math3.prob.event.probability.conditional",
       "name": "条件概率、乘法公式与全概率公式",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.event.probability",
       "is_leaf": true,
       "definition": "在 P(B)>0 下，P(A|B)=P(AB)/P(B) 称为条件概率。乘法公式 P(AB)=P(B)P(A|B)=P(A)P(B|A)。全概率公式把复杂事件按完备事件组 B₁,…,B_n 分解：P(A)=∑P(B_i)P(A|B_i)。贝叶斯公式则由结果反推原因：P(B_k|A)=P(B_k)P(A|B_k)/P(A)。",
@@ -2668,7 +2668,7 @@
     {
       "id": "math3.prob.event.probability.independence",
       "name": "事件的独立性与伯努利概型",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.event.probability",
       "is_leaf": true,
       "definition": "A 与 B 独立指 P(AB)=P(A)P(B)，等价于 P(A|B)=P(A)（当 P(B)>0）。n 个事件相互独立要求任意 k 个事件的交事件概率等于各概率之积。n 重伯努利概型中，每次试验成功概率为 p，则 n 次中恰有 k 次成功的概率为 C(n,k)p^k(1-p)^{n-k}。",
@@ -2716,7 +2716,7 @@
     {
       "id": "math3.prob.rv1",
       "name": "一维随机变量及其分布",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.prob",
       "is_leaf": false,
       "exam_weight": 0.95
@@ -2724,7 +2724,7 @@
     {
       "id": "math3.prob.rv1.distribution",
       "name": "分布函数与概率密度",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.rv1",
       "is_leaf": false,
       "exam_weight": 0.33
@@ -2732,7 +2732,7 @@
     {
       "id": "math3.prob.rv1.distribution.function",
       "name": "分布函数的性质与计算",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.rv1.distribution",
       "is_leaf": true,
       "definition": "随机变量 X 的分布函数 F(x)=P(X≤x)，它是单调不减、右连续的函数，且 F(-∞)=0、F(+∞)=1。离散型随机变量的 F 是阶梯函数，在取值点跳跃、跳跃高度等于该点的概率；连续型随机变量的 F 是连续函数。计算 P(a<X≤b)=F(b)-F(a)。",
@@ -2780,7 +2780,7 @@
     {
       "id": "math3.prob.rv1.distribution.density",
       "name": "概率密度及其性质",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.rv1.distribution",
       "is_leaf": true,
       "definition": "若存在非负可积函数 f(x) 使 F(x)=∫_{-∞}^{x}f(t)dt，称 X 为连续型随机变量，f 为概率密度。密度满足 f(x)≥0 与 ∫_{-∞}^{+∞}f(x)dx=1；在 f 的连续点处 F'(x)=f(x)。求待定常数的方法是利用归一性条件。",
@@ -2826,7 +2826,7 @@
     {
       "id": "math3.prob.rv1.common",
       "name": "常见分布",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.rv1",
       "is_leaf": false,
       "exam_weight": 0.24
@@ -2834,7 +2834,7 @@
     {
       "id": "math3.prob.rv1.common.discrete",
       "name": "常见离散型分布",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.rv1.common",
       "is_leaf": true,
       "definition": "0-1 分布 B(1,p)、二项分布 B(n,p)、泊松分布 P(λ)、几何分布 G(p)、超几何分布。二项分布描述 n 重伯努利试验的成功次数，其分布律为 C(n,k)p^k(1-p)^{n-k}。泊松分布常作为稀有事件计数模型，也是二项分布在 n 大 p 小时的近似（λ=np）。",
@@ -2882,7 +2882,7 @@
     {
       "id": "math3.prob.rv2",
       "name": "二维随机变量及其分布",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.prob",
       "is_leaf": false,
       "exam_weight": 0.9
@@ -2890,7 +2890,7 @@
     {
       "id": "math3.prob.rv2.joint",
       "name": "联合分布与边缘分布",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.rv2",
       "is_leaf": false,
       "exam_weight": 0.27
@@ -2898,7 +2898,7 @@
     {
       "id": "math3.prob.rv2.joint.distribution",
       "name": "二维随机变量的联合分布与边缘分布",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.rv2.joint",
       "is_leaf": true,
       "definition": "二维随机变量 (X,Y) 的联合分布函数 F(x,y)=P(X≤x, Y≤y)。边缘分布由联合分布『求和或积分掉』另一个变量得到：离散型对另一个变量求和，连续型对另一个变量积分。联合分布能唯一确定边缘分布，但边缘分布不能唯一确定联合分布。",
@@ -2948,7 +2948,7 @@
     {
       "id": "math3.prob.rv2.independence",
       "name": "随机变量的独立性",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.rv2",
       "is_leaf": false,
       "exam_weight": 0.24
@@ -2956,7 +2956,7 @@
     {
       "id": "math3.prob.rv2.independence.condition",
       "name": "独立性的判定与条件分布",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.rv2.independence",
       "is_leaf": true,
       "definition": "X 与 Y 相互独立指对任意 x、y 有 F(x,y)=F_X(x)F_Y(y)，对连续型等价于 f(x,y)=f_X(x)f_Y(y)（在连续点），对离散型等价于 p_ij=p_i·p_·j。判定独立的实用技巧：若联合密度（或分布律）能分离成只含 x 的函数与只含 y 的函数之积，且定义域是矩形，则独立。条件密度 f_{X|Y}(x|y)=f(x,y)/f_Y(y)。",
@@ -3004,7 +3004,7 @@
     {
       "id": "math3.prob.rv2.function",
       "name": "二维随机变量函数的分布",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.rv2",
       "is_leaf": false,
       "exam_weight": 0.33
@@ -3012,7 +3012,7 @@
     {
       "id": "math3.prob.rv2.function.sums",
       "name": "最大值最小值与和的分布",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.rv2.function",
       "is_leaf": true,
       "definition": "设 X、Y 独立，则 M=max(X,Y) 的分布函数为 F_M(z)=F_X(z)F_Y(z)，N=min(X,Y) 的分布函数为 F_N(z)=1-[1-F_X(z)][1-F_Y(z)]。和的分布由卷积公式给出：连续型 f_Z(z)=∫f_X(x)f_Y(z-x)dx，正态分布具有可加性。",
@@ -3063,7 +3063,7 @@
     {
       "id": "math3.prob.numeric",
       "name": "随机变量的数字特征",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.prob",
       "is_leaf": false,
       "exam_weight": 0.95
@@ -3071,7 +3071,7 @@
     {
       "id": "math3.prob.numeric.expectation",
       "name": "数学期望与方差",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.numeric",
       "is_leaf": false,
       "exam_weight": 0.3
@@ -3079,7 +3079,7 @@
     {
       "id": "math3.prob.numeric.expectation.definition",
       "name": "数学期望与方差的计算",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.numeric.expectation",
       "is_leaf": true,
       "definition": "离散型 E(X)=∑x_i p_i，连续型 E(X)=∫xf(x)dx，要求级数或积分绝对收敛，否则期望不存在。方差 D(X)=E{[X-E(X)]²}，实用计算公式为 D(X)=E(X²)-[E(X)]²。E(X) 反映取值的中心位置，D(X) 反映取值的离散程度。",
@@ -3137,7 +3137,7 @@
     {
       "id": "math3.prob.numeric.expectation.common",
       "name": "常见分布的期望与方差",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.numeric.expectation",
       "is_leaf": true,
       "definition": "必须熟记的常用结论：0-1 分布 E=p、D=p(1-p)；二项分布 B(n,p) 的 E=np、D=np(1-p)；泊松分布 P(λ) 的 E=D=λ；均匀分布 U(a,b) 的 E=(a+b)/2、D=(b-a)²/12；指数分布 E(λ) 的 E=1/λ、D=1/λ²；正态分布 N(μ,σ²) 的 E=μ、D=σ²。",
@@ -3196,7 +3196,7 @@
     {
       "id": "math3.prob.numeric.covariance",
       "name": "协方差与相关系数",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.numeric",
       "is_leaf": false,
       "exam_weight": 0.22
@@ -3204,7 +3204,7 @@
     {
       "id": "math3.prob.numeric.covariance.correlation",
       "name": "协方差、相关系数与矩",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.numeric.covariance",
       "is_leaf": true,
       "definition": "协方差 Cov(X,Y)=E{[X-E(X)][Y-E(Y)]}=E(XY)-E(X)E(Y)，相关系数 ρ_{XY}=Cov(X,Y)/√(D(X)D(Y))，取值必在 [-1,1] 内。ρ=0 时称 X 与 Y 不相关，等价于 Cov(X,Y)=0，但不蕴含独立。|ρ|=1 的充要条件是 Y 与 X 以概率 1 成线性关系。",
@@ -3256,7 +3256,7 @@
     {
       "id": "math3.prob.limit",
       "name": "大数定律与中心极限定理",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.prob",
       "is_leaf": false,
       "exam_weight": 0.7
@@ -3264,7 +3264,7 @@
     {
       "id": "math3.prob.limit.laws",
       "name": "大数定律与中心极限定理",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.limit",
       "is_leaf": false,
       "exam_weight": 0.18
@@ -3272,7 +3272,7 @@
     {
       "id": "math3.prob.limit.laws.lln_clt",
       "name": "切比雪夫不等式、大数定律与中心极限定理",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.limit.laws",
       "is_leaf": true,
       "definition": "切比雪夫不等式给出偏离均值的概率上界。辛钦大数定律指出独立同分布且期望存在的随机变量序列，其算术平均依概率收敛于期望；伯努利大数定律是频率稳定性的理论依据。列维-林德伯格中心极限定理指出独立同分布且方差有限的序列，其标准化的部分和依分布收敛于标准正态分布。",
@@ -3322,7 +3322,7 @@
     {
       "id": "math3.prob.stats",
       "name": "数理统计的基本概念",
-      "level": 2,
+      "level": 3,
       "parent_id": "math3.prob",
       "is_leaf": false,
       "exam_weight": 0.65,
@@ -3331,7 +3331,7 @@
     {
       "id": "math3.prob.stats.sample",
       "name": "总体、样本与统计量",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.stats",
       "is_leaf": false,
       "exam_weight": 0.22
@@ -3339,7 +3339,7 @@
     {
       "id": "math3.prob.stats.sample.statistics",
       "name": "样本均值与样本方差",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.stats.sample",
       "is_leaf": true,
       "definition": "设 X₁,…,X_n 是来自总体 X 的简单随机样本（相互独立且与 X 同分布）。样本均值 X̄=(1/n)∑X_i 与样本方差 S²=[1/(n-1)]∑(X_i-X̄)² 是最重要的两个统计量。样本方差用 n-1 作分母是为保证无偏性，即 E(S²)=D(X)。",
@@ -3386,7 +3386,7 @@
     {
       "id": "math3.prob.stats.distributions",
       "name": "常用统计分布与抽样分布定理",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.stats",
       "is_leaf": false,
       "exam_weight": 0.24
@@ -3394,7 +3394,7 @@
     {
       "id": "math3.prob.stats.distributions.chi_t_f",
       "name": "χ² 分布、t 分布与 F 分布",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.stats.distributions",
       "is_leaf": true,
       "definition": "χ²(n) 是 n 个相互独立的标准正态变量平方和所服从的分布；t(n)=X/√(Y/n)，其中 X~N(0,1)、Y~χ²(n) 且相互独立；F(m,n)=(U/m)/(V/n)，其中 U~χ²(m)、V~χ²(n) 且相互独立。正态总体下 X̄ 与 S² 相互独立，由此得到三个基本的抽样分布定理。",
@@ -3448,7 +3448,7 @@
     {
       "id": "math3.linalg.eigen.real_symmetric.properties",
       "name": "实对称矩阵的性质与正交对角化",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.eigen.real_symmetric",
       "is_leaf": true,
       "definition": "实对称矩阵 A（A^T=A）的特征值全为实数；属于不同特征值的特征向量必正交；必可正交对角化，即存在正交矩阵 Q 使 Q^{-1}AQ=Q^TAQ=Λ 为对角矩阵。求 Q 的流程：求特征值与特征向量，对重根的特征向量做施密特正交化，最后全部单位化并按列排成 Q。",
@@ -3496,7 +3496,7 @@
     {
       "id": "math3.linalg.quadratic.standard.transform",
       "name": "二次型的矩阵表示与化标准形",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.quadratic.standard",
       "is_leaf": true,
       "definition": "二次型 f(x₁,…,x_n)=∑∑a_ij x_i x_j 可写成 f=x^TAx，其中 A 为实对称矩阵，且 A 由 f 唯一确定（交叉项系数要平分给 a_ij 与 a_ji）。化标准形有两种方法：正交变换法（求 A 的特征值）与配方法。正交变换保持二次型的几何形状，配方法得到的变换矩阵不一定是正交的。",
@@ -3547,7 +3547,7 @@
     {
       "id": "math3.calc.econ.interest.compound",
       "name": "复利、连续复利与贴现",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.econ.interest",
       "is_leaf": true,
       "definition": "一笔本金 A 以年利率 r 计息，t 年后的终值：按年复利为 A(1+r)^t，每年计 m 次为 A(1+r/m)^{mt}，连续复利为 Ae^{rt}（由 lim(1+r/m)^m=e^r 得到）。反向过程称贴现：t 年后的金额 B 按连续复利折算为现值 Be^{-rt}。数三常考变利率与连续收益流问题。",
@@ -3594,7 +3594,7 @@
     {
       "id": "math3.prob.event.probability.classical",
       "name": "古典概型与几何概型",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.event.probability",
       "is_leaf": true,
       "definition": "古典概型要求样本空间有限且每个基本事件等可能，此时 P(A)=A 包含的基本事件数/基本事件总数。几何概型把『等可能』推广到无限样本空间，用测度之比（长度、面积、体积）计算概率。两者都必须先确认等可能性成立。",
@@ -3638,7 +3638,7 @@
     {
       "id": "math3.prob.rv1.common.continuous",
       "name": "常见连续型分布",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.rv1.common",
       "is_leaf": true,
       "definition": "均匀分布 U(a,b)、指数分布 E(λ)、正态分布 N(μ,σ²)。均匀分布的密度在区间内为常数 1/(b-a)；指数分布密度为 λe^{-λx}(x>0)，具有无记忆性；正态分布是最重要的分布，标准化后查标准正态分布表计算概率。",
@@ -3691,7 +3691,7 @@
     {
       "id": "math3.prob.rv1.function.distribution_method",
       "name": "分布函数法求随机变量函数的分布",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.prob.rv1.function",
       "is_leaf": true,
       "definition": "求 Y=g(X) 的分布：先写 F_Y(y)=P(Y≤y)=P(g(X)≤y)，把不等式化为关于 X 的条件再用 X 的分布计算，最后对 y 求导得密度。当 g 单调可导时可用公式法 f_Y(y)=f_X(h(y))|h'(y)|，其中 h 是 g 的反函数。非单调的 g（如 Y=X²）必须用分布函数法。",
@@ -3737,7 +3737,7 @@
     {
       "id": "math3.linalg.matrix.operation.basic",
       "name": "矩阵的线性运算与乘法",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.matrix.operation",
       "is_leaf": true,
       "definition": "矩阵乘法要求左矩阵的列数等于右矩阵的行数，结果为 m×s 矩阵。乘法不满足交换律，一般不满足消去律（AB=AC 且 A≠O 推不出 B=C）。转置满足 (AB)^T=B^T A^T。方阵的幂与多项式运算只对同一矩阵有意义。",
@@ -3786,7 +3786,7 @@
     {
       "id": "math3.linalg.det.computation.expansion",
       "name": "按行列展开与余子式",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.linalg.det.computation",
       "is_leaf": true,
       "definition": "元素 a_ij 的余子式 M_ij 是划去第 i 行第 j 列后的 n-1 阶行列式，代数余子式 A_ij=(-1)^{i+j}M_ij。按行展开：|A|=∑_j a_ij A_ij；错位展开（某行元素乘另一行的代数余子式）恒为零。计算时优先找零元素多的行或列展开。",
@@ -3831,7 +3831,7 @@
     {
       "id": "math3.calc.ode.first_order.separable",
       "name": "可分离变量方程与齐次方程",
-      "level": 4,
+      "level": 5,
       "parent_id": "math3.calc.ode.first_order",
       "is_leaf": true,
       "definition": "可分离变量方程形如 dy/dx=f(x)g(y)，两边分离后各自积分即可，注意 g(y)=0 可能给出被遗漏的常数解。齐次方程形如 dy/dx=φ(y/x)，令 u=y/x（即 y=ux）化为可分离变量方程。判定齐次的关键是右端只依赖 y/x。",
@@ -3875,7 +3875,7 @@
     {
       "id": "math3.prob.rv1.function",
       "name": "随机变量函数的分布",
-      "level": 3,
+      "level": 4,
       "parent_id": "math3.prob.rv1",
       "is_leaf": false,
       "exam_weight": 0.31

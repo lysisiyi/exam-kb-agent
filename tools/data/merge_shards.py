@@ -220,7 +220,7 @@ def coverage_report(subject: str, by_id: dict[str, dict]) -> tuple[list[str], li
 
 
 def ensure_anchors(nodes: list[dict], subject: str, subject_name: str) -> list[dict]:
-    """补齐根节点与学科分段节点。"""
+    """补齐根节点与学科分段节点，并把 level / 父链接归一。"""
     existing = {n["id"] for n in nodes if n.get("id")}
     section_names = {
         "calc": "高等数学", "linalg": "线性代数", "prob": "概率论与数理统计",
@@ -249,6 +249,20 @@ def ensure_anchors(nodes: list[dict], subject: str, subject_name: str) -> list[d
             "parent_id": subject, "is_leaf": False, "exam_weight": 0.9,
         })
         existing.add(sec)
+
+    # 归一：`level` 必须等于 id 段数（树深），游离节点挂到科目根下。
+    #
+    # 为什么必须做：分片里的章节是"分片内的第 2 层"，并进来之后会与学科
+    # 分段同为 level 2 —— 而 App 的"章节"判据过去正是 `level == 3`，
+    # 于是 math1 显示"章节 0"（见 tools/data/knowledge_tree.py 的说明）。
+    # 分片还会带出没有父节点的分段（math3 就是这样），也一并挂到根下。
+    for n in out:
+        nid = n.get("id") or ""
+        if not nid:
+            continue
+        if nid != subject and not n.get("parent_id"):
+            n["parent_id"] = subject
+        n["level"] = knowledge_tree.id_depth(nid)
 
     return out
 
