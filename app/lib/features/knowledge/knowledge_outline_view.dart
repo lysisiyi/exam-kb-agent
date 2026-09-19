@@ -136,7 +136,8 @@ class _KnowledgeOutlineViewState extends State<KnowledgeOutlineView> {
                       child: KnowledgeLeafDetail(
                         key: ValueKey('outline-detail-${r.node.id}'),
                         leaf: r.node,
-                        chapterName: kb.byId[r.node.chapterId]?.name,
+                        sectionName: detailBreadcrumb(kb, r.node.id).section,
+                        chapterName: detailBreadcrumb(kb, r.node.id).chapter,
                       ),
                     ),
                 ],

@@ -597,7 +597,7 @@ class _EdgePainter extends CustomPainter {
 // 选中详情
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SelectionPanel extends StatelessWidget {
+class _SelectionPanel extends StatefulWidget {
   final KnowledgeBase kb;
   final GraphNode node;
   final KnowledgeGraph graph;
@@ -611,18 +611,69 @@ class _SelectionPanel extends StatelessWidget {
   });
 
   @override
+  State<_SelectionPanel> createState() => _SelectionPanelState();
+}
+
+class _SelectionPanelState extends State<_SelectionPanel> {
+  /// 详情比面板高时，底部给一条"还有内容"的提示。
+  ///
+  /// 为什么值得单独做：面板有高度上限，内容被硬切在边缘时**看不出还能滚** ——
+  /// 用户反馈的"公式显示不完整"里就有这种情况（公式的下半截在面板外）。
+  final ScrollController _scroll = ScrollController();
+  bool _hasMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_checkMore);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkMore());
+  }
+
+  @override
+  void didUpdateWidget(_SelectionPanel old) {
+    super.didUpdateWidget(old);
+    if (old.node.id != widget.node.id) {
+      _hasMore = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkMore());
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_checkMore);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _checkMore() {
+    if (!_scroll.hasClients) return;
+    final p = _scroll.position;
+    final more = p.maxScrollExtent - p.pixels > 8;
+    if (more != _hasMore && mounted) setState(() => _hasMore = more);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final kb = widget.kb;
+    final node = widget.node;
     final leafCount = kb.leafCountUnder(node.id);
     final crumbs = kb
         .pathTo(node.id)
         .where((n) => n.id != node.id)
         .map((n) => n.name)
         .join(' › ');
+    final leafCrumb = detailBreadcrumb(kb, node.point.id);
 
     return Material(
       type: MaterialType.transparency,
       child: Container(
-        constraints: const BoxConstraints(maxHeight: 260),
+        // 面板高度：详情卡有 600–900px 高，早先卡在 260px 时用户只能看见
+        // 定义和一个开头 —— 看着就像"公式被切掉了"。改成跟着窗口给，
+        // 上限 45% 视口高（图谱本身还剩一半可见）。
+        constraints: BoxConstraints(
+          maxHeight: (MediaQuery.sizeOf(context).height * 0.45)
+              .clamp(220.0, 460.0),
+        ),
         decoration: BoxDecoration(
           color: AppColors.surface.withValues(alpha: 0.97),
           borderRadius: AppRadius.rLg,
@@ -655,7 +706,7 @@ class _SelectionPanel extends StatelessWidget {
                     ),
                   ),
                 IconButton(
-                  onPressed: onClose,
+                  onPressed: widget.onClose,
                   icon: const Icon(Icons.close, size: 17),
                   tooltip: '关闭',
                   visualDensity: VisualDensity.compact,
@@ -664,17 +715,60 @@ class _SelectionPanel extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Flexible(
-              child: SingleChildScrollView(
-                child: node.kind == GraphNodeKind.leaf
-                    ? KnowledgeLeafDetail(
-                        leaf: node.point,
-                        chapterName: kb.byId[node.point.chapterId]?.name,
-                      )
-                    : _BranchSummary(
-                        kb: kb,
-                        node: node,
-                        leafCount: leafCount,
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    controller: _scroll,
+                    child: node.kind == GraphNodeKind.leaf
+                        ? KnowledgeLeafDetail(
+                            leaf: node.point,
+                            sectionName: leafCrumb.section,
+                            chapterName: leafCrumb.chapter,
+                          )
+                        : _BranchSummary(
+                            kb: kb,
+                            node: node,
+                            leafCount: leafCount,
+                          ),
+                  ),
+                  // 被高度上限截住时明确告诉用户"下面还有" ——
+                  // 硬切在边缘的话，看不出还能滚（用户会以为公式不完整）
+                  if (_hasMore)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: IgnorePointer(
+                        child: Container(
+                          key: const ValueKey('panel-more-hint'),
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                AppColors.surface.withValues(alpha: 0),
+                                AppColors.surface,
+                              ],
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.keyboard_arrow_down,
+                                  size: 14, color: AppColors.ink3),
+                              SizedBox(width: 3),
+                              Text(
+                                '下面还有内容，可滚动查看',
+                                style: TextStyle(
+                                    fontSize: 10.5, color: AppColors.ink3),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
+                    ),
+                ],
               ),
             ),
           ],

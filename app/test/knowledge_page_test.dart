@@ -25,6 +25,15 @@ import 'package:kaoyan_math_agent/features/knowledge/knowledge_page.dart';
 
 import 'support/knowledge_fixture.dart';
 
+/// 真实本体（数一）。数据不在时返回合成夹具，调用方按 id 是否存在自行跳过。
+KnowledgeBase realMath1OrSkip() {
+  final f = File('../data/knowledge_points/math1.json');
+  if (!f.existsSync()) return math1LikeKb();
+  return KnowledgeBase.fromJson(
+    (jsonDecode(f.readAsStringSync()) as Map).cast<String, dynamic>(),
+  );
+}
+
 void main() {
   /// 起一页知识库（图谱模式是默认）。
   Future<void> pumpPage(
@@ -207,6 +216,26 @@ void main() {
 
       expect(find.textContaining('3 个知识点'), findsWidgets);
       expect(find.textContaining('math1.calc.limit'), findsWidgets);
+    });
+
+    testWidgets('详情比面板高时，底部提示"下面还有内容"', (tester) async {
+      // 真机上的表现：面板有高度上限，公式被切在边缘又看不出能滚 ——
+      // 用户会直接判定成"公式显示不完整"
+      await pumpPage(tester, kb: realMath1OrSkip(), size: const Size(1000, 620));
+      final node = find.byKey(const ValueKey('graph-node-math1.calc.limit.func'));
+      if (node.evaluate().isEmpty) {
+        markTestSkipped('没有真实本体数据');
+        return;
+      }
+      // 数一的图很宽，先把整树缩进视口，节点才点得到
+      await tester.tap(find.byTooltip('看全整树'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(node);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('panel-more-hint')), findsOneWidget);
+      expect(find.text('下面还有内容，可滚动查看'), findsOneWidget);
     });
   });
 

@@ -70,6 +70,78 @@ class TextChunk extends MathChunk {
 /// 这条公式里的中文能不能被安全摘出来。
 bool canSplit(String tex) => splitLatexText(tex).any((c) => c is TextChunk);
 
+/// 把一条**长公式**按顶层的 `\quad` / `\qquad` 拆成几段，便于逐行排版。
+///
+/// ## 为什么需要它
+///
+/// 本体的公式平均 **64 字符**、最长 **227 字符**（实测 824 条）。一条
+/// `\lim_{x\to x_0}f(x)=A \iff \forall\varepsilon>0,\exists\delta>0,\dots`
+/// 在 14px 下宽 500–700px，塞进固定宽度的框里只剩两个选择：裁掉一截
+/// （用户看不全）或缩到看不清。
+///
+/// 而数据里大量使用 `\quad` 作为**并列分隔**（`\sin x\sim x,\quad \tan x\sim x`
+/// 这种等价表就是典型）。拆成一行一条，既不裁也不缩，读起来也和教材一致。
+/// 实测 824 条里有 **295 条**含顶层 `\quad`。
+///
+/// ## 只在"顶层"拆
+///
+/// `\quad` 出现在 `{...}`、`\left..\right`、环境里时**不能拆** ——
+/// 那会把结构切断（`\left(\frac00\quad\frac11\right)` 拆开就不成对了）。
+/// 判据直接复用 [_isTopLevel]（花括号深度 + `\left..\right`/环境配对 +
+/// 上下标），与"摘中文"那条路径同一套逻辑 —— 免得两处对"什么是顶层"的
+/// 理解慢慢分叉。
+///
+/// 返回至少一个元素；不含顶层分隔符时原样返回整条公式。
+List<String> splitTopLevelQuad(String tex) {
+  final parts = <String>[];
+  final buf = StringBuffer();
+  var i = 0;
+
+  while (i < tex.length) {
+    final sep = tex[i] == r'\' ? _matchQuadSeparator(tex, i) : null;
+    if (sep != null && _isTopLevel(tex, i)) {
+      parts.add(buf.toString());
+      buf.clear();
+      i += sep.length;
+      // 吃掉分隔符后面的空白，免得每段以空格开头
+      while (i < tex.length && (tex[i] == ' ' || tex[i] == '\t')) {
+        i++;
+      }
+      continue;
+    }
+
+    // 普通命令 / 转义：连同下一个字符一起写进去（`\{` 不能被当成花括号）
+    buf.write(tex[i]);
+    i++;
+    if (i < tex.length && tex[i - 1] == r'\') {
+      buf.write(tex[i]);
+      i++;
+    }
+  }
+  parts.add(buf.toString());
+
+  final cleaned = [
+    for (final s in parts)
+      if (s.trim().isNotEmpty) s.trim(),
+  ];
+  return cleaned.isEmpty ? [tex] : cleaned;
+}
+
+/// [i] 处是不是 `\quad` / `\qquad`（长的先判；后面不能跟字母）。
+String? _matchQuadSeparator(String tex, int i) {
+  for (final cmd in const [r'\qquad', r'\quad']) {
+    if (!tex.startsWith(cmd, i)) continue;
+    final after = i + cmd.length;
+    if (after < tex.length) {
+      final c = tex.codeUnitAt(after);
+      final isLetter = (c >= 0x61 && c <= 0x7A) || (c >= 0x41 && c <= 0x5A);
+      if (isLetter) continue; // `\quadratic` 之类不是分隔符
+    }
+    return cmd;
+  }
+  return null;
+}
+
 /// 把 [tex] 切成 LaTeX 片段与普通文本片段交替的序列。
 ///
 /// 返回结果保证：`map(tex).join('')` 还原不出原始串（因为 `\text{}` 外壳被去掉了），
