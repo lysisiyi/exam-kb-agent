@@ -214,7 +214,45 @@ abstract final class LlmPricing {
   const LlmPricing._();
 
   /// 模型名（小写包含匹配）→ (输入价, 输出价)，单位：元/百万 token。
+  ///
+  /// ## 维护约定
+  ///
+  /// - **只放查得到的价**。查不到就让 [estimate] 返回 null、界面显示"未知" ——
+  ///   编一个数字出来比"未知"更糟：用户会照着一个假价格决定要不要花这笔钱。
+  /// - 每条注明**来源**；价格变了先改这里，再改下面的核对日期。
+  /// - ⚠️ 匹配是**子串**匹配、取第一个命中的条目，所以**长名字要排在前面**：
+  ///   `glm-4.6v-flashx` 必须排在 `glm-4.6v-flash` 与 `glm-4.6v` 之前，
+  ///   否则前者会被当成后者估价（会少算钱，方向虽然"讨好"但是错的）。
+  /// - 美元价按 1 USD ≈ 7.25 元折算，并在条目上写出原价。
+  ///
+  /// 核对日期：2026-09-18
   static const Map<String, (double, double)> _table = {
+    // ── 视觉模型（批量导入用得到的那些）─────────────────────────────────
+    // 阿里云百炼 · 华北 2（北京）：官方价目表就直接写"元/每百万 tokens"
+    // https://help.aliyun.com/zh/model-studio/qwen-vl-max
+    'qwen-vl-max': (1.6, 4.0),
+    // https://help.aliyun.com/zh/model-studio/qwen-vl-plus
+    'qwen-vl-plus': (0.8, 2.0),
+    // 智谱开放平台：视觉模型同样按 元/百万 tokens，长上下文分档，这里取最低档
+    // https://bigmodel.cn/pricing
+    'glm-4.6v-flashx': (0.15, 1.5),
+    'glm-4.6v-flash': (0.0, 0.0), // 官方标注免费
+    'glm-4.6v': (1.0, 3.0),
+    'glm-4.5v': (2.0, 6.0),
+    'glm-4v-plus': (4.0, 2.0),
+    'glm-4v-flash': (0.0, 0.0), // 官方标注免费（首个免费视觉模型）
+    'glm-4v': (50.0, 25.0),
+    // Google：$0.10 / $0.40 每百万 token（× 7.25）
+    // https://aipricinghub.com/models/google-gemini-gemini-2-0-flash-001
+    'gemini-2.0-flash': (0.7, 2.9),
+    // 本地推理（Ollama）没有 API 费用 —— 记 0，用量台账才不会显示"未知"
+    'llava': (0.0, 0.0),
+    'qwen2.5vl': (0.0, 0.0),
+    'minicpm-v': (0.0, 0.0),
+    'bakllava': (0.0, 0.0),
+    'moondream': (0.0, 0.0),
+
+    // ── 文本模型 ────────────────────────────────────────────────────────
     'deepseek-chat': (1.0, 2.0),
     'deepseek-reasoner': (4.0, 16.0),
     'qwen-turbo': (0.3, 0.6),
@@ -229,7 +267,15 @@ abstract final class LlmPricing {
     'claude-3-5-sonnet': (22.0, 108.0),
     'gemini-1.5-flash': (0.5, 1.5),
     'gemini-1.5-pro': (9.0, 36.0),
-    'moonshot-v1-8k': (12.0, 12.0),
+    // Moonshot：2025-04-07 那轮调价把 8k 系列从 12/12 降到 2/10
+    // （旧价正是本表原来写的那一条 —— 已按官方文档更正）
+    // https://github.com/hkai-ai/LLM_OFFICIAL_DOCUMENTATION/blob/main/moonshot/pricing.md
+    'moonshot-v1-128k': (10.0, 30.0),
+    'moonshot-v1-32k': (5.0, 20.0),
+    'moonshot-v1-8k': (2.0, 10.0),
+    // `kimi-latest` 会按上下文自动选 8k/32k/128k 计费，这里取**最低档**；
+    // 长上下文实际会到 5/20 或 10/30，所以估算偏乐观
+    'kimi-latest': (2.0, 10.0),
   };
 
   /// 估算费用。未知模型返回 null。
