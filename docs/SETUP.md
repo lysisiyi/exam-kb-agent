@@ -1,7 +1,12 @@
 # 环境搭建（Windows）
 
-> 本文档记录本机实测的环境状态与补齐步骤。
+> 本文档记录**作者机器上**实测的环境状态与补齐步骤。
 > 最后更新：2026-03-15
+>
+> 📌 **读者请注意**：下面的路径（如 `D:\software\flutter`）是**作者机器上的位置**，
+> 不是要求。Flutter 装在哪个盘都行，只要 `flutter` 在 PATH 上 —— 仓库根的
+> `run_app.bat` 就是这么找的（它不再写死路径）。
+> 真正通用的部分是 §2「安装步骤」与 §3「国内网络的坑」，那两节可以直接照做。
 
 ---
 
@@ -21,10 +26,10 @@ python tools/setup_windows.py --check
 [sqlite3]  [OK]  版本 3.5.2 匹配；hook 缓存已就绪
 ```
 
-**Flutter 已装在 `D:\software\flutter`，PATH 与镜像已配置。**
+**作者机器上 Flutter 装在 `D:\software\flutter`，PATH 与镜像已配置。**
 
-> ⚠️ 首次跑 `win` 命令前请确认 `D:\software\flutter\bin` 在当前 PATH 里。
-> 若新开的终端仍找不到 `flutter`，把 `D:\software\flutter\bin` 手动加进系统 PATH。
+> ⚠️ 首次跑 `flutter` 命令前请确认 `<你的 Flutter 目录>\bin` 在当前 PATH 里。
+> 若新开的终端仍找不到 `flutter`，把它手动加进系统 PATH。
 
 ---
 

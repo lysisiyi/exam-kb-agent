@@ -330,11 +330,32 @@ LLM 客户端与错误分类、平台能力抽象。
 
 ---
 
+## 已知未验证 / 局限
+
+公开仓库最该说清楚的是"哪些还没证明"。下面这些**测试答不了**，目前只有作者手工验过一部分：
+
+| # | 没验证的事 | 为什么测试答不了 | 现状 |
+|---|---|---|---|
+| N12 | Windows 平台服务的**真机实跑**（DPAPI 安全存储 / 文件选择 / 应用内提醒） | `flutter test` 里这些是 Mock；真实调用要走平台通道 | 启动日志证明"平台服务已装配"、能正常启动；**DPAPI 存取未逐项走过** |
+| N14 | 批量导入的**真实成功率** | 需要真 Key + 真扫描件 | 🟢 **已做**：660 线代 68 页 → 201 题、0 失败（见上文） |
+| N15 | 5000 题列表的**真机滚动帧率** | widget 测试的 `pump` 含框架开销，数量级高于真机 | 未测（`list_perf_test.dart` 只锁"存活项 < 100"这类结构性指标） |
+| N16 | **连续自用 7 天** | 就是"用起来会不会想继续用" | 未做 —— 这也是 V1 验收表的最后一条 |
+| — | 公式在真机屏幕上的观感（中文有没有方框、字号跟不跟随系统） | `flutter test` 用 Ahem 字体，所有字形都画成实心方框 | 未逐字号核对 |
+| — | 界面截图 | 需要在真机上开 GUI 手工截 | 未补（README 的「界面一览」目前只有文字） |
+
+> ⚠️ 还有一类**已知会疼但刻意没做**的事，全部列在
+> [`docs/PROGRESS.md`](docs/PROGRESS.md) 的技术债表（T1–T59）里。
+> 举几个真在表上的：批量导入**进度不持久化**（T49，中途退出要重来，重来要重新花钱）、
+> 批量导入**串行**执行（T46，100 个来源要等 100 次往返）、
+> 「待复习」列表逐行解 JSON（T54，5000 题实测 249 ms）、
+> 13 个依赖停在旧版（T58，其中 5 个是破坏性大版本，刻意不升以免为"版本号好看"引入回归）。
+
+---
+
 ## 快速开始
 
-> **刚克隆仓库？** 只需一条命令 —— 双击 `run_app.bat`。
-> 它会自动补上被忽略的 `app/assets/data/`（由 `data/` 生成）、设好国内镜像与代理、
-> 必要时构建，然后启动 App。
+> **已经装好 Flutter？** 克隆后双击 `run_app.bat` 就行 —— 它会自动补上
+> `app/assets/data/`、必要时构建、然后启动 App。**没装 Flutter 的话先看下面第 1 步。**
 >
 > ```powershell
 > git clone https://github.com/lysisiyi/exam-kb-agent.git
@@ -342,10 +363,15 @@ LLM 客户端与错误分类、平台能力抽象。
 > .\run_app.bat
 > ```
 
-### 1. Flutter（已装好）
+### 1. Flutter
 
-`D:\software\flutter`（3.47.4 stable），国内镜像 `FLUTTER_STORAGE_BASE_URL` /
-`PUB_HOSTED_URL` 已配，`windows/` 脚手架与 sqlite3 原生库均已就绪。
+装 **Flutter SDK（stable）** 并确保 `flutter` 在 PATH 上即可 —— **装在哪个盘都行**，
+脚本不认固定路径。建议同时配国内镜像（否则引擎资源与 `pub get` 会**挂住而不是报错**）：
+
+```powershell
+$env:FLUTTER_STORAGE_BASE_URL = "https://storage.flutter-io.cn"
+$env:PUB_HOSTED_URL           = "https://pub.flutter-io.cn"
+```
 
 > ⚠️ **唯一剩下的环境阻塞**：`flutter build windows` / `flutter run -d windows`
 > 需要 **Windows 开发者模式**（插件走符号链接）。
@@ -354,8 +380,11 @@ LLM 客户端与错误分类、平台能力抽象。
 > ```powershell
 > start ms-settings:developers
 > ```
->
-> 详见 **[`docs/SETUP.md`](docs/SETUP.md)** §5。
+
+> 📌 `docs/SETUP.md` 是**作者机器上的实测记录**（含 6 个国内网络坑与倒推出来的
+> 工具链下限），里面的路径按你自己的实际情况替换。那里也记了本机实测版本
+> （Flutter 3.47.4 / Dart 3.13.3）—— 而 `pubspec.yaml` 声明的是**推导出的下限**
+> （`flutter >=3.29.0`），不是实测值。
 
 ### 2. 同步知识资产
 
@@ -417,6 +446,8 @@ flutter run -d windows   # 需先开开发者模式
 │
 ├── data/                             ★ 知识资产（单一事实源）
 │   ├── knowledge_points/             知识点本体（math1/2/3，270 叶子）
+│   │   ├── math1.json                ★ 权威文件（math2/math3 同理）
+│   │   ├── math1_{calc,linalg,prob,rest}.json   ⚠️ 历史分片，**别改**（内容已并入权威文件）
 │   │   ├── alias_overrides.json      人工维护的符号别名（T15）
 │   │   └── merge_map.json            知识点合并映射（T19，49 组带理由）
 │   ├── error_causes.json             错因受控词表（6 类 + 处方）
@@ -469,10 +500,11 @@ flutter run -d windows   # 需先开开发者模式
 
 `.gitattributes` 把源码行尾统一为 **LF**。这不是洁癖：
 规划里要做 macOS / iOS 版，行尾不一致会让每次提交都出现"整个文件都改了"的假差异。
+（唯一的例外是 `*.bat` —— 批处理必须 CRLF，这是有意指定的。）
 
-> 工作目录里另有两个**不属于本项目**的目录已被排除：
-> `星匣AiGameJam/`（291 MB，另一个独立 npm 项目）与 `.perf/`（22 MB，DSH 性能测试脚手架）。
-> 前者若需要版本控制，应在它自己的目录里 `git init`。
+> **仓库之外的资料不参与版本控制**：本项目只提交事实源与手写内容。
+> 你导入的题库在 `%APPDATA%\<CompanyName>\<ProductName>\library\`（属于你的私有数据），
+> 用过的 PDF／扫描件也没有进仓库 —— 这也是这个仓库公开时不涉及题库版权的原因。
 
 ---
 

@@ -1,0 +1,60 @@
+# 最小 CI：把 README 里"739 个用例全绿 / analyze 干净"那句话变成**被验证过的**。
+#
+# 为什么是 windows-latest 而不是 ubuntu：
+#   这个项目是 Flutter **Windows 桌面版**，`app/windows/` 的脚手架与平台服务
+#   实现（DPAPI、文件选择、应用内提醒）只存在于 Windows 上。换 ubuntu 跑
+#   等于换了一个项目在跑。
+#
+# 为什么 Flutter 版本用 `channel: stable` 而不是钉死：
+#   本地实测是 3.47.4，但把版本号写进 CI 的风险是"写错就天天红"。
+#   `pubspec.yaml` 声明了下限（flutter >=3.29.0），stable 满足它。
+#   想要可复现的话，把 version 钉到与本地一致，并先手动跑一次确认。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# 同一分支只保留最新一次，省额度也省等待
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # `app/assets/data/` 被 .gitignore 排除（它是 `data/` 的消费副本），
+      # 而 pubspec 声明了这个资源目录 —— 缺了它 `flutter test` 直接起不来。
+      - name: 同步知识资产（data/ → app/assets/data/）
+        run: python tools/data/sync_assets.py
+
+      # 纯 Python 的本体结构自检：level 与 id 段数一致、父子完整、章节数 > 0。
+      # 它拦的是"不报错但界面全空"的事故（章节曾变成 0）。
+      - name: 本体结构自检
+        run: python tools/data/knowledge_tree.py
+
+      - name: 依赖
+        working-directory: app
+        run: flutter pub get
+
+      - name: 静态检查
+        working-directory: app
+        run: flutter analyze
+
+      - name: 测试
+        working-directory: app
+        run: flutter test

@@ -85,9 +85,30 @@ if exist "%EXE_FALLBACK%" (
 rem --- Build --------------------------------------------------------------------
 rem Release, not Debug: it is what we ship, it needs no Dart VM, and it is what
 rem gets measured for package size. Debug would also work but is ~4x larger.
+
+rem Flutter 的位置**必须从 PATH 找**，不能写死。
+rem 早先这里写的是作者本机的 `D:\software\flutter\bin\flutter.bat` ——
+rem 于是"双击就能跑"这句承诺对任何别人都是假的（脚本会在构建那一步才失败）。
+set "FLUTTER_BIN="
+for /f "delims=" %%F in ('where flutter.bat 2^>nul') do if not defined FLUTTER_BIN set "FLUTTER_BIN=%%F"
+if not defined FLUTTER_BIN (
+  for /f "delims=" %%F in ('where flutter 2^>nul') do if not defined FLUTTER_BIN set "FLUTTER_BIN=%%F"
+)
+if not defined FLUTTER_BIN (
+  echo.
+  echo ERROR: flutter not found on PATH.
+  echo        Install the Flutter SDK and make sure `flutter` works in a terminal:
+  echo          https://docs.flutter.dev/get-started/install/windows
+  echo        Note: `flutter build windows` also requires Windows Developer Mode.
+  echo.
+  pause
+  exit /b 1
+)
+echo Using Flutter at %FLUTTER_BIN%
+
 echo No build found. Building Release (a few minutes the first time)...
 pushd app
-call "D:\software\flutter\bin\flutter.bat" build windows --release
+call "%FLUTTER_BIN%" build windows --release
 set "BUILD_RC=%ERRORLEVEL%"
 popd
 

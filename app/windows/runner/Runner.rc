@@ -89,11 +89,21 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
+            // ⚠️ CompanyName + ProductName 决定**应用数据目录**：
+            //    path_provider_windows 用 exe 版本信息拼出
+            //    %APPDATA%\<CompanyName>\<ProductName>，也就是现在的
+            //    `%APPDATA%\com.kaoyan\kaoyan_math_agent`。
+            //    改这两个值等于把用户的题库换到另一个目录 —— 文件不会消失，
+            //    但 App 看不见了，所以**要改就必须同时写一次目录迁移**。
+            //    这里刻意保留 flutter create 生成的名字。
             VALUE "CompanyName", "com.kaoyan" "\0"
-            VALUE "FileDescription", "kaoyan_math_agent" "\0"
+            // 这两个只是显示用（任务管理器 / 属性页），不参与目录拼接。
+            // LegalCopyright 必须与仓库根的 LICENSE（MIT）一致 ——
+            // 早先写的是 "All rights reserved."，那与 MIT 直接矛盾。
+            VALUE "FileDescription", "exam-kb-agent" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "kaoyan_math_agent" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.kaoyan. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 lysisiyi. MIT License." "\0"
             VALUE "OriginalFilename", "kaoyan_math_agent.exe" "\0"
             VALUE "ProductName", "kaoyan_math_agent" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

@@ -24,7 +24,7 @@
 
 ### 🟡 N14 真实资料试跑：660 线代（准备阶段完成，卡在"没配 AI"）
 
-拿用户手上真实资料（`D:\study\数学\考研数学`）试批量导入。**准备阶段的每一步都量过了**，
+拿用户手上的真实资料（他自己的考研数学资料目录，含 7 个 PDF 与一批 OCR 结果）试批量导入。**准备阶段的每一步都量过了**，
 但真正发请求那一步**做不了** —— 见最后一节。
 
 #### 1. 材料清点：373 个来源，能用的只有一条路
@@ -1210,6 +1210,11 @@ start ms-settings:developers     # 开启「开发人员模式」
 
 ## 已完成（可验证）
 
+> 📌 **下面这几张表是 M0–M8 全部完成时的快照**（当时的测试用例数是 495）。
+> 台账保留历史数字是有意的 —— 它记录"当时"的事实，不随代码漂移。
+> **要引用最新数字请看 [`../README.md`](../README.md)**（当前：270 叶子 /
+> 739 个用例）。数字能一条命令复现的，那里也写了命令。
+
 ### 知识资产
 
 | 产出 | 路径 | 规模 | 状态 |
@@ -1316,7 +1321,8 @@ prob.rv2 3 · prob.numeric 3 · prob.limit 1 · prob.stats 2
 | **开发外壳** | `dev_shell.dart` | 导航 + 占位进度页 | — |
 | **入口** | `main.dart` | 服务注入 + 主题 | — |
 
-**测试用例合计：495 个**（`flutter test` 全绿；`flutter analyze` **No issues found**）
+**测试用例合计：495 个**（M8 完成时的快照；**当前是 739 个**，见 README）
+（`flutter test` 全绿；`flutter analyze` **No issues found**）
 （tagger 96 · 录入闭环域/服务 35 · 数据层 35 · 平台服务 33 · katex 渲染+摘分 32 ·
 组卷导出 27 · Markdown/指纹 24 · 录入界面 21 · 复习仓库+会话 20 · 缓存与台账 14 ·
 数据导出 13 · 录入页 12 · 别名 11 · 每日提醒 10 · 渲染缓存 10 · 错题本列表 8 ·
@@ -1521,7 +1527,7 @@ FTS5 内置的 `unicode61` 分词器按**空白与标点**切词。中文句子�
 | T30 | ~~脏 `CMakeCache.txt` 把安装前缀固化成 `C:/Program Files`~~ | ✅ 已修复 | 删 `app/build/` 重新配置即可；**不要用 `flutter clean`**（会删掉需要开发者模式才能重建的符号链接） |
 | T31 | **真机交互无法自测** | 保存链路、渲染效果只能由用户确认 | 沙箱回收 GUI 进程（`schtasks` 被拒、WMI 需提权），Agent 无法截图或点按。已用 widget 测试 + `library_paths_test.dart` 把可自测的部分全部覆盖 |
 | T32 | 首次保存会同时触发建目录、建库、写盘、刷索引 | 任一环失败都表现为"点了保存没反应" | 已覆盖"目录未建就开库"与 FTS5 触发器在文件库上的行为；剩余风险是 `path_provider` 在真机返回的路径异常（低） |
-| T33 | ~~项目没有版本控制（不是 git 仓库）~~ | ✅ **已修复** | 已 `git init`（分支 `main`）+ 首次提交 `a70892e`（122 文件 / 4.35 MB）。`.gitignore` 只提交事实源，排除 `build/`、`.dart_tool/`、`windows/flutter/ephemeral/`、`app/assets/data/`；`.gitattributes` 统一行尾为 LF（为将来的 macOS/iOS 版准备）。工作区里**不属于本项目**的 `星匣AiGameJam/`（291 MB，另一个 npm 项目）与 `.perf/`（22 MB，DSH 性能脚手架）已排除 |
+| T33 | ~~项目没有版本控制（不是 git 仓库）~~ | ✅ **已修复** | 已 `git init`（分支 `main`）+ 首次提交（122 文件 / 4.35 MB）。`.gitignore` 只提交事实源，排除 `build/`、`.dart_tool/`、`windows/flutter/ephemeral/`、`app/assets/data/`；`.gitattributes` 统一行尾为 LF（为将来的 macOS/iOS 版准备）。工作区里**与本项目无关**的大型目录也一并排除（各有归属，应在自己的目录里 `git init`） |
 | T34 | Agent 无法交互 GUI，只能"开在指定页 + 截图"排查 | 视觉类缺陷排查慢 | 已加 `DSH_INITIAL_TAB` 环境变量让 App 直接开在目标页；再用 `CopyFromScreen` 截窗口（同一段命令内，否则进程被回收）。这套组合成功定位了主题 bug |
 | T35 | 视觉属性（颜色/可见性）没有断言 | 文字隐形这类 bug 会静默通过 | 已加 `test/theme_test.dart`（color 非空 + 对比度）；后续凡涉及可见性的改动都应补类似断言 |
 | T12 | Windows 端侧 OCR 未实现 | PC 版无法"识别图片中的文字" | **有意决定**：Native Assets 编译风险高、PC 主路径是批量导入。替代：手输 LaTeX / 粘贴 / 云端多模态（M4） |
@@ -1639,7 +1645,7 @@ math1.linalg.vector.linear_combo      「线性组合与线性表示」      ←
 | 2026-03-15 | 🔬 补齐**真实入口路径**的测试空白（T31/T32）：此前所有测试都用 `createAt(临时目录)`，`LibraryPaths.resolve()` **从未被执行过** —— 而首次保存走的正是它。给 `resolve()`/`openDefaultDatabase()` 加了可注入的 `supportDirectory` 缝，新增 6 个用例覆盖"目录未建就开库"、文件库上的 FTS5 触发器、完整保存链路。**301 测试通过** |
 | 2026-03-15 | 🐛 **定位并修复"录入页一片空白"的真凶：主题抹掉了文字颜色。** `AppTypography` 的 `pageTitle/sectionTitle/body/bodyStrong/stem` 都没写 `color`，而 `ThemeData.textTheme.copyWith` 会整体替换掉带颜色的默认样式 → 所有靠继承色的 `Text` 全部隐形。**295 个测试全绿却漏掉了它**，因为 widget 测试断言的是文本内容、不是文本颜色。新增 `test/theme_test.dart`（并验证过它确实能抓到该 bug）。同时修复 `ExpansionTile` 套在带背景 `DecoratedBox` 里触发的框架断言、窄屏 9.8px 溢出。新增 `test/shell_navigation_test.dart`（挂真实外壳点导航，不再绕开真实链路）。**310 测试通过** |
 | 2026-03-15 | 🔴 **发现项目没有版本控制**（T33）。排查过程中用 `Set-Content` 回改文件时按 ANSI 编码写入，`app_theme.dart` 变成非 UTF-8、Dart 编译失败；因无 git 只能靠字节级逆向 + 按 dump 重写救回 |
-| 2026-03-15 | ✅ **T33 已解决：初始化版本控制。** `git init`（分支 `main`）+ 首次提交 `a70892e`（122 文件 / 69,713 行 / 4.35 MB）。`.gitignore` 只提交事实源；`.gitattributes` 统一 LF 行尾。排除工作区内**不属于本项目**的 `星匣AiGameJam/`（291 MB）与 `.perf/`（22 MB）。因 `app/assets/data/` 被忽略，`run_app.bat` 增加"缺 assets 时自动跑 sync_assets" |
+| 2026-03-15 | ✅ **T33 已解决：初始化版本控制。** `git init`（分支 `main`）+ 首次提交 `a70892e`（122 文件 / 69,713 行 / 4.35 MB）。`.gitignore` 只提交事实源；`.gitattributes` 统一 LF 行尾。工作区内与本项目无关的大型目录一并排除。因 `app/assets/data/` 被忽略，`run_app.bat` 增加"缺 assets 时自动跑 sync_assets" |
 | 2026-03-15 | 📁 **项目移入独立目录** `kaoyan-math-agent/`（连同 `.git`，历史完整）。父目录只剩两个无关项目。移动中 `app/` 被一个残留的应用进程锁住，先结束进程再搬内容 |
 | 2026-03-15 | ✅ **T19 已解决：本体 329 → 271 个叶子**（math1 198→142）。新增数据文件 `merge_map.json`（49 组映射，每组带理由）+ `verify_merges.py`（执行前验证：自洽性/内容搬运量/评测集 primary 冲突/**管线复活风险**）；`dedupe_knowledge.py` 改为映射数据驱动，并同步改挂人工别名（54 处）与评测集 secondary（9 处）。验证器抓出 3 处 primary 冲突，据此**改了合并方向而不是改基准答案**。召回率不变（重复叶子不影响候选命中），平均候选数 20.9→14.5。**310 测试通过** |
 | 2026-03-15 | ✅ **T17 已解决：真实 LLM 的 Top-1 准确率实测完成。** 用 DeepSeek `deepseek-chat` 跑完四个金标准集（67 题）：报数集 **83.3% ≥ 80% 达标**，留出集 96.0%、独立验证集 100.0%、开发集 73.3%（错例中 2 个基准答案可争议），合并 89.6%；调用失败率 0%。单题约 1.5 秒。新增 `tool/tag_eval.dart`（Key 只打印掩码）、`analyze_t17.py`（错例归因）、`calibrate_t17.py`（置信度校准）。**顺带发现置信度门槛设低了 0.2** —— 实测 [0.80,0.90) 准确率仅 40%、[0.95,1.00] 为 96.5%，原门槛 0.70 只捕获 1/7 错例，已改为 0.90/0.92/0.95 |
@@ -1683,4 +1689,4 @@ math1.linalg.vector.linear_combo      「线性组合与线性表示」      ←
 | 2026-09-19 | 🐛 **入库过程中真实暴露的三类题面损坏，都在入库前统一修掉**（新增 `services/ingest/latex_repair.dart`，`repairLatex` 一次做两件事，**顺序不能反**）：① **JSON 转义把 LaTeX 吃掉一个反斜杠** —— 模型写 `"\begin{...}"`，而 `\b` 在 JSON 里是合法转义（退格），解码后变成 `<0x08>egin{...}`；同理 `\frac`（`\f` 换页）、`\beta`、`\forall`。实测 **110 处 / 29 个文件**。恢复时要把退格还原成 `\b` **两个字符**，只换成 `\` 会得到 `\egin`（看着像修好了，其实还是坏命令）。② **矩阵行分隔符少一个反斜杠**（`\4`、`\&`、`\ `）—— `\4` 在 LaTeX 里是未定义命令，KaTeX 整条公式解析失败。**两个缺陷会叠加**：①把 `\begin` 变成 `<退格>egin` 之后，②的修复就找不到矩阵环境了（这也是第一轮只修好 18 个文件的原因）。③ `\n`/`\t` **故意不修**（模型也用它表达真换行，有歧义；实测这类只有 8 处）。修完复测：退格/换页 **0**、单反斜杠+数字 **0**、`\&` **0** |
 | 2026-09-19 | 🐛 **`needs_review` 是只写不读的字段** —— 序列化会写它（`problem_store.dart`），解析却从不读它，只按解析警告推导。于是任何"读进来再存回去"（用户编辑一次、或做一次批量维护）都会**静默清掉**待人工确认标记，导入的题再也不出现在待确认队列里。**这次是我自己踩的**：批量修 LaTeX 时一次清掉了 201 道导入题上的标记（已用同一路径恢复）。已改为"frontmatter 显式写了就听它的，没写才按警告推导"，并补了往返一致的测试 |
 | 2026-09-19 | ✅ **真实调用链路的验收结果**（N14 的口径）：660 线代题目段 68 页 / 201 题，**入库成功率 100%**（0 失败）。过程中由**真实数据**触发并验证了三道防线：① 防编造 —— p58/p59/p70 模型自己解题填了答案，被 `answer_from_source=false` 拦下并**丢弃**（"模型自述答案不是原文内容"）；② 选项校验 —— p37/p44/p47/p51 模型把选择题的选项丢了，被"选择题至少要有 2 个选项"挡在入库前（换 `glm-4.6v-flash` 重导后全部补齐）；③ 截断识别 —— p23/p67 真的触发了 `finish_reason=length` 的警告（p67 因此 0 题，同样换了模型重导）。另有 p19 模型返回了没有题干的条目、被丢弃（重导后 3 题齐） |
-| 2026-09-19 | 🌐 **项目公开到 GitHub：`github.com/lysisiyi/exam-kb-agent`**（38 个提交 / 2.21 MiB / 867 个对象）。公开前三项核查：① 全历史**无 API Key 泄漏**（扫过每一个提交）；② 仓库里**没有任何题库 PDF 或扫描图**（660 的渲染页在仓库外的 `ingest-pages/`）→ 不涉及题库版权；③ `git fsck` 干净、无超过 2 MB 的跟踪文件。**公开前重写了全部提交的作者身份**（`yifuc <yifuc@localhost>` → `lysisiyi <lysisiyi@users.noreply.github.com>`），改法是**纯 git 底层命令**：`filter-branch` 与 `rebase --exec` 都要经 cygwin `sh`，而本沙箱不允许它建信号管道（直接 `fatal error - couldn't create signal pipe, Win32 error 5`）——`cat-file commit` 取出原始对象 → 只替换 author/committer 两行（时间戳原样保留）→ `hash-object -w` 写回 → `update-ref` 移分支。**用 tree 哈希验证内容一字未变**（`c41353f5` 前后一致）；旧身份对象随后 `reflog expire --expire=now` + `gc --prune=now` 清除。⚠️ 沙箱里 `git` 的传输进程同样受信号管道限制，**推送由用户在自己终端执行** |
+| 2026-09-19 | 🌐 **项目公开到 GitHub：`github.com/lysisiyi/exam-kb-agent`**（38 个提交 / 2.21 MiB / 867 个对象）。公开前三项核查：① 全历史**无 API Key 泄漏**（扫过每一个提交）；② 仓库里**没有任何题库 PDF 或扫描图**（660 的渲染页在仓库外的 `ingest-pages/`）→ 不涉及题库版权；③ `git fsck` 干净、无超过 2 MB 的跟踪文件。**公开前重写了全部提交的作者身份**（本机占位身份 `<本机用户名> <本机@localhost>` → `lysisiyi <lysisiyi@users.noreply.github.com>`），改法是**纯 git 底层命令**：`filter-branch` 与 `rebase --exec` 都要经 cygwin `sh`，而本沙箱不允许它建信号管道（直接 `fatal error - couldn't create signal pipe, Win32 error 5`）——`cat-file commit` 取出原始对象 → 只替换 author/committer 两行（时间戳原样保留）→ `hash-object -w` 写回 → `update-ref` 移分支。**用 tree 哈希验证内容一字未变**（`c41353f5` 前后一致）；旧身份对象随后 `reflog expire --expire=now` + `gc --prune=now` 清除。⚠️ 沙箱里 `git` 的传输进程同样受信号管道限制，**推送由用户在自己终端执行** |
