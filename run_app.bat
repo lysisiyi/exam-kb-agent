@@ -68,13 +68,30 @@ if not exist "app\assets\data\knowledge_points\math1.json" (
   )
 )
 
-rem --- Already built? Just launch -----------------------------------------------
-if exist "%EXE%" (
+rem --- Stale build check -------------------------------------------------------
+rem Why this block exists: this script used to launch whatever exe it found,
+rem without asking whether the sources had changed since. So after a source fix
+rem you would double-click, the OLD binary would start, and the bug would still
+rem be there -- looking exactly like "the fix did not work". That happened twice
+rem (font fixes on 2026-09-21 were invisible because the exe was from 09-14).
+rem
+rem So: compare the newest source file against the exe timestamp. If sources are
+rem newer, fall through to the build step instead of launching.
+set "CHECK_EXE=%EXE%"
+if not exist "%CHECK_EXE%" set "CHECK_EXE=%EXE_FALLBACK%"
+set "STALE="
+if exist "%CHECK_EXE%" (
+  for /f "usebackq" %%S in (`powershell -NoProfile -Command "$e=(Get-Item '%CHECK_EXE%').LastWriteTime; $n=(Get-ChildItem -Recurse -File -ErrorAction SilentlyContinue 'app\lib','app\assets','app\pubspec.yaml' | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime; if ($n -gt $e) { 'STALE' } else { 'FRESH' }" 2^>nul`) do set "STALE=%%S"
+)
+if /i "%STALE%"=="STALE" echo [stale] sources are newer than %CHECK_EXE% -- will rebuild.
+
+rem --- Already built and up to date? Just launch ---------------------------------
+if exist "%EXE%" if /i not "%STALE%"=="STALE" (
   echo Launching %EXE%
   start "" "%EXE%"
   exit /b 0
 )
-if exist "%EXE_FALLBACK%" (
+if exist "%EXE_FALLBACK%" if /i not "%STALE%"=="STALE" (
   echo Launching %EXE_FALLBACK%
   echo ^(no Release build found -- building a Release one is recommended:^)
   echo ^    cd app ^&^& flutter build windows --release

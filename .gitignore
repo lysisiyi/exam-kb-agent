@@ -10,6 +10,8 @@ app/build/
 app/.dart_tool/
 app/.flutter-plugins
 app/.flutter-plugins-dependencies
+# `flutter` 命令在运行目录留下的工具状态缓存（可再生）
+app/.flutter_tool_state
 app/.pub-cache/
 app/.pub/
 
