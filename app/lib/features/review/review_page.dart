@@ -36,8 +36,10 @@ import '../../core/platform/capabilities.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/error_causes.dart';
 import '../../domain/fsrs/fsrs_scheduler.dart';
 import '../../services/review/review_repository.dart';
+import 'error_prescription_panel.dart';
 
 class ReviewPage extends ConsumerStatefulWidget {
   const ReviewPage({super.key});
@@ -316,6 +318,15 @@ class _Session extends ConsumerWidget {
     final kpId = card.problem?.primaryKnowledge?.id;
     final kpName = kpId == null ? null : (kb?.byId[kpId]?.name ?? kpId);
 
+    // 错因处方。词表**还没加载完时什么都不显示**，而不是显示"未知错因" ——
+    // 把"正在加载"渲染成"数据有问题"是本项目已经修过三次的那类错误。
+    final catalog = ref.watch(errorCauseCatalogProvider).valueOrNull;
+    final causeIds =
+        catalog?.idsOfJson(card.state.errorCauses) ?? const <String>[];
+    final errorCauses = catalog?.resolve(causeIds) ?? const <ErrorCause>[];
+    final unknownCauseIds =
+        catalog == null ? const <String>[] : catalog.unknownIdsOf(causeIds);
+
     return Column(
       children: [
         _Progress(position: position, total: total, card: card),
@@ -332,7 +343,13 @@ class _Session extends ConsumerWidget {
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 760),
-                  child: _CardBody(card: card, revealed: revealed, kpName: kpName),
+                  child: _CardBody(
+                    card: card,
+                    revealed: revealed,
+                    kpName: kpName,
+                    errorCauses: errorCauses,
+                    unknownCauseIds: unknownCauseIds,
+                  ),
                 ),
               ),
             ),
@@ -417,7 +434,7 @@ class _Progress extends StatelessWidget {
   }
 }
 
-/// 题面 + （揭晓后）答案与解析。
+/// 题面 + （揭晓后）答案与解析 + 错因处方。
 class _CardBody extends StatelessWidget {
   final DueCard card;
   final bool revealed;
@@ -425,10 +442,18 @@ class _CardBody extends StatelessWidget {
   /// 主考点的展示名（本体未载入时退化为 id）。
   final String? kpName;
 
+  /// 这道题标的错因，已解析（词表未载入时为空）。
+  final List<ErrorCause> errorCauses;
+
+  /// 题目里标了、但当前词表查不到的错因 id（如实列出，不吞掉）。
+  final List<String> unknownCauseIds;
+
   const _CardBody({
     required this.card,
     required this.revealed,
     this.kpName,
+    this.errorCauses = const [],
+    this.unknownCauseIds = const [],
   });
 
   @override
@@ -525,6 +550,17 @@ class _CardBody extends StatelessWidget {
             DefaultTextStyle.merge(
               style: const TextStyle(fontSize: 13.5, height: 1.85),
               child: renderer.renderMarkdown(p.note!),
+            ),
+          ],
+          // 错因处方放在**最后**：先看完答案与解析，再谈"接下来该怎么补"。
+          // 这是 `data/error_causes.json` 的处方第一次上界面 ——
+          // 在此之前那 6 段 action / not_action 只参与画像页的错因分布统计。
+          if (errorCauses.isNotEmpty || unknownCauseIds.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const _SectionLabel('错因处方'),
+            ErrorPrescriptionPanel(
+              causes: errorCauses,
+              unknownIds: unknownCauseIds,
             ),
           ],
         ],

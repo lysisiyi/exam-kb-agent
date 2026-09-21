@@ -215,7 +215,19 @@ class TrendPoint {
 /// 画像总览。
 class MasteryReport {
   /// 最薄弱的考点，**已按 [KpMastery.weakness] 降序**。
+  ///
+  /// ⚠️ 这是**截断过**的列表（只取前 `topKp` 个），用于"最薄弱"那一段 UI。
+  /// 需要逐点查全部考点时用 [kps]。
   final List<KpMastery> weakest;
+
+  /// **全部**考点的掌握情况（含没有复习记录的，它们的 `mastery` 为 null）。
+  ///
+  /// 与 [weakest] 的唯一区别是**不截断**。知识库图谱要按掌握度给 270 个
+  /// 叶子逐个着色，需要的就是"全量 + 可逐点查" —— 用截断列表会导致
+  /// 大部分节点没有颜色，而"没有颜色"与"没复习过"在界面上长得一样。
+  ///
+  /// 顺序与 [weakest] 同源（薄弱度降序），调用方一般按 `kpId` 建索引。
+  final List<KpMastery> kps;
 
   /// 按章节聚合（含没有复习数据的章节，便于看出"哪一章还没碰"）。
   final List<ChapterMastery> chapters;
@@ -249,6 +261,7 @@ class MasteryReport {
 
   const MasteryReport({
     this.weakest = const [],
+    this.kps = const [],
     this.chapters = const [],
     this.causes = const [],
     this.trend = const [],
@@ -457,6 +470,7 @@ class MasteryService {
 
     return MasteryReport(
       weakest: kpList.take(topKp).toList(),
+      kps: kpList,
       chapters: chapterList,
       causes: _causeStats(indexRows, stateById),
       trend: await _trend(ts),

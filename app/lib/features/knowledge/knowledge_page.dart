@@ -25,6 +25,7 @@ import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
 import '../../domain/knowledge/knowledge_point.dart';
+import '../../services/profile/mastery_service.dart';
 import 'knowledge_graph_view.dart';
 import 'knowledge_node_style.dart' show kSecondaryInk;
 import 'knowledge_outline_view.dart';
@@ -54,6 +55,17 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
   Widget build(BuildContext context) {
     final kbAsync = ref.watch(knowledgeBaseProvider);
 
+    // 掌握度：图谱用它做**状态着色**（"我对它掌握得怎么样"）。
+    //
+    // 刻意用 `valueOrNull` 而不是并进 kbAsync 的 when 链：
+    // 画像算不出来（或还没算完）时，知识库照样要能打开 ——
+    // 大不了所有节点保持结构色，而那正好就是"没有复习数据"的样子。
+    // 把两件事绑在一起，会让一个次要功能的失败变成一个主要功能的失败。
+    final mastery = ref.watch(masteryReportProvider).valueOrNull;
+    final masteryByKpId = <String, KpMastery>{
+      for (final m in mastery?.kps ?? const <KpMastery>[]) m.kpId: m,
+    };
+
     return kbAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, st) => _ErrorView(error: e),
@@ -61,6 +73,7 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
         kb: kb,
         mode: _mode,
         onModeChanged: (m) => setState(() => _mode = m),
+        masteryByKpId: masteryByKpId,
       ),
     );
   }
@@ -92,10 +105,14 @@ class _LoadedView extends StatelessWidget {
   final KnowledgeViewMode mode;
   final ValueChanged<KnowledgeViewMode> onModeChanged;
 
+  /// 每个知识点的掌握情况，按 `kpId` 索引（空 map = 不做状态着色）。
+  final Map<String, KpMastery> masteryByKpId;
+
   const _LoadedView({
     required this.kb,
     required this.mode,
     required this.onModeChanged,
+    this.masteryByKpId = const {},
   });
 
   @override
@@ -107,7 +124,8 @@ class _LoadedView extends StatelessWidget {
         const Divider(height: 1),
         Expanded(
           child: switch (mode) {
-            KnowledgeViewMode.graph => KnowledgeGraphView(kb: kb),
+            KnowledgeViewMode.graph =>
+              KnowledgeGraphView(kb: kb, masteryByKpId: masteryByKpId),
             KnowledgeViewMode.outline => KnowledgeOutlineView(kb: kb),
           },
         ),

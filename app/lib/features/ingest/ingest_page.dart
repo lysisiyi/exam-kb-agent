@@ -26,6 +26,8 @@
 /// - 费用、进度、失败原因全部显示出来
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,6 +38,7 @@ import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/index/index_builder.dart';
 import '../../data/markdown/problem_markdown.dart';
+import '../../services/ingest/ingest_draft.dart';
 import '../../services/ingest/ingest_models.dart';
 import '../../services/ingest/ingest_session.dart';
 import '../../services/ingest/ingest_source_io.dart';
@@ -64,6 +67,18 @@ class _IngestPageState extends ConsumerState<IngestPage> {
   String? _status;
   String? _error;
 
+  /// 盘上那批没做完的解析结果（T49）。点「继续上次」前不动它。
+  IngestDraft? _draft;
+
+  /// 草稿读/写失败的原因。与 [_error] 分开，因为它是"附带坏消息"，
+  /// 不该顶掉用户正在看的主状态。
+  String? _draftError;
+
+  IngestDraftStore? _draftStore;
+
+  /// 上次落盘时的完成数，用于"每个来源只写一次盘"。
+  int _persistedFinished = 0;
+
   /// 取消勾选的题。键：`<来源路径>#<题序号>`。
   ///
   /// 存"取消"而不是"选中"：默认**全选**（用户导入就是为了入库），
@@ -77,6 +92,132 @@ class _IngestPageState extends ConsumerState<IngestPage> {
   final List<Problem> _saved = [];
 
   static String _key(String sourcePath, int index) => '$sourcePath#$index';
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadDraft());
+  }
+
+  // ───────────────────────────────────────────────────────────────────────
+  // 草稿（T49）：把"已经花过钱的解析结果"从盘上拿回来
+  // ───────────────────────────────────────────────────────────────────────
+
+  /// 取（并缓存）草稿存储。
+  Future<IngestDraftStore> _store() async {
+    final cached = _draftStore;
+    if (cached != null) return cached;
+    final paths = await ref.read(libraryPathsProvider.future);
+    final store = IngestDraftStore.at(paths.root);
+    _draftStore = store;
+    return store;
+  }
+
+  Future<void> _loadDraft() async {
+    try {
+      final store = await _store();
+      final res = await store.load();
+      if (!mounted) return;
+
+      final usable = res.draft != null && res.draft!.isWorthKeeping;
+      setState(() {
+        _draftError = res.error;
+        _draft = usable ? res.draft : null;
+      });
+
+      // 一个来源都没跑完的草稿没有恢复价值：留着只会在下次打开时
+      // 弹一条"上次没做完"，而点进去和重新开始完全一样。
+      if (res.draft != null && !usable) await store.clear();
+    } catch (e) {
+      if (mounted) setState(() => _draftError = '读取上次的导入进度失败：$e');
+    }
+  }
+
+  /// 把草稿里的结果摆回界面。
+  ///
+  /// 刻意**不**在这里调用 `run()` —— 用户还没说"继续"，而 run() 会花钱。
+  Future<void> _resumeDraft() async {
+    final draft = _draft;
+    if (draft == null) return;
+    try {
+      final session = await _makeSession(
+        sources: draft.sources,
+        initialItems: draft.items,
+      );
+      if (!mounted) return;
+      setState(() {
+        _sources = session.sources;
+        _session = session;
+        _draft = null;
+        _progress = IngestProgress.of(session.items);
+        _report = null;
+        _error = null;
+        _status = '已恢复上次的结果：${draft.summary}'
+            '${draft.remaining > 0 ? ' · 还有 ${draft.remaining} 个来源没跑完' : ''}';
+        _unchecked.clear();
+        _edited.clear();
+        _saved.clear();
+      });
+      _autoUncheckDuplicates(session);
+    } catch (e) {
+      if (mounted) setState(() => _error = '恢复上次的进度失败：$e');
+    }
+  }
+
+  Future<void> _discardDraft() async {
+    try {
+      final store = await _store();
+      await store.clear();
+    } catch (_) {
+      // 删不掉也不是用户能处理的事；界面照样要让它消失
+    }
+    if (!mounted) return;
+    setState(() {
+      _draft = null;
+      _draftError = null;
+      // 这一句只有在结果列表已经在界面上时才渲染得出来（`_status` 挂在
+      // `_ResultsHeader` 里）。光有草稿、没有结果时的反馈就是**横幅消失**
+      // —— 按钮写着"丢弃"，横幅没了，这件事就不算静默。
+      _status = '已丢弃上次的导入进度';
+    });
+  }
+
+  /// 每个来源跑完就落一次盘。
+  ///
+  /// 写整份草稿（而不是追加）是刻意的：文件不大（纯文本，无图片），
+  /// 整写才是原子的，也才能同时更新那个累计用量。
+  Future<void> _persist(IngestSession session) async {
+    try {
+      final store = await _store();
+      final draft = session.snapshot(
+        model: ref.read(llmConfigProvider)?.model ?? '',
+      );
+      if (!draft.isWorthKeeping) return;
+      final err = await store.save(draft);
+      if (err != null && mounted) {
+        setState(() => _draftError = '导入进度没能存盘（$err）—— '
+            '这一步失败不影响当前解析，但中途退出会丢掉进度。');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _draftError = '导入进度没能存盘（$e）—— '
+            '这一步失败不影响当前解析，但中途退出会丢掉进度。');
+      }
+    }
+  }
+
+  /// 取一份**与 [sources] 同一批来源**的旧草稿（没有就返回 null）。
+  ///
+  /// 用于"用户重新选了一遍同一个文件夹、又点了开始解析"：
+  /// 那时应当自动接上已解析的部分，而不是再花一遍钱。
+  Future<IngestDraft?> _reusableDraft(List<IngestSource> sources) async {
+    if (sources.isEmpty) return null;
+    final store = await _store();
+    final res = await store.load();
+    final d = res.draft;
+    if (d == null || !d.isWorthKeeping) return null;
+    return d.matchesSources(sources) ? d : null;
+  }
 
   // ───────────────────────────────────────────────────────────────────────
   // 第一步：选来源
@@ -106,6 +247,9 @@ class _IngestPageState extends ConsumerState<IngestPage> {
     _unchecked.clear();
     _edited.clear();
     _saved.clear();
+    // ⚠️ 刻意**不**动盘上的草稿：用户换一批文件只是"重新选"，
+    // 不该顺手毁掉上一批花过钱的解析结果。真要用新批次覆盖它时，
+    // `_startParsing` 会先问一句。
   }
 
   IngestEstimate _estimate(LlmConfig? cfg) => estimateIngest(
@@ -120,6 +264,39 @@ class _IngestPageState extends ConsumerState<IngestPage> {
   // ───────────────────────────────────────────────────────────────────────
   // 第二步：解析
   // ───────────────────────────────────────────────────────────────────────
+
+  Future<IngestSession> _makeSession({
+    required List<IngestSource> sources,
+    List<IngestItem> initialItems = const [],
+  }) async {
+    final service = await ref.read(problemServiceProvider.future);
+    return IngestSession(
+      client: ref.read(ingestClientProvider),
+      loadAttachment: loadAttachmentFromDisk,
+      // 查重直接复用录入页那套（同一个指纹实现），
+      // 于是"批量导入的题"和"手输的题"用的是同一把尺子
+      findDuplicates: (fp) async {
+        final hits = await service.findByFingerprint(fp);
+        return hits.map((h) => h.id).toList();
+      },
+      sources: sources,
+      initialItems: initialItems,
+    );
+  }
+
+  /// 疑似重复的题默认**不勾选** —— 但留在列表里让用户自己判断，
+  /// 而不是替他删掉。他可能就是想把重复的题合并进来。
+  void _autoUncheckDuplicates(IngestSession session) {
+    setState(() {
+      for (final item in session.items) {
+        for (var i = 0; i < item.problems.length; i++) {
+          if (item.problems[i].isDuplicate) {
+            _unchecked.add(_key(item.source.path, i));
+          }
+        }
+      }
+    });
+  }
 
   Future<void> _startParsing() async {
     final client = ref.read(ingestClientProvider);
@@ -136,21 +313,30 @@ class _IngestPageState extends ConsumerState<IngestPage> {
       return;
     }
 
+    // 同一批来源上次已经解析过一部分 → 直接接上，不再重复花钱（T49）。
+    IngestDraft? reuse;
+    try {
+      reuse = await _reusableDraft(_sources);
+    } catch (_) {
+      reuse = null; // 读不到就当没有，不该因此拦住这次解析
+    }
+
+    // 手上这批结果还没入库，而盘上的草稿要被覆盖 → 先说清楚。
+    // 这是本页唯一一处会**毁掉别人工作**的操作，不能静默做。
+    final liveDraft = _session?.snapshot();
+    if (reuse == null &&
+        liveDraft != null &&
+        liveDraft.isWorthKeeping &&
+        mounted) {
+      final go = await _confirmOverwrite(liveDraft);
+      if (go != true) return;
+    }
+
     final IngestSession session;
     try {
-      final service = await ref.read(problemServiceProvider.future);
-      if (!mounted) return;
-
-      session = IngestSession(
-        client: client,
-        loadAttachment: loadAttachmentFromDisk,
-        // 查重直接复用录入页那套（同一个指纹实现），
-        // 于是"批量导入的题"和"手输的题"用的是同一把尺子
-        findDuplicates: (fp) async {
-          final hits = await service.findByFingerprint(fp);
-          return hits.map((h) => h.id).toList();
-        },
+      session = await _makeSession(
         sources: _sources,
+        initialItems: reuse?.items ?? const [],
       );
     } catch (e) {
       // 取服务 / 建会话失败也要**说出来**。早先这一段没有 try，
@@ -159,40 +345,66 @@ class _IngestPageState extends ConsumerState<IngestPage> {
       if (mounted) setState(() => _error = '准备导入失败：$e');
       return;
     }
+    if (!mounted) return;
 
+    final reused = reuse?.parsed ?? 0;
     setState(() {
       _session = session;
       _parsing = true;
       _error = null;
-      _status = null;
+      _status = reused > 0
+          ? '沿用上次已解析的 $reused 个来源（不重复计费），'
+              '继续处理剩下的 ${reuse!.remaining} 个…'
+          : null;
       _unchecked.clear();
       _edited.clear();
       _saved.clear();
+      _persistedFinished = 0;
     });
 
     try {
       final report = await session.run(
         onProgress: (p) {
           if (mounted) setState(() => _progress = p);
+          // 每个来源跑完就落一次盘：崩溃 / 关机只丢正在跑的那一个。
+          // 只在 finished 变化时写，避免"开始前那次 notify"白写一遍。
+          if (p.finished != _persistedFinished) {
+            _persistedFinished = p.finished;
+            unawaited(_persist(session));
+          }
         },
       );
       if (!mounted) return;
       setState(() {
         _report = report;
-        // 疑似重复的题默认**不勾选** —— 但留在列表里让用户自己判断，
-        // 而不是替他删掉。他可能就是想把重复的题合并进来。
-        for (final item in session.items) {
-          for (var i = 0; i < item.problems.length; i++) {
-            if (item.problems[i].isDuplicate) {
-              _unchecked.add(_key(item.source.path, i));
-            }
-          }
-        }
       });
+      _autoUncheckDuplicates(session);
     } finally {
       if (mounted) setState(() => _parsing = false);
     }
   }
+
+  Future<bool?> _confirmOverwrite(IngestDraft live) => showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('覆盖上次没做完的进度？'),
+          content: Text(
+            '界面上这批结果（${live.summary}）还没入库。\n'
+            '开始新的解析会把盘上那份进度覆盖掉。\n\n'
+            '已经入库的题不受影响 —— 被覆盖的只是"还没确认的结果"。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('先不开始'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('覆盖并开始'),
+            ),
+          ],
+        ),
+      );
 
   // ───────────────────────────────────────────────────────────────────────
   // 第三步：入库 + 打标
@@ -389,10 +601,23 @@ class _IngestPageState extends ConsumerState<IngestPage> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 40),
             children: [
+              if (_draft != null) ...[
+                _DraftBanner(
+                  draft: _draft!,
+                  busy: _parsing || _saving || _tagging,
+                  onResume: _resumeDraft,
+                  onDiscard: _discardDraft,
+                ),
+                const SizedBox(height: 12),
+              ],
               _SettingsGate(settings: settingsAsync, cfg: cfg, hasPdf: _hasPdf),
               if (_error != null) ...[
                 const SizedBox(height: 12),
                 _Banner(text: _error!, tone: _BannerTone.error),
+              ],
+              if (_draftError != null) ...[
+                const SizedBox(height: 12),
+                _Banner(text: _draftError!, tone: _BannerTone.warning),
               ],
               if (_sources.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -576,8 +801,111 @@ class _SettingsGate extends StatelessWidget {
   }
 }
 
-enum _BannerTone { info, warning, error }
+/// 「上次有一批没做完」的横幅（T49）。
+///
+/// ## 为什么先说"已完成的不再花钱"
+///
+/// 这条横幅要说服用户点「继续上次」而不是重新选一遍文件。用户此刻
+/// 心里的问题是"我上次是不是白花了钱" —— 所以数字要说在按钮旁边：
+/// 已解析几个、还剩几个、还剩几个是要重试的失败项。
+///
+/// ## 全部跑完时只给「丢弃」
+///
+/// 那时"继续"是没有意义的（点下去一个请求都不会发）。与其给一个
+/// 点了没反应的按钮，不如把「丢弃」摆出来 —— 那才是这批结果
+/// 入库之后用户唯一还需要做的事。
+class _DraftBanner extends StatelessWidget {
+  final IngestDraft draft;
+  final bool busy;
+  final VoidCallback onResume;
+  final VoidCallback onDiscard;
 
+  const _DraftBanner({
+    required this.draft,
+    required this.busy,
+    required this.onResume,
+    required this.onDiscard,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasWork = draft.remaining > 0;
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.history, size: 17, color: scheme.onSurfaceVariant),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  _text(hasWork),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.65,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Wrap(
+            spacing: 8,
+            children: [
+              if (hasWork)
+                FilledButton.tonalIcon(
+                  onPressed: busy ? null : onResume,
+                  icon: const Icon(Icons.play_arrow, size: 17),
+                  label: const Text('继续上次'),
+                ),
+              OutlinedButton.icon(
+                onPressed: busy ? null : onDiscard,
+                icon: const Icon(Icons.delete_outline, size: 16),
+                label: const Text('丢弃这批进度'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _text(bool hasWork) {
+    final b = StringBuffer('上次有一批导入没做完：${draft.summary}。\n');
+    if (hasWork) {
+      b.write('点「继续上次」只处理还没跑完的 ${draft.remaining} 个来源');
+      if (draft.failed > 0) {
+        b.write('（其中 ${draft.failed} 个上次失败，会重试）');
+      }
+      b.write('—— 已解析的不会重新请求，也就不会再花一次钱。\n');
+    } else {
+      b.write('这批已经全部跑完了。结果还在盘上，入库确认完就可以丢弃它。\n');
+    }
+    b.write('（保存于 ${_timeText(draft.savedAt)}');
+    if (draft.model.isNotEmpty) b.write(' · 用 ${draft.model} 解析');
+    b.write('）');
+    return b.toString();
+  }
+
+  static String _timeText(DateTime t) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${t.year}-${two(t.month)}-${two(t.day)} '
+        '${two(t.hour)}:${two(t.minute)}';
+  }
+}
+
+enum _BannerTone { info, warning, error }
 class _Banner extends StatelessWidget {
   final String text;
   final _BannerTone tone;

@@ -125,6 +125,17 @@ class PaperRequest {
   /// 是否避免同一考点在一份卷子里重复出现。
   final bool diversify;
 
+  /// 属于「需专项训练」的错因 id（词表里 `remedy == drill` 的那些）。
+  ///
+  /// ## 为什么由调用方传，而不是在组卷引擎里写死
+  ///
+  /// `calc` / `reading` / `time` 是**数据**（`data/error_causes.json`）说了算的，
+  /// 不是组卷引擎说了算的。把它们硬编码进算法，下次词表调整就会出现
+  /// "引擎与数据不一致"这种不报错的错 —— 而它偏偏是本项目反复踩过的那类。
+  ///
+  /// **空集合 = 不启用这个维度**，行为与加它之前完全一致。
+  final Set<String> drillCauseIds;
+
   /// 已用过的题目 id（避免重复出卷）。
   final Set<String> excludeProblemIds;
 
@@ -136,8 +147,12 @@ class PaperRequest {
     this.preferWeak = true,
     this.weightStrength = 0.6,
     this.diversify = true,
+    this.drillCauseIds = const {},
     this.excludeProblemIds = const {},
   });
+
+  /// 是否启用了「错因对症」这一维。
+  bool get usesErrorCause => preferWrong && drillCauseIds.isNotEmpty;
 }
 
 /// 一个题位的落位结果。

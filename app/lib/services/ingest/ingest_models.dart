@@ -117,6 +117,25 @@ class IngestSource {
     return n < 1 ? 1 : n;
   }
 
+  /// 序列化（草稿落盘用，见 T49）。
+  Map<String, dynamic> toJson() => {
+        'path': path,
+        'name': name,
+        'size': sizeBytes,
+        'kind': kind.name,
+      };
+
+  factory IngestSource.fromJson(Map<String, dynamic> j) => IngestSource(
+        path: j['path']?.toString() ?? '',
+        name: j['name']?.toString() ?? '',
+        sizeBytes: (j['size'] as num?)?.toInt() ?? 0,
+        // 认不出的 kind 退回 image：宁可按图片试一次，
+        // 也不要在恢复时把一个来源整条丢掉
+        kind: j['kind'] == IngestSourceKind.pdf.name
+            ? IngestSourceKind.pdf
+            : IngestSourceKind.image,
+      );
+
   @override
   String toString() => 'IngestSource($name, ${kind.label}, $sizeText)';
 }
@@ -256,6 +275,45 @@ class ExtractedProblem {
         needsReview: true,
       );
 
+  /// 序列化（草稿落盘用，见 T49）。
+  ///
+  /// **不写 `fingerprint`**：它是 `stem` 的纯派生值，读回来时现算更安全 ——
+  /// 存下来的指纹一旦与当前算法不一致（换版本、改归一化规则），
+  /// 查重就会拿一把旧尺子量新题。现算则永远与生产代码同一实现。
+  Map<String, dynamic> toJson() => {
+        'stem': stem,
+        if (answer != null) 'answer': answer,
+        if (solution != null) 'solution': solution,
+        'qtype': qtype.id,
+        'difficulty': difficulty,
+        if (options.isNotEmpty) 'options': options,
+        if (source != null) 'source': source,
+        'source_type': sourceType.id,
+        if (sourceYear != null) 'source_year': sourceYear,
+        if (confidence != null) 'confidence': confidence,
+        if (duplicateIds.isNotEmpty) 'duplicate_ids': duplicateIds,
+        if (sourceName.isNotEmpty) 'source_name': sourceName,
+      };
+
+  factory ExtractedProblem.fromJson(Map<String, dynamic> j) => ExtractedProblem(
+        stem: j['stem']?.toString() ?? '',
+        answer: j['answer']?.toString(),
+        solution: j['solution']?.toString(),
+        qtype: QuestionType.fromId(j['qtype']?.toString()),
+        difficulty: (j['difficulty'] as num?)?.toInt() ?? 2,
+        options: [
+          for (final o in (j['options'] as List? ?? const [])) o.toString(),
+        ],
+        source: j['source']?.toString(),
+        sourceType: SourceType.fromId(j['source_type']?.toString()),
+        sourceYear: (j['source_year'] as num?)?.toInt(),
+        confidence: (j['confidence'] as num?)?.toDouble(),
+        duplicateIds: [
+          for (final d in (j['duplicate_ids'] as List? ?? const [])) d.toString(),
+        ],
+        sourceName: j['source_name']?.toString() ?? '',
+      );
+
   /// 同题干判定用。与 `ProblemFingerprint` 同一实现，避免两套规则。
   static String fingerprintOf(String stem) => ProblemFingerprint.compute(stem);
 
@@ -312,6 +370,16 @@ class IngestItem {
   bool get isDone => status == IngestStatus.done;
   bool get isEmptyResult => status == IngestStatus.done && problems.isEmpty;
 
+  /// 这个来源**跑完了**（无论结果好坏）。
+  ///
+  /// 定义收敛在这里，是因为「跑完」有两个使用者：进度条，以及
+  /// 草稿中继续跑时判定"哪些不用再花钱"。两处若各写各的，
+  /// 迟早会出现"进度说 100%、续跑却还在重做"这种自相矛盾。
+  bool get isFinished =>
+      status == IngestStatus.done ||
+      status == IngestStatus.failed ||
+      status == IngestStatus.skipped;
+
   IngestItem copyWith({
     IngestStatus? status,
     List<ExtractedProblem>? problems,
@@ -325,6 +393,35 @@ class IngestItem {
         // error 是"设为 null"有意义的值，所以不能用 ?? 兜 —— 重试成功时要清掉
         error: error,
         usage: usage ?? this.usage,
+      );
+
+  /// 序列化（草稿落盘用，见 T49）。
+  Map<String, dynamic> toJson() => {
+        'source': source.toJson(),
+        'status': status.name,
+        if (problems.isNotEmpty)
+          'problems': [for (final p in problems) p.toJson()],
+        if (error != null) 'error': error,
+        if (usage.totalTokens > 0 || usage.fromCache) 'usage': usage.toJson(),
+      };
+
+  factory IngestItem.fromJson(Map<String, dynamic> j) => IngestItem(
+        source: IngestSource.fromJson(
+            (j['source'] as Map?)?.cast<String, dynamic>() ?? const {}),
+        // 认不出的状态退回 pending：退回 pending 只会让这个来源重跑一次
+        // （多花一次钱但结果正确），退回 done 会拿一个空结果糊弄用户
+        status: IngestStatus.values.firstWhere(
+          (s) => s.name == j['status']?.toString(),
+          orElse: () => IngestStatus.pending,
+        ),
+        problems: [
+          for (final p in (j['problems'] as List? ?? const []))
+            ExtractedProblem.fromJson((p as Map).cast<String, dynamic>()),
+        ],
+        error: j['error']?.toString(),
+        usage: j['usage'] is Map
+            ? LlmUsage.fromJson((j['usage'] as Map).cast<String, dynamic>())
+            : const LlmUsage(),
       );
 
   @override
@@ -349,6 +446,20 @@ class IngestProgress {
     this.problemCount = 0,
     this.current,
   });
+
+  /// 从当前结果列表算一份进度。
+  ///
+  /// 恢复草稿时要立刻画出进度条，而那时并没有"正在跑"的过程可言 ——
+  /// 所以这个口径必须与 [IngestSession] 跑动时的口径**完全一致**，
+  /// 否则恢复后与跑到一半的进度条会显示成两个数。
+  factory IngestProgress.of(List<IngestItem> items, {String? current}) =>
+      IngestProgress(
+        total: items.length,
+        finished: items.where((i) => i.isFinished).length,
+        failed: items.where((i) => i.status == IngestStatus.failed).length,
+        problemCount: items.fold(0, (n, i) => n + i.problems.length),
+        current: current,
+      );
 
   double get fraction => total == 0 ? 0 : finished / total;
 

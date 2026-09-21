@@ -6,7 +6,8 @@
 /// 使：
 /// - **硬约束**：题型必须一致（选择题的位置不能放解答题）
 /// - 软偏好按优先级：① 用户的薄弱考点 ② 做错过的题 ③ 考频高的考点
-///   ④ 考点多样性（同一考点别在一份卷里刷屏）
+///   ④ 难度贴合题位目标 ⑤ 考点多样性（同一考点别在一份卷里刷屏）
+///   ⑥ **错因对症**（"错题专练"里优先选重做本题真有用的题，见 `_score` ⑥）
 ///
 /// ## 为什么用贪心，而不是精确求解
 ///
@@ -55,6 +56,13 @@ class Candidate {
   /// 用户在这个考点上的掌握度 0–1（取不到时为 null）。
   final double? kpMastery;
 
+  /// 这道题标的错因 id（用户侧，如 `['concept', 'calc']`）。
+  ///
+  /// 空列表表示"没标错因"（不是"没错"）—— 打分时**不惩罚也不奖励**，
+  /// 否则没标错因的题会被系统性排到最后，而它们恰恰是用户需要
+  /// 被提醒去补标注的那批（与 `_kpUsed` 对未标注题的处理同一理由）。
+  final List<String> errorCauseIds;
+
   const Candidate({
     required this.problemId,
     required this.stemText,
@@ -66,6 +74,7 @@ class Candidate {
     this.primaryKpWeight,
     this.wrongCount = 0,
     this.kpMastery,
+    this.errorCauseIds = const [],
   });
 }
 
@@ -101,6 +110,20 @@ class PaperComposer {
   ///
   /// 真正保证多样性的是下面那个**两级排序**，这个惩罚只是第二级里的微调。
   static const double _diversityPenalty = 2.6;
+
+  /// 「错题专练」里，重做本题**真的有用**的题（`remedy == requiz`）拿到的加分。
+  ///
+  /// 量级是照着别的项定的，不是拍脑袋：薄弱考点满值 3.0、错一次的题 3.0、
+  /// 考频满值约 1.2。取 1.5 意味着它**能改变次序，但压不过"错得更多"**
+  /// —— 前者是"这道题更对症"，后者是"这道题更该练"，后者优先级更高。
+  static const double _requizBonus = 1.5;
+
+  /// 同上，属于「需专项训练」的题（`remedy == drill`）拿到的减分。
+  ///
+  /// 用减分而不是**排除**：个人题库是几百条量级，排除会让"错题专练"
+  /// 直接凑不满 15 题。降权的效果是"有对症的题时优先对症的"，
+  /// 而不是"题库里有一半题不许出"。
+  static const double _drillPenalty = 1.5;
 
   /// 组一份卷。
   PaperResult compose({
@@ -277,6 +300,25 @@ class PaperComposer {
     if (req.diversify && c.primaryKpId != null) {
       final n = usedKps[c.primaryKpId!] ?? 0;
       if (n > 0) s -= n * _diversityPenalty;
+    }
+
+    // ⑥ 错因对症：错题专练出的是"重做本题"，所以要看这题**当初错在哪**。
+    //
+    //    `calc`（计算失误）/ `reading`（审题错误）/ `time`（时间不够）
+    //    三类错因的处方里明确写着"不要靠继续刷题解决"（见
+    //    `data/error_causes.json` 的 `not_action`）。所以在这份卷子里
+    //    它们**降权**而不是被排除（理由见 `_drillPenalty`）。
+    //
+    //    这不是说 drill 类的题不该练，而是说**它不该在这一页练**：
+    //    限时计算与审题流程是另外两种训练，占着"错题专练"的题位，
+    //    等于让用户用最贵的方式（重做整道综合题）去练一个更便宜的技能。
+    //
+    //    ⚠️ 只在「错题专练」类请求上生效（`req.usesErrorCause`）：
+    //    真题全卷与限时模考考的是**覆盖面**，按错因挑题会让卷子偏离
+    //    真题结构 —— 而结构正是那两个模板存在的全部意义。
+    if (req.usesErrorCause && c.errorCauseIds.isNotEmpty) {
+      final drill = c.errorCauseIds.any(req.drillCauseIds.contains);
+      s += drill ? -_drillPenalty : _requizBonus;
     }
 
     return s;

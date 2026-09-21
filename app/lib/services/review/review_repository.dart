@@ -29,6 +29,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../../data/db/database.dart';
+import '../../data/error_causes.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../data/markdown/problem_store.dart';
 import '../../domain/fsrs/fsrs_scheduler.dart';
@@ -143,10 +144,21 @@ class ReviewRepository {
   /// 调度器。可注入以便测试固定随机数（`enableFuzzing: false`）。
   final FsrsScheduler scheduler;
 
+  /// 错因受控词表。
+  ///
+  /// **只用于 [dueQueue] 的次序修正**，不参与到期判断：`calc` / `reading` /
+  /// `time` 三类错因的处方里明确写着"不要靠继续刷题解决"，而复习页
+  /// 干的事恰恰就是重做本题 —— 把它们顶在队列最前面，等于花用户的时间
+  /// 做一件数据自己都说了没用的事。
+  ///
+  /// 缺省 [ErrorCauseCatalog.empty] 时，排序**完全等同于**加这个字段之前的行为。
+  final ErrorCauseCatalog causes;
+
   ReviewRepository({
     required this.db,
     required this.store,
     FsrsScheduler? scheduler,
+    this.causes = ErrorCauseCatalog.empty,
   }) : scheduler = scheduler ?? FsrsScheduler();
 
   // ───────────────────────────────────────────────────────────────────────
@@ -237,8 +249,18 @@ class ReviewRepository {
 
   /// 到期卡片队列。
   ///
-  /// 排序：**逾期最久的排最前**，然后是新卡。
-  /// 理由：逾期久的遗忘风险最高；新卡没有时间压力。
+  /// 排序由**三级**决定：
+  ///
+  /// 1. **逾期越久排越前**（FSRS 语义：遗忘风险最高）。新卡排在有卡片的之后
+  ///    —— 新卡没有时间压力。
+  /// 2. **同一逾期天数内**，`remedy == requiz`（重做本题有效）的题排在
+  ///    `drill`（需专项训练）之前。理由见 [causes] 的字段说明：
+  ///    复习页干的事就是"重做本题"，而 `calc` / `reading` / `time`
+  ///    三类错因的处方里明确写着"不要靠继续刷题解决"。
+  /// 3. 再同则按精确到期时间，最后按 id —— 保证顺序**稳定可测**。
+  ///
+  /// ⚠️ 第 2 级**只影响同一天到期的卡之间**的顺序，不会跨天插队。
+  /// 逾期多久是遗忘风险，不该被错因覆盖。
   Future<List<DueCard>> dueQueue({int limit = 30, DateTime? now}) async {
     final ts = now ?? DateTime.now();
     final states = await db.select(db.userProblemState).get();
@@ -259,8 +281,23 @@ class ReviewRepository {
       if (a.$2 != null && b.$2 == null) return -1;
       final da = a.$2?.due;
       final dbb = b.$2?.due;
-      if (da == null || dbb == null) return a.$1.problemId.compareTo(b.$1.problemId);
-      return da.compareTo(dbb); // 逾期越久（due 越早）越靠前
+      if (da == null || dbb == null) {
+        return a.$1.problemId.compareTo(b.$1.problemId);
+      }
+
+      // ① 逾期越久（due 越早）越靠前
+      final overdueA = ts.difference(da).inDays;
+      final overdueB = ts.difference(dbb).inDays;
+      if (overdueA != overdueB) return overdueB.compareTo(overdueA);
+
+      // ② 同一逾期档内：先做"重做本题真的有用"的那些
+      final rankA = _remedyRank(a.$1);
+      final rankB = _remedyRank(b.$1);
+      if (rankA != rankB) return rankA.compareTo(rankB);
+
+      // ③ 精确到期时间；再同则按 id 稳定
+      final byDue = da.compareTo(dbb);
+      return byDue != 0 ? byDue : a.$1.problemId.compareTo(b.$1.problemId);
     });
 
     final out = <DueCard>[];
@@ -276,6 +313,24 @@ class ReviewRepository {
     }
     return out;
   }
+
+  /// 复习次序里的"错因档位"：0 = 重做本题有效，1 = 需要专项训练。
+  ///
+  /// ## 判据是"有任何一个 drill 类错因就算 drill"
+  ///
+  /// 一道题可以同时标多个错因（词表 `multi_select = true`）。
+  /// 只要其中**有一个**属于 `calc` / `reading` / `time`，
+  /// 就说明"再做一遍这道题"这件事的收益已经打了折扣 ——
+  /// 取"或"而不是"且"，是因为这里要回答的是"重做有没有用"，
+  /// 而不是"错的成分里哪一类占多数"。
+  ///
+  /// ## 词表不可用 / 没标错因时返回 0
+  ///
+  /// [ErrorCauseCatalog.resolveJson] 对空值、坏 JSON、词表为空
+  /// 一律返回空列表，于是这里返回 0 —— 与加这个维度之前的行为完全一致。
+  /// 排序不该因为一次数据缺失就悄悄改变。
+  int _remedyRank(UserProblemStateRow row) =>
+      causes.resolveJson(row.errorCauses).any((c) => c.needsDrill) ? 1 : 0;
 
   /// 统计。用于复习页顶部与首页角标。
   Future<ReviewStats> stats({DateTime? now}) async {

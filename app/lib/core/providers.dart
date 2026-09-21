@@ -21,6 +21,7 @@ import '../services/paper/paper_repository.dart';
 import '../services/profile/mastery_service.dart';
 import '../services/review/reminder_service.dart';
 import '../services/review/review_repository.dart';
+import '../services/tagger/knowledge_recall.dart';
 
 /// 当前选中的科目。
 ///
@@ -59,6 +60,26 @@ final knowledgePathProvider =
   final kb = ref.watch(knowledgeBaseProvider).valueOrNull;
   if (kb == null) return const [];
   return kb.pathTo(id);
+});
+
+/// 知识点召回器。
+///
+/// ## 为什么必须按本体缓存，而不是每题 new 一个
+///
+/// [KnowledgeRecall] 的构造函数要遍历全部叶子（数一 200+）预计算 IDF、
+/// 公式分词与别名索引 —— 那是刻意的（它自己的注释写着"召回是热点路径"）。
+/// 早先 `KnowledgeTagger` 就是在 `tag()` 里面 new 的，于是"预计算"退化成
+/// "每题算一遍"（见 `knowledge_tagger.dart` 的 `_recall` 注释）。
+/// 这里同样把它挂在本体上：本体不换，召回器不重建。
+///
+/// ## 界面侧用它做什么
+///
+/// 「AI 为什么这么判」面板拿它做**实时重算**：召回是纯规则、不含 LLM、
+/// 毫秒级，所以随时重算既免费又确定 —— 这正是召回层当初被设计成规则
+/// 而非 LLM 的理由之一（可解释、可复算）。
+final knowledgeRecallProvider = FutureProvider<KnowledgeRecall>((ref) async {
+  final kb = await ref.watch(knowledgeBaseProvider.future);
+  return KnowledgeRecall(knowledge: kb);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -111,7 +132,10 @@ final errorCauseCatalogProvider = FutureProvider<ErrorCauseCatalog>(
 /// 组卷数据层：模板载入、候选池、卷子持久化。
 final paperRepositoryProvider = FutureProvider<PaperRepository>((ref) async {
   final db = await ref.watch(databaseProvider.future);
-  return PaperRepository(db: db);
+  // 词表用于"错因对症"这一维（见 PaperRepository.drillCauseIds）。
+  // 加载失败退化成 empty，那时组卷行为与引入该维度之前完全一致。
+  final causes = await ref.watch(errorCauseCatalogProvider.future);
+  return PaperRepository(db: db, causes: causes);
 });
 
 /// 当前科目的组卷模板（键是 kind：`real_exam` / `quick_mock` / `wrong_only`）。
@@ -144,7 +168,10 @@ final paperHistoryProvider = FutureProvider<List<PaperRow>>((ref) async {
 final reviewRepositoryProvider = FutureProvider<ReviewRepository>((ref) async {
   final db = await ref.watch(databaseProvider.future);
   final store = await ref.watch(problemStoreProvider.future);
-  return ReviewRepository(db: db, store: store);
+  // 错因词表只用于**队列的次序修正**（见 ReviewRepository.causes）。
+  // 它加载失败会退化成 empty，那时排序等同于该维度引入之前 —— 不会报错。
+  final causes = await ref.watch(errorCauseCatalogProvider.future);
+  return ReviewRepository(db: db, store: store, causes: causes);
 });
 
 /// 复习总览（侧边栏角标、复习页顶部）。

@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../domain/knowledge/knowledge_point.dart';
+import '../../services/profile/mastery_service.dart';
 import 'knowledge_graph_layout.dart';
 import 'knowledge_leaf_detail.dart';
 import 'knowledge_node_style.dart';
@@ -34,7 +35,19 @@ import 'knowledge_sizes.dart';
 class KnowledgeGraphView extends StatefulWidget {
   final KnowledgeBase kb;
 
-  const KnowledgeGraphView({super.key, required this.kb});
+  /// 每个知识点的掌握情况，按 `kpId` 索引。
+  ///
+  /// **空 map = 不做掌握度着色**，所有节点保持结构配色 ——
+  /// 与"这个考点还没复习过"在视觉上是同一个样子。刻意如此：
+  /// "还不知道"与"没有数据"不该长得不一样（否则用户会把
+  /// "我还没开始"读成"我全都不会"）。
+  final Map<String, KpMastery> masteryByKpId;
+
+  const KnowledgeGraphView({
+    super.key,
+    required this.kb,
+    this.masteryByKpId = const {},
+  });
 
   @override
   State<KnowledgeGraphView> createState() => _KnowledgeGraphViewState();
@@ -185,6 +198,11 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
             ? const <int>{}
             : g.pathTo(_selectedId!).toSet();
 
+        // 至少有一个考点复习过，掌握度这一层才画得出来。
+        // 全都没复习过 → 图例不提掌握度，节点也全是结构色。
+        final hasMastery =
+            widget.masteryByKpId.values.any((m) => m.mastery != null);
+
         return Stack(
           children: [
             Positioned.fill(
@@ -222,6 +240,8 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
                               // 字号/字重/内边距都从布局结果里取 ——
                               // 与"量宽度"用的是同一份，见 GraphStyle 的说明
                               style: g.style,
+                              // 掌握度（只有叶子会有值）。null = 不上状态色。
+                              mastery: widget.masteryByKpId[n.id],
                               selected: n.id == _selectedId,
                               dimmed: _selectedId != null &&
                                   !path.contains(g.indexById[n.id] ?? -1),
@@ -243,7 +263,7 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Flexible(child: _Legend()),
+                  Flexible(child: _Legend(withMastery: hasMastery)),
                   const Spacer(),
                   const SizedBox(width: 8),
                   _Toolbar(
@@ -419,7 +439,13 @@ class _Glass extends StatelessWidget {
 }
 
 class _Legend extends StatelessWidget {
-  const _Legend();
+  /// 有没有任何节点上了掌握度色。
+  ///
+  /// 没有时**不显示掌握度图例** —— 一份写着"稳固/不牢/薄弱"、
+  /// 却在图上一个对应颜色都找不到的图例，只会让人以为界面坏了。
+  final bool withMastery;
+
+  const _Legend({this.withMastery = false});
 
   @override
   Widget build(BuildContext context) {
@@ -459,6 +485,39 @@ class _Legend extends StatelessWidget {
                   ),
                 ],
               ),
+            // 掌握度图例。它回答的是另一个问题（"我对它掌握得怎么样"），
+            // 所以用一根竖线跟前面那组"这是什么"分开。
+            if (withMastery) ...[
+              Container(width: 1, height: 11, color: AppColors.line),
+              for (final b in const [
+                MasteryBand.weak,
+                MasteryBand.shaky,
+                MasteryBand.solid,
+              ])
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: masteryBandFill(b),
+                        borderRadius: BorderRadius.circular(2.5),
+                        border: Border.all(
+                          color: masteryBandInk(b).withValues(alpha: 0.38),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      masteryBandLabel(b),
+                      style: const TextStyle(
+                          fontSize: KnowledgeSizes.secondary,
+                          color: kSecondaryInk),
+                    ),
+                  ],
+                ),
+            ],
           ],
         ),
       ),
@@ -470,12 +529,39 @@ class _Legend extends StatelessWidget {
 // 节点外观见 `knowledge_node_style.dart`（与大纲视图共用一份配色）
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// 悬停提示：全名 + id +（有复习数据时）掌握情况。
+///
+/// 全名放在**第一行**：节点宽度有上限，长名字会被省略号截断，
+/// 而悬停是看全称的唯一途径。
+///
+/// 后面那句"3/7 题有记录"不是装饰 —— 一个由 1 道题算出的 62%
+/// 与由 7 道题算出的 62% 可信度完全不同，只给百分比就是在暗示
+/// 一个它没有的精度（这是画像页早就立下的纪律，这里照搬）。
+String _tooltipFor(KnowledgePoint p, KpMastery? m) {
+  final lines = <String>[p.name, p.id];
+  if (m == null) return lines.join('\n');
+
+  if (m.mastery != null) {
+    final pct = (m.mastery! * 100).round();
+    lines.add(
+      '掌握 $pct% · ${m.reviewedCount}/${m.problemCount} 题有记录'
+      '${m.wrongCount > 0 ? ' · 累计错 ${m.wrongCount} 次' : ''}',
+    );
+  } else if (m.problemCount > 0) {
+    lines.add('收录 ${m.problemCount} 题，尚未复习过');
+  }
+  return lines.join('\n');
+}
+
 class _GraphNodeCard extends StatelessWidget {
   final GraphNode node;
 
   /// 与布局同源的样式。**不要在这里写死字号或字重** ——
   /// 那正是"量的和排的不是一个东西"的来源（见 `GraphStyle` 的注释）。
   final GraphStyle style;
+
+  /// 这个知识点的掌握情况。null 或 `mastery == null` 时**不上状态色**。
+  final KpMastery? mastery;
 
   final bool selected;
   final bool dimmed;
@@ -485,6 +571,7 @@ class _GraphNodeCard extends StatelessWidget {
     super.key,
     required this.node,
     required this.style,
+    this.mastery,
     required this.selected,
     required this.dimmed,
     required this.onTap,
@@ -493,7 +580,8 @@ class _GraphNodeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final kind = node.kind;
-    final theme = nodeThemeOf(kind);
+    // 结构配色 + 掌握度状态。只改底色/描边，文字色不动（见 masteryThemeOf）。
+    final theme = masteryThemeOf(kind, mastery?.mastery);
     final ink = theme.onFillInk;
     final w = node.point.examWeight;
 
@@ -502,7 +590,7 @@ class _GraphNodeCard extends StatelessWidget {
       child: Material(
         type: MaterialType.transparency,
         child: Tooltip(
-          message: '${node.point.name}\n${node.point.id}',
+          message: _tooltipFor(node.point, mastery),
           waitDuration: const Duration(milliseconds: 600),
           child: InkWell(
             onTap: onTap,

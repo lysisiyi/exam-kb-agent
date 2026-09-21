@@ -23,6 +23,7 @@ library;
 import 'dart:async';
 
 import '../llm/llm_client.dart';
+import 'ingest_draft.dart';
 import 'ingest_extractor.dart';
 import 'ingest_models.dart';
 import 'ingest_prompt.dart';
@@ -78,7 +79,13 @@ class IngestReport {
 
 /// 一次批量导入会话。
 class IngestSession {
-  final LlmClient client;
+  /// 调模型用的客户端。
+  ///
+  /// **可以为 null**：恢复一份草稿只需要"把结果摆回界面上"，
+  /// 不需要发请求。用户完全可能在改完设置（甚至清空 Key）之后
+  /// 才回来接着看上次的结果 —— 那时硬要一个 client 就变成"看不到结果"，
+  /// 而这恰恰是最不该发生的。
+  final LlmClient? client;
 
   /// 附件加载器（可注入 → 管道离线可测）。
   final AttachmentLoader loadAttachment;
@@ -89,17 +96,54 @@ class IngestSession {
   /// 来源清单（构造时定下，运行中不变）。
   final List<IngestSource> sources;
 
+  /// [initialItems] 是**上一轮的既有结果**（从中断处续跑，见 T49）。
+  ///
+  /// 它按**来源路径**认领到 [sources] 上，所以条数不必与 [sources] 相等：
+  /// 对不上时缺的来源会被补成 `pending`（也就是还会去跑），
+  /// 而不是被悄悄漏掉。
   IngestSession({
     required this.client,
     required this.loadAttachment,
     this.findDuplicates,
     required List<IngestSource> sources,
-  }) : sources = List.unmodifiable(sources);
+    List<IngestItem> initialItems = const [],
+  })  : sources = List.unmodifiable(sources),
+        _items = List.of(initialItems) {
+    _alignItems();
+  }
 
-  final List<IngestItem> _items = [];
+  final List<IngestItem> _items;
 
   /// 当前结果。顺序与 [sources] 一致。
   List<IngestItem> get items => List.unmodifiable(_items);
+
+  late LlmUsage _usage;
+  LlmUsage get usage => _usage;
+
+  /// 把 [_items] 与 [sources] 对齐，并从既有结果推出累计用量。幂等。
+  ///
+  /// ## 为什么不能"直接用传进来的那份结果"
+  ///
+  /// 上一版这里是 `if (_items.isEmpty) { 按 sources 造 }` —— 也就是
+  /// **只用来源条数判定**。后果是：调用方给了 1 条结果、却给了 3 个来源时，
+  /// 循环只走那 1 条，另外 2 个来源既不发请求也不报错，
+  /// 界面上表现为"解析完了，就是题少了" —— 一个不会自己暴露的静默丢数据。
+  ///
+  /// 改成按路径认领之后，**任何没被结果覆盖的来源都会被补成 `pending`**，
+  /// 于是最坏情况只是多花一次钱，而不是少导几道题。
+  void _alignItems() {
+    final byPath = <String, IngestItem>{
+      for (final i in _items) i.source.path: i,
+    };
+    _items
+      ..clear()
+      ..addAll(sources.map((s) => byPath[s.path] ?? IngestItem(source: s)));
+
+    // 累计用量从既有结果里**推**出来，而不是另外存一个数：
+    // 续跑之后那个"这批花了多少"必须把上半场算进去，
+    // 而两处各存一份迟早会对不上。
+    _usage = _items.fold(const LlmUsage(), (a, i) => a + i.usage);
+  }
 
   bool _cancelled = false;
   bool get isCancelled => _cancelled;
@@ -108,33 +152,70 @@ class IngestSession {
   /// 当前来源跑完，剩下的标记为跳过（也就不会再花钱）。
   void cancel() => _cancelled = true;
 
+  /// 当前进度的快照，可直接落盘（见 [IngestDraftStore]）。
+  ///
+  /// `running` 一律归一成 `pending`：正在跑的那个来源**没有拿到结果**，
+  /// 崩溃后它就是"没完成"。见 [IngestDraft] 顶部的说明。
+  IngestDraft snapshot({String model = '', DateTime? now}) => IngestDraft(
+        items: [
+          for (final i in _items)
+            i.status == IngestStatus.running
+                ? i.copyWith(status: IngestStatus.pending)
+                : i,
+        ],
+        usage: _usage,
+        model: model,
+        savedAt: now,
+      );
+
   /// 跑完全部来源。
+  ///
+  /// ## 已有结果的来源**不再重跑**
+  ///
+  /// 这是 T49 的全部意义：续跑时 `done` 的来源直接沿用，
+  /// 既不重新发请求，也不重新计费。[IngestReport.done] 仍然把它算进去，
+  /// 所以进度条与"已完成 N 个"不会看起来像少了一截。
   ///
   /// [onProgress] 在**每个来源开始前与结束后**各调一次，
   /// 这样进度条在慢调用期间也能显示"正在处理哪一个"，而不是卡在 0%。
   Future<IngestReport> run({
     void Function(IngestProgress)? onProgress,
   }) async {
-    _items
-      ..clear()
-      ..addAll(sources.map((s) => IngestItem(source: s)));
+    // 与来源清单对齐；既有结果按路径认领，认不到的补成 pending。
+    // 幂等：正常情况下这一句什么都不改。
+    _alignItems();
 
-    var usage = const LlmUsage();
+    // 落盘的 `running` 在恢复时已归一成 pending，但同一个会话被中断后
+    // 直接再 run() 也可能留下 running —— 一并归一，避免它被当成"跑完了"
+    for (var i = 0; i < _items.length; i++) {
+      if (_items[i].status == IngestStatus.running) {
+        _items[i] = _items[i].copyWith(status: IngestStatus.pending);
+      }
+    }
+
     final notes = <String>[];
 
-    void notify([String? current]) {
-      onProgress?.call(IngestProgress(
-        total: _items.length,
-        finished: _items.where(_isFinished).length,
-        failed: _items.where((i) => i.status == IngestStatus.failed).length,
-        problemCount: _items.fold(0, (n, i) => n + i.problems.length),
-        current: current,
-      ));
-    }
+    void notify([String? current]) =>
+        onProgress?.call(IngestProgress.of(_items, current: current));
 
     notify();
 
+    if (client == null) {
+      // 没客户端就一个请求都不发（也就一分钱不花），并**说出来**
+      return IngestReport(
+        total: _items.length,
+        done: _items.where((i) => i.isDone).length,
+        skipped: _items.where((i) => !i.isFinished).length,
+        problemCount: _items.fold(0, (n, i) => n + i.problems.length),
+        usage: _usage,
+        notes: const ['当前没有可用的 AI 服务商配置，未发出任何请求。'],
+      );
+    }
+
     for (var i = 0; i < _items.length; i++) {
+      // 已经拿到结果的来源：直接沿用，不重新花钱
+      if (_items[i].isDone) continue;
+
       if (_cancelled) {
         _items[i] = _items[i].copyWith(status: IngestStatus.skipped);
         continue;
@@ -147,7 +228,7 @@ class IngestSession {
       try {
         final result = await _processOne(source, i);
         _items[i] = result;
-        usage = usage + result.usage;
+        _usage = _usage + result.usage;
       } on LlmException catch (e) {
         _items[i] = _items[i].copyWith(
           status: IngestStatus.failed,
@@ -189,7 +270,7 @@ class IngestSession {
       skipped: skipped,
       problemCount: problems.length,
       duplicateCount: problems.where((p) => p.isDuplicate).length,
-      usage: usage,
+      usage: _usage,
       cancelled: _cancelled,
       notes: notes,
     );
@@ -200,9 +281,14 @@ class IngestSession {
   /// [index] 只用于提示词里的"第几份"，所以由调用方传入 ——
   /// 不要在这里按路径反查下标：同一个文件被选中两次时那个反查会取到错的位置。
   Future<IngestItem> _processOne(IngestSource source, int index) async {
+    final c = client;
+    // run() 已经挡过一次。这里再挡一次是因为"没客户端却去调模型"
+    // 会以 Null check 的形式炸在深层调用里，那条错误信息对用户毫无意义。
+    if (c == null) throw StateError('没有可用的 AI 服务商配置，无法解析。');
+
     final attachment = await loadAttachment(source);
 
-    final resp = await client.chat(ChatRequest(
+    final resp = await c.chat(ChatRequest(
       system: kIngestSystemPrompt,
       user: ingestUserPrompt(
         sourceName: source.name,
@@ -289,9 +375,4 @@ class IngestSession {
     }
     return out;
   }
-
-  static bool _isFinished(IngestItem i) =>
-      i.status == IngestStatus.done ||
-      i.status == IngestStatus.failed ||
-      i.status == IngestStatus.skipped;
 }

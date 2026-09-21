@@ -32,6 +32,7 @@ import '../../data/markdown/problem_markdown.dart';
 import '../../domain/problem_draft.dart';
 import '../../services/review/review_repository.dart';
 import '../entry/entry_page.dart';
+import 'tag_explanation_panel.dart';
 
 /// 列表的排序/筛选方式。
 enum ProblemView {
@@ -662,6 +663,12 @@ class _ProblemDetailSheet extends StatelessWidget {
             const _SectionLabel('我的笔记'),
             renderer.renderMarkdown(problem.note!),
           ],
+          // 「AI 为什么这么判」——折叠区，展开才去算召回。
+          //
+          // 位置放在内容之后、操作按钮之前：想复核标注的人会顺着读完题干
+          // 与解析再往下看；不想看的人不需要滚动跳过它。
+          const Divider(height: 28),
+          TagExplanationPanel(problem: problem),
           const Divider(height: 28),
           Wrap(
             spacing: 8,

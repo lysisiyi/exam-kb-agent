@@ -24,6 +24,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../../data/db/database.dart';
+import '../../data/error_causes.dart';
 import '../../domain/paper/paper_models.dart';
 import '../../domain/paper/paper_template.dart';
 import 'paper_composer.dart';
@@ -38,7 +39,28 @@ class PaperRepository {
   /// 模板 JSON 的文本。可注入以便测试不依赖 asset bundle。
   final String? templatesJson;
 
-  PaperRepository({required this.db, this.templatesJson});
+  /// 错因受控词表。
+  ///
+  /// 用途只有一个：把候选题的错因 id 透出来，并给出
+  /// [drillCauseIds] 供组卷请求判断"重做本题有没有用"。
+  /// 缺省 [ErrorCauseCatalog.empty] 时 [drillCauseIds] 为空集合，
+  /// 组卷行为**完全等同于**加这个维度之前。
+  final ErrorCauseCatalog causes;
+
+  PaperRepository({
+    required this.db,
+    this.templatesJson,
+    this.causes = ErrorCauseCatalog.empty,
+  });
+
+  /// 属于「需专项训练」的错因 id（`remedy == drill`）。
+  ///
+  /// 组卷引擎**不硬编码**这些 id —— 由这里从词表推导，再随
+  /// [PaperRequest.drillCauseIds] 传进去。词表调整时引擎自动跟着变。
+  Set<String> get drillCauseIds => {
+        for (final c in causes.causes)
+          if (c.needsDrill) c.id,
+      };
 
   // ───────────────────────────────────────────────────────────────────────
   // 模板
@@ -152,6 +174,10 @@ class PaperRepository {
         primaryKpWeight: r.primaryKpWeight,
         wrongCount: wrong,
         kpMastery: n == 0 ? null : masterySum[kpId]! / n,
+        // 错因取自**用户状态行**而不是索引的冗余列：用户可以在错题本里
+        // 改错因，索引那列要等重建才跟上。组卷吃的是"用户现在认为
+        // 这题错在哪"，所以用状态的。
+        errorCauseIds: causes.idsOfJson(s?.errorCauses),
       ));
     }
     return out;

@@ -97,6 +97,9 @@ class SeedProblem {
   /// 初始 FSRS 状态。null 表示新卡。
   final FsrsCard? card;
 
+  /// 初始错因（受控 id，如 `['concept', 'calc']`）。空表示没标错因。
+  final List<String> errorCauses;
+
   const SeedProblem({
     required this.id,
     required this.stem,
@@ -111,6 +114,7 @@ class SeedProblem {
     this.images = const [],
     this.wrongCount = 1,
     this.card,
+    this.errorCauses = const [],
   });
 }
 
@@ -160,6 +164,7 @@ Future<IndexReport> seedProblems(
             firstSeen: Value(s.createdAt ?? DateTime(2024, 1, 1)),
             fsrsState: Value(s.card == null ? null : _encodeCard(s.card!)),
             mastery: const Value(0),
+            errorCauses: Value(jsonEncode(s.errorCauses)),
           ),
         );
   }

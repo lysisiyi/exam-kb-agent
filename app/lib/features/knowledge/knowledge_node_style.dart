@@ -128,3 +128,106 @@ Color weightInk(double? w) {
   if (w >= 0.6) return AppColors.warningInk;
   return kSecondaryInk;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 掌握度着色 —— 图谱的"状态层"
+//
+// 结构配色的答案是"这个节点是什么"（科目/章节/知识点），
+// 状态配色的答案是"我对它掌握得怎么样"。两件事分开表达：
+// 结构走 [nodeThemeOf]，状态走 [masteryThemeOf]。
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 掌握度分档。**这是视觉分档，不是诊断阈值。**
+///
+/// 它只决定"这个节点染成哪一档的颜色"，不参与任何算分 ——
+/// 排序与"最薄弱"用的一直是 `KpMastery.weakness`。
+enum MasteryBand {
+  /// 这个考点下一道题都没复习过（`mastery == null`）。
+  unknown,
+  weak,
+  shaky,
+  solid,
+}
+
+/// 掌握度 → 档位。
+///
+/// ## 阈值 0.4 / 0.7 是怎么定的
+///
+/// 取的是把 `[0,1]` 分三段时**偏保守**的一组：弱档只到 0.4。
+/// 理由是可读性 —— 如果一道复习得不太好的题就把整个考点点成红色，
+/// 用户很快会对颜色脱敏，而颜色一旦脱敏就不再传达任何信息。
+///
+/// ## 未知**不能**被画成"完全不会"
+///
+/// `mastery == null` 返回 [MasteryBand.unknown]，调用方必须保持该节点的
+/// 结构配色。这条与画像页"没有复习数据的条不画 0% 的进度条"、
+/// "用空槽表示空缺"是同一个纪律：`null` 的意思是"**还不知道**"，
+/// 不是"0"。
+MasteryBand masteryBandOf(double? mastery) {
+  if (mastery == null) return MasteryBand.unknown;
+  final m = mastery.clamp(0.0, 1.0);
+  if (m < 0.4) return MasteryBand.weak;
+  if (m < 0.7) return MasteryBand.shaky;
+  return MasteryBand.solid;
+}
+
+/// 档位的中文名（图例与悬停提示用）。
+String masteryBandLabel(MasteryBand b) => switch (b) {
+      MasteryBand.unknown => '未复习',
+      MasteryBand.weak => '薄弱',
+      MasteryBand.shaky => '不牢',
+      MasteryBand.solid => '稳固',
+    };
+
+/// 档位的状态色（边框、色条、图例）。
+///
+/// 全部取自既有语义色，**不新增颜色常量** —— 新增一个色就要重新验证
+/// 对比度，而这里的三个色已经在别处被 `knowledge_palette_test.dart` 量过。
+Color masteryBandInk(MasteryBand b) => switch (b) {
+      MasteryBand.unknown => AppColors.ink4,
+      MasteryBand.weak => AppColors.danger,
+      MasteryBand.shaky => AppColors.warningInk,
+      MasteryBand.solid => AppColors.success,
+    };
+
+/// 档位的底色（图谱节点填充）。
+Color masteryBandFill(MasteryBand b) => switch (b) {
+      MasteryBand.unknown => AppColors.surface,
+      MasteryBand.weak => AppColors.dangerWeak,
+      MasteryBand.shaky => AppColors.warningWeak,
+      MasteryBand.solid => AppColors.successWeak,
+    };
+
+/// 图谱节点的外观 = 结构配色 + 掌握度状态。
+///
+/// ## 只改底色与描边，**绝不动文字色**
+///
+/// 叶子文字仍然是 [AppColors.ink1]（白底上 17.8:1）。三种状态底色都比白
+/// 略深，所以文字对比度只**升**不降（`dangerWeak` 上约 15.5:1、
+/// `warningWeak` 上约 16.4:1、`successWeak` 上约 16.0:1）——
+/// 也就是说这个改动**不可能**把任何一处文字变糊。
+/// 本文件顶部那条"最该读的东西给最深的字"因此完好无损。
+///
+/// ## 只作用于叶子
+///
+/// 掌握度是按**知识点**聚合的（见 `MasteryService`），章节与分段没有这个
+/// 概念。给它们上状态色只会让"层级"与"掌握度"两套语义糊在一起。
+///
+/// [MasteryBand.unknown] 直接返回 [nodeThemeOf] —— 没复习过就不上色，
+/// 节点保持它作为"结构元素"原本的样子。
+NodeTheme masteryThemeOf(GraphNodeKind kind, double? mastery) {
+  final base = nodeThemeOf(kind);
+  if (kind != GraphNodeKind.leaf) return base;
+
+  final band = masteryBandOf(mastery);
+  if (band == MasteryBand.unknown) return base;
+
+  return NodeTheme(
+    fill: masteryBandFill(band),
+    border: masteryBandInk(band).withValues(alpha: 0.38),
+    // 以下三项保持结构配色不动（理由见函数文档）
+    onFillInk: base.onFillInk,
+    textInk: base.textInk,
+    accent: masteryBandInk(band),
+  );
+}

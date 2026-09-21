@@ -204,6 +204,27 @@ class LlmUsage {
         costYuan: (costYuan ?? 0) + (other.costYuan ?? 0),
         fromCache: false,
       );
+
+  /// 序列化。唯一的消费者是批量导入草稿（T49）——
+  /// 中继续跑时要能把"这批已经花了多少"一起带回来，
+  /// 否则用户会觉得钱花得不明不白。
+  Map<String, dynamic> toJson() => {
+        'input': inputTokens,
+        'output': outputTokens,
+        if (model.isNotEmpty) 'model': model,
+        if (costYuan != null) 'cost': costYuan,
+        if (fromCache) 'cached': true,
+      };
+
+  /// 反序列化。字段缺失一律退化为 0，不抛异常 ——
+  /// 草稿是"未完成的工作"，读坏它不该拦住用户。
+  factory LlmUsage.fromJson(Map<String, dynamic> j) => LlmUsage(
+        inputTokens: (j['input'] as num?)?.toInt() ?? 0,
+        outputTokens: (j['output'] as num?)?.toInt() ?? 0,
+        model: j['model']?.toString() ?? '',
+        costYuan: (j['cost'] as num?)?.toDouble(),
+        fromCache: j['cached'] == true,
+      );
 }
 
 /// 粗略的价目表（元 / 百万 token），用于给用户**估算**花费。

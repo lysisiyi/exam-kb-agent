@@ -103,6 +103,10 @@ class _PaperPageState extends ConsumerState<PaperPage> {
           preferWrong: _preferWrong,
           preferWeak: _preferWeak,
           diversify: _diversify,
+          // 错因对症：把"重做本题帮助有限"的那几类错因交给引擎。
+          // 具体生效条件见 `PaperRequest.usesErrorCause` —— 它只在
+          // 错题专练这类请求上起作用，真题全卷与限时模考不受影响。
+          drillCauseIds: repo.drillCauseIds,
         ),
         pool: pool,
       );

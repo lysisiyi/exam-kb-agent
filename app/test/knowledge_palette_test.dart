@@ -15,32 +15,15 @@
 /// 这里一律按 4.5 卡 —— 知识点卡片与大纲里的字最大也就 15px，都属于"正文"。
 library;
 
-import 'dart:math' as math;
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/core/theme/app_theme.dart';
 import 'package:kaoyan_math_agent/features/knowledge/knowledge_graph_layout.dart'
     show GraphNodeKind;
 import 'package:kaoyan_math_agent/features/knowledge/knowledge_node_style.dart';
 
-/// WCAG 相对亮度。
-double _luminance(Color c) {
-  double f(double v) =>
-      v <= 0.03928 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
-  return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
-}
+import 'support/contrast.dart';
 
-/// 对比度（1:1 – 21:1）。
-double contrast(Color fg, Color bg) {
-  final a = _luminance(fg);
-  final b = _luminance(bg);
-  final hi = math.max(a, b);
-  final lo = math.min(a, b);
-  return (hi + 0.05) / (lo + 0.05);
-}
-
-const double _aa = 4.5;
+const double _aa = wcagAa;
 
 void main() {
   const kinds = GraphNodeKind.values;

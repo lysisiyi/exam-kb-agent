@@ -48,6 +48,11 @@ void main() {
         overrides: [
           databaseProvider.overrideWith((ref) async => env.db),
           problemStoreProvider.overrideWith((ref) async => env.store),
+          // ⚠️ **必须**盖住：导入草稿（T49）落在题库根目录下，
+          // 不盖的话 `LibraryPaths.resolve()` 会走 `path_provider` 拿到
+          // 用户真实的应用数据目录 —— 测试就会去读（并在不可用时删掉）
+          // 用户真机上那份 `ingest_draft.json`。
+          libraryPathsProvider.overrideWith((ref) async => env.paths),
           // 不碰真实的安全存储（DPAPI）：测试里直接给配置
           llmSettingsProvider.overrideWith((ref) async => settings),
         ],
