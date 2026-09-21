@@ -14,6 +14,9 @@ library;
 
 import 'package:flutter/widgets.dart';
 
+import '../theme/app_fonts.dart';
+import '../theme/app_theme.dart';
+
 /// 公式的排版模式。
 enum MathStyle {
   /// 行内公式，与文字同基线，可折行。
@@ -218,8 +221,18 @@ class PlainTextMathRenderer implements MathRenderer {
     final text = Text(
       latex,
       style: TextStyle(
-        fontFamily: 'monospace',
-        fontSize: options.fontSize ?? (style == MathStyle.display ? 14 : 13),
+        // 这一层排的是**原始 LaTeX 源码**，里面可能含中文
+        // （`\text{解}` 之类）—— 所以等宽链必须带中文回退，
+        // 否则这条降级路径的中文就交给平台默认字体了（可能没字形）。
+        // 见 `AppFonts.monoFallback`。
+        fontFamily: AppFonts.mono,
+        fontFamilyFallback: AppFonts.monoFallback,
+        // 字号走刻度，不写字面量 —— 早先这里是硬编码的 13/14，
+        // 于是"改刻度但降级路径不变"，两条路径的公式大小不一致
+        fontSize: options.fontSize ??
+            (style == MathStyle.display
+                ? AppMathSizes.display
+                : AppMathSizes.reading),
         color: options.color,
         height: 1.6,
       ),
@@ -240,7 +253,9 @@ class PlainTextMathRenderer implements MathRenderer {
       Text(
         markdown,
         style: TextStyle(
-          fontSize: options.fontSize ?? 14,
+          fontFamily: AppFonts.sans,
+          fontFamilyFallback: AppFonts.sansFallback,
+          fontSize: options.fontSize ?? AppMathSizes.reading,
           color: options.color,
           height: 1.9,
         ),

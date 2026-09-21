@@ -13,19 +13,24 @@
 /// 这些性质一旦破坏，图会"看着怪"，而 widget 测试抓不到那种"怪"。
 library;
 
-import 'dart:ui';
+import 'dart:ui' show Offset, Rect;
 
+import 'package:flutter/painting.dart' show TextStyle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/domain/knowledge/knowledge_point.dart';
 import 'package:kaoyan_math_agent/features/knowledge/knowledge_graph_layout.dart';
 
 import 'support/knowledge_fixture.dart';
 
-/// 确定性测量：按字符数估宽（中文算 12px、其余算 7px）。
-double measure(String text) {
+/// 确定性测量：按字符数估宽（中文算 1em、其余算 0.58em）。
+///
+/// 系数按 [TextStyle.fontSize] 缩放 —— 度量与渲染必须同源，
+/// 字号一变这里就得跟着变（这正是签名带上 `TextStyle` 的原因）。
+double measure(String text, TextStyle style) {
+  final size = style.fontSize ?? 12;
   var w = 0.0;
   for (final r in text.runes) {
-    w += r > 0x2E80 ? 12 : 7;
+    w += r > 0x2E80 ? size : size * 0.58;
   }
   return w;
 }

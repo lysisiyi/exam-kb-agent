@@ -25,7 +25,11 @@ library;
 
 import 'dart:ui' show Offset, Rect, Size;
 
+import 'package:flutter/painting.dart' show FontFeature, FontWeight, TextStyle;
+
+import '../../core/theme/app_fonts.dart';
 import '../../domain/knowledge/knowledge_point.dart';
+import 'knowledge_sizes.dart';
 
 /// 节点在图里的角色 —— 决定配色与"要不要显示考频徽标"。
 enum GraphNodeKind {
@@ -85,12 +89,31 @@ class GraphEdge {
 }
 
 /// 布局参数。
+///
+/// ## ⚠️ 这里同时是**渲染**参数的唯一来源
+///
+/// 早先布局与渲染各自写着"节点文字长什么样"：
+///
+/// | | 布局（本文件） | 渲染（`knowledge_graph_view.dart`） |
+/// |---|---|---|
+/// | 字号 | 12 | **12.5** |
+/// | 字重 | w600 | **叶子 w500 / 分支 w700** |
+/// | 水平内边距 | 10 | **9** |
+/// | 考频数字 | **完全没算** | 10.5 + 6 间距 |
+///
+/// 于是"量的和排的不是一个东西"：列宽按 12/w600 算出来，实际排的是
+/// 12.5/w700 —— 宽了；而叶子节点还要额外塞进一个考频徽标。结果就是
+/// **节点名字莫名被省略号截断**（宽度算少了），读者却只看得到
+/// "名字怎么没了"，看不到原因。
+///
+/// 现在节点的 [textStyleOf] / [weightStyle] / [paddingH] 只有这一份定义，
+/// 布局用它量宽、渲染用它排版，两者**在结构上不可能再分叉**。
 class GraphStyle {
   /// 节点标题字号。宽度是按它量出来的，所以改字号要重新布局。
   final double fontSize;
 
-  /// 每个叶子占的行高（含间隙）。
-  final double rowHeight;
+  /// 叶子行高的显式覆盖值。null 表示由 [nodeHeight] 派生。
+  final double? _rowHeightOverride;
 
   /// 节点内边距（文字到边框）。
   final double paddingH;
@@ -100,25 +123,114 @@ class GraphStyle {
   final double columnGap;
 
   /// 节点宽度下限 / 上限（太长的名字截断，靠悬停提示看全）。
+  ///
+  /// ## 上限为什么是 240 而不是 210
+  ///
+  /// 字号从 12 提到 14 之后，同一个名字宽了 17%，顶到上限而被省略号截断的
+  /// 节点数会**成倍增加**。上限必须跟着字号走。
+  ///
+  /// 实测（math1 真实数据，164 个节点，`knowledge_size_test.dart` 里那条
+  /// "顶到宽度上限的节点占比"就是它的固化）：
+  ///
+  /// | 字号 | 上限 | 被截断的节点 |
+  /// |---|---|---|
+  /// | 12（改前） | 210（改前） | 11 / 164 = 6.7% |
+  /// | 14 | 210 | **40 / 164 = 24.4%** |
+  /// | 14 | **240** | **11 / 164 = 6.7%** |
+  ///
+  /// 也就是说 240 把"名字被吃掉"这件事精确地拉回了改前的水平。
+  ///
+  /// ## 但上限不是越大越好
+  ///
+  /// 列宽直接决定画布宽度，而画布越宽，"适应宽度"把整棵树缩得越小 ——
+  /// **字反而变小**，与"放大字号"的初衷相反。所以上限只加到刚好抵消
+  /// 字号增长（12→14 是 +17%，210×1.17 ≈ 246，取整 240）。
   final double minNodeWidth;
   final double maxNodeWidth;
 
   /// 画布四周留白。
   final double margin;
 
+  /// 节点名与考频数字之间的间距。
+  final double weightGap;
+
   const GraphStyle({
-    this.fontSize = 12,
-    this.rowHeight = 27,
+    this.fontSize = KnowledgeSizes.title,
+    double? rowHeight,
     this.paddingH = 10,
     this.paddingV = 5,
     this.columnGap = 34,
     this.minNodeWidth = 96,
-    this.maxNodeWidth = 210,
+    this.maxNodeWidth = 240,
     this.margin = 20,
-  });
+    this.weightGap = 6,
+  }) : _rowHeightOverride = rowHeight;
 
   /// 节点高度（所有节点一样高，连线看起来才整齐）。
   double get nodeHeight => fontSize * 1.35 + paddingV * 2;
+
+  /// 相邻叶子的行距。
+  static const double rowGap = 3;
+
+  /// 叶子行高。
+  ///
+  /// 默认由 [nodeHeight] 派生（+ [rowGap]），**刻意不再写成独立字面量**：
+  /// 它必须大于 [nodeHeight]，否则同一列相邻节点的矩形会重叠、文字压在一起。
+  ///
+  /// 早先它是写死的 27，而 nodeHeight 由字号派生成 26.2 —— 只差 0.8px，
+  /// 所以"字号一改就重叠"这颗雷一直没响。现在两者绑定，
+  /// 改字号时行高自动跟上。
+  double get rowHeight => _rowHeightOverride ?? nodeHeight + rowGap;
+
+  /// 各角色的字重。
+  ///
+  /// **层级靠字重表达，不靠字号** —— 同一张图里字号必须一致，
+  /// 否则就是用户反馈的"字尺寸深浅不一"。见 [KnowledgeSizes] 的说明。
+  ///
+  /// 只允许 [AppFonts.regular] / [AppFonts.bold] 两个值：`Microsoft YaHei UI`
+  /// 这个族**只提供 Regular 与 Bold**，写 `w500` 会被静默近似成 Regular、
+  /// 写 `w600` 会近似成 Bold —— 代码意图与实际渲染不符。依据见
+  /// `app_fonts.dart` 里 [AppFonts.bold] 的注释（实测数据）。
+  FontWeight fontWeightOf(GraphNodeKind kind) =>
+      kind == GraphNodeKind.leaf ? AppFonts.regular : AppFonts.bold;
+
+  /// 节点名在 **度量** 与 **渲染** 共用的样式。
+  ///
+  /// 必须带 `fontWeight`：它直接影响字形宽度。此前度量统一用 w600、
+  /// 而渲染用 w500/w700，是"量排不同源"的第一条成因。
+  ///
+  /// 也必须带**字体链**：度量用的 `TextPainter` 没有 widget 树可以继承，
+  /// 不带 `fontFamily` 就落到平台默认字体上，量出来的宽度与渲染层
+  /// （继承 `ThemeData.fontFamily`）不同。两边都从这里取才真正同源。
+  TextStyle textStyleOf(GraphNodeKind kind) => TextStyle(
+        fontFamily: AppFonts.sans,
+        fontFamilyFallback: AppFonts.sansFallback,
+        fontSize: fontSize,
+        fontWeight: fontWeightOf(kind),
+      );
+
+  /// 考频数字的样式（叶子节点右侧的徽标）。
+  ///
+  /// 它也算进节点宽度 —— 早先没算，导致叶子名字被截断。
+  ///
+  /// ## 为什么字重与名字一致（Regular），而不是加粗
+  ///
+  /// 加粗会造出**同一行里两种字重**：名字 Regular、徽标 Bold。
+  /// 在用户给的截图上量过：考频数字（`0.76`、`0.96`）比它左边的名字更"实" ——
+  /// 一行之内一小一大、一轻一重，正是"深浅不一"的来源之一。
+  ///
+  /// 考频的重要性**交给颜色**（[weightInk]：高频红 / 中频橙 / 其余中性），
+  /// 这也是本项目在其他地方已经用过的手法 —— 层级由结构（色块）与颜色表达，
+  /// 字重只用来区分**分支与叶子**这两种结构角色。
+  ///
+  /// **数字仍用等宽数字**：上下相邻节点的考频才能对齐成一列，扫读快得多。
+  TextStyle get weightStyle => const TextStyle(
+        fontFamily: AppFonts.sans,
+        fontFamilyFallback: AppFonts.sansFallback,
+        fontSize: KnowledgeSizes.secondary,
+        fontWeight: AppFonts.regular,
+        fontFeatures: [FontFeature.tabularFigures()],
+      );
 }
 
 /// 布局结果。
@@ -135,12 +247,19 @@ class KnowledgeGraph {
   /// 最大列数。
   final int maxDepth;
 
+  /// 生成这张图用的样式。
+  ///
+  /// 渲染层（`_GraphNodeCard`）**必须**从这里取字号、字重与内边距 ——
+  /// 它自己再写一遍就等于把"量的和排的不是一个东西"重新引入。
+  final GraphStyle style;
+
   const KnowledgeGraph({
     required this.nodes,
     required this.edges,
     required this.size,
     required this.indexById,
     required this.maxDepth,
+    required this.style,
   });
 
   GraphNode? nodeOf(String id) {
@@ -175,7 +294,11 @@ class KnowledgeGraph {
 }
 
 /// 量一段文字的宽度。widget 层传 TextPainter 的实现，测试传确定性实现。
-typedef MeasureText = double Function(String text);
+///
+/// ⚠️ 必须带上 [TextStyle]：字重会改变字形宽度，而同一列里叶子走 w500、
+/// 分支走 w700 —— 早先度量只有一个 `String` 参数，只能统一按 w600 量，
+/// 于是量出来的宽度**无论怎么改都不等于渲染宽度**。
+typedef MeasureText = double Function(String text, TextStyle style);
 
 /// 按 [kb] 算出一份图谱布局。
 ///
@@ -227,7 +350,19 @@ KnowledgeGraph buildKnowledgeGraph(
   // 按列分组 → 每列宽度 = 该列最长标题（夹在上下限之间）
   final widthByDepth = <int, double>{};
   for (final e in entries) {
-    final w = measure(e.node.name) + style.paddingH * 2;
+    final kind = graphKindOf(e.node);
+    // 用**该角色自己的样式**量 —— 字重不同、宽度不同（叶子 w500 / 分支 w700）
+    var w = measure(e.node.name, style.textStyleOf(kind)) + style.paddingH * 2;
+
+    // 叶子节点右侧还挂着一个考频徽标，它的宽度也必须算进来。
+    // 早先这里没算，于是"名字 + 间距 + 徽标"被硬塞进"名字宽 + 内边距"的框里
+    // —— 装不下，名字就被省略号吃掉一截。
+    final weight = e.node.examWeight;
+    if (kind == GraphNodeKind.leaf && weight != null) {
+      w += style.weightGap +
+          measure(weight.toStringAsFixed(2), style.weightStyle);
+    }
+
     final clamped = w.clamp(style.minNodeWidth, style.maxNodeWidth);
     final prev = widthByDepth[e.depth] ?? 0;
     if (clamped > prev) widthByDepth[e.depth] = clamped;
@@ -284,6 +419,7 @@ KnowledgeGraph buildKnowledgeGraph(
     size: Size(contentWidth, height),
     indexById: indexById,
     maxDepth: depthList.isEmpty ? 1 : depthList.last,
+    style: style,
   );
 }
 

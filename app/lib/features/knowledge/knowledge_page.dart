@@ -21,11 +21,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import 'knowledge_graph_view.dart';
+import 'knowledge_node_style.dart' show kSecondaryInk;
 import 'knowledge_outline_view.dart';
+import 'knowledge_sizes.dart';
 
 /// 查看方式。
 enum KnowledgeViewMode {
@@ -145,7 +148,10 @@ class _Header extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text('本体 v${kb.version}', style: AppTypography.caption),
+                    Text('本体 v${kb.version}',
+                        style: const TextStyle(
+                            fontSize: KnowledgeSizes.secondary,
+                            color: kSecondaryInk)),
                   ],
                 ),
                 const SizedBox(height: 5),
@@ -194,14 +200,16 @@ class _Stat extends StatelessWidget {
         Text(
           value,
           style: const TextStyle(
-            fontSize: 15,
+            fontSize: KnowledgeSizes.heading,
             fontWeight: FontWeight.w700,
             color: AppColors.ink1,
             fontFeatures: [FontFeature.tabularFigures()],
           ),
         ),
         const SizedBox(width: 4),
-        Text(label, style: AppTypography.caption),
+        Text(label,
+            style: const TextStyle(
+                fontSize: KnowledgeSizes.secondary, color: kSecondaryInk)),
       ],
     );
   }
@@ -250,9 +258,12 @@ class _ModeSwitch extends StatelessWidget {
                       Text(
                         m.label,
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: KnowledgeSizes.title,
+                          // 选中态只差"粗一档"：族里只有 Regular/Bold，
+                          // 用 w500 会被静默近似成 Regular（等于没变）——
+                          // 见 `app_fonts.dart` 里字重的说明
                           fontWeight:
-                              m == mode ? FontWeight.w700 : FontWeight.w500,
+                              m == mode ? AppFonts.bold : AppFonts.regular,
                           color:
                               m == mode ? AppColors.primaryStrong : AppColors.ink2,
                         ),

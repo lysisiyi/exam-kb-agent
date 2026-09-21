@@ -26,6 +26,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/layout/breakpoints.dart';
 import '../../core/math/math_renderer.dart';
 import '../../core/providers.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../domain/problem_draft.dart';
@@ -475,7 +476,9 @@ class _ProblemTile extends StatelessWidget {
     // 题干本来就是"保留 LaTeX 的可读文本"，直接交给渲染器即可
     final stem = MathRendering.renderer.renderMarkdown(
       stemText.length > 160 ? '${stemText.substring(0, 160)}…' : stemText,
-      options: const MathRenderOptions(fontSize: 13.5),
+      // 列表是扫读场景，走「紧凑」档 —— 与批量导入核对页同一个值。
+      // 此前这里是 13.5、核对页是 13，同一类内容两个大小。
+      options: const MathRenderOptions(fontSize: AppMathSizes.compact),
     );
 
     return InkWell(

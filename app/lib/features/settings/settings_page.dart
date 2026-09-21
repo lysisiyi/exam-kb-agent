@@ -23,6 +23,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/layout/breakpoints.dart';
 import '../../core/providers.dart';
+import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/library/library_exporter.dart';
 
@@ -252,8 +253,13 @@ class _ResultCard extends StatelessWidget {
           SelectableText(
             result.targetDir,
             style: TextStyle(
+              // ⚠️ 这里显示的是**文件路径**，完全可能是中文
+              // （`D:\我的题库\导出`）。`'monospace'` 不是 Windows 上能解析
+              // 的字体族名 —— 用哪个字体就交给平台默认了；显式给
+              // Consolas + 中文回退，这条路径的字体才是确定的。
+              fontFamily: AppFonts.mono,
+              fontFamilyFallback: AppFonts.monoFallback,
               fontSize: 10.5,
-              fontFamily: 'monospace',
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
@@ -301,8 +307,10 @@ class _PathLine extends StatelessWidget {
     return SelectableText(
       path,
       style: TextStyle(
+        // 同上：题库目录多半在用户自己的中文路径下
+        fontFamily: AppFonts.mono,
+        fontFamilyFallback: AppFonts.monoFallback,
         fontSize: 10.5,
-        fontFamily: 'monospace',
         height: 1.6,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),

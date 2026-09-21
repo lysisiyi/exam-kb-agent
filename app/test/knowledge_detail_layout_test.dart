@@ -3,13 +3,31 @@
 /// ## 为什么要有这一条
 ///
 /// 用户反馈"知识库有些公式显示不完整，比如极限等公式"。查下来：本体的公式
-/// 平均 64 字符、最长 227 字符（14px 下最宽 691px），而早先的写法是把公式
-/// 塞进一个 `Wrap` 里的固定框 —— 比框宽的部分被 `SingleChildScrollView`
-/// **裁掉，而且界面上没有任何提示**。用户看到的是一条断掉的公式。
+/// 平均 64 字符、最长 227 字符，而早先的写法是把公式塞进一个 `Wrap` 里的
+/// 固定框 —— 比框宽的部分被 `SingleChildScrollView` **裁掉，而且界面上
+/// 没有任何提示**。用户看到的是一条断掉的公式。
 ///
 /// 现在的规则是三分支：放得下就原样、只超一点就轻微缩小、超太多就横向
 /// 拖动**并显示提示**。这一组测试守的就是"任何一条公式都不会在无提示的
 /// 情况下被裁"。
+///
+/// ## 2026-09-21：公式字号 14 → 16 后，这条断言换了写法
+///
+/// 原来它断言「700px 下**没有一行**需要横滑」，依据是"单条最宽 691px
+/// （14px 下），700px 的卡缩到 92% 就放得下"。
+///
+/// 字号提到 16 之后，同一条公式变成约 790px，而卡片里的公式行实际可用宽
+/// 只有约 609px（要减掉卡片内边距 28、序号列 20、复制按钮 19）——
+/// 需要缩到 0.77，低于 `kFormulaMinScale`(0.85)，于是转成横滑。
+///
+/// **这是放大的物理必然**：容器宽度不变、字大了 14%，能"原样放下"的公式
+/// 必然变少。但**横滑并不是缺陷** —— 它是三分支里"明确告知用户可拖动"
+/// 的那一档。真正要守的从来不是"零横滑"，而是：
+///
+/// 1. **绝不静默裁切**：需要横滑的每一条都必须带提示（下面第二条用例）
+/// 2. **横滑占比不失控**：否则"公式太大"会把详情卡变成一片滚动区
+///
+/// 所以这里改成断言这两件事，而不是"零横滑"。
 library;
 
 import 'dart:convert';
@@ -104,26 +122,54 @@ void main() {
   tearDown(MathRendering.reset);
 
   group('公式不被静默裁掉', () {
-    testWidgets('整册语料 @700px：没有一行需要横滑（说明都放得下或只轻微缩小）',
+    testWidgets('整册语料 @700px：横滑占比极小，且绝无"无提示的裁切"',
         (tester) async {
       if (!hasData) {
         markTestSkipped('数据文件不存在');
         return;
       }
-      var worst = 0;
-      var worstName = '';
+      // 分母只算「核心公式」的片段数。别名公式（也是公式行）没有计入，
+      // 所以算出来的占比是**偏保守的上界** —— 宁可严一点。
+      var rows = 0;
+      var scrolled = 0;
+      final missingHint = <String>[];
+      final worst = <(int, String)>[];
+
       for (final leaf in kb.leaves) {
         await pumpCard(tester, leaf: leaf, width: 700);
-        final scrolled = scrolledFormulaTex(tester);
-        if (scrolled.isNotEmpty) {
-          worst = math.max(worst, scrolled.length);
-          worstName = leaf.name;
+        rows += [
+          for (final f in leaf.formulas) ...splitTopLevelQuad(f),
+        ].length;
+
+        final s = scrolledFormulaTex(tester);
+        scrolled += s.length;
+        if (s.isNotEmpty) worst.add((s.length, leaf.name));
+
+        for (final tex in s) {
+          // 提示的 key 由 FittedFormula 的横滑分支挂出
+          if (find.byKey(ValueKey('formula-scroll-hint-$tex')).evaluate().isEmpty) {
+            missingHint.add('${leaf.name} / $tex');
+          }
         }
       }
-      // 单条最宽 691px：700px 的卡片缩到 92% 就放得下，不该出现滚动
-      expect(worst, 0,
-          reason: '「$worstName」有 $worst 条公式在 700px 下仍需横滑 —— '
-              '说明缩小策略没生效（阈值或宽度算错了）');
+
+      expect(rows, greaterThan(500),
+          reason: '语料样本只有 $rows 条公式，这条用例失去意义（数据变了吗）');
+
+      // ① 核心不变量：需要横滑的公式**必须**带提示 —— 一条都不能漏。
+      //    这是"公式被静默裁掉"这个老问题的真正防线。
+      expect(missingHint, isEmpty,
+          reason: '这些公式既溢出又没有提示（用户看到的就是"断掉的公式"）：'
+              '${missingHint.take(5).join(' | ')}');
+
+      // ② 横滑占比不失控：13px→16px 之后超宽公式会变多，但不能多到
+      //    把详情卡变成一片滚动区。
+      final ratio = scrolled / rows;
+      worst.sort((a, b) => b.$1.compareTo(a.$1));
+      expect(ratio, lessThan(0.02),
+          reason: '${(ratio * 100).toStringAsFixed(2)}%（$scrolled/$rows）'
+              '的公式在 700px 下需要横滑 —— 太多了。'
+              '最严重的是「${worst.isEmpty ? '—' : worst.first.$2}」');
     });
 
     testWidgets('窄卡 @420px：需要横滑的公式**必须**带上"可拖动"提示',
@@ -138,7 +184,7 @@ void main() {
         var maxW = 0.0;
         for (final f in leaf.formulas) {
           for (final p in splitTopLevelQuad(f)) {
-            final w = formulaWidth(p, 12.5) ?? 0;
+            final w = formulaWidth(p, kFormulaFontSize) ?? 0;
             if (w > maxW) maxW = w;
           }
         }
@@ -177,7 +223,7 @@ void main() {
       for (final leaf in kb.leaves) {
         for (final f in leaf.formulas) {
           for (final p in splitTopLevelQuad(f)) {
-            final w = formulaWidth(p, 12.5) ?? 0;
+            final w = formulaWidth(p, kFormulaFontSize) ?? 0;
             if (w > bestW) {
               bestW = w;
               best = [leaf.id, p];

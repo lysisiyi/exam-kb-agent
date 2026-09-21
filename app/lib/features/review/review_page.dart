@@ -34,6 +34,7 @@ import '../../core/layout/breakpoints.dart';
 import '../../core/math/math_renderer.dart';
 import '../../core/platform/capabilities.dart';
 import '../../core/providers.dart';
+import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/fsrs/fsrs_scheduler.dart';
 import '../../services/review/review_repository.dart';
@@ -599,7 +600,11 @@ class _LoadFailedCard extends StatelessWidget {
           Text(
             card.problemId,
             style: const TextStyle(
-                fontSize: 12, fontFamily: 'monospace', height: 1.6),
+              fontFamily: AppFonts.mono,
+              fontFamilyFallback: AppFonts.monoFallback,
+              fontSize: 12,
+              height: 1.6,
+            ),
           ),
           const SizedBox(height: 10),
           Text(

@@ -33,6 +33,7 @@ import '../../core/layout/breakpoints.dart';
 import '../../core/math/math_renderer.dart';
 import '../../core/platform/platform_services.dart';
 import '../../core/providers.dart';
+import '../../core/theme/app_theme.dart';
 import '../../data/index/index_builder.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../services/ingest/ingest_models.dart';
@@ -1050,7 +1051,7 @@ class _ProblemCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 6),
               child: renderer.renderMarkdown(
                 stem,
-                options: const MathRenderOptions(fontSize: 13),
+                options: const MathRenderOptions(fontSize: AppMathSizes.compact),
               ),
             ),
           ),
@@ -1063,7 +1064,8 @@ class _ProblemCard extends StatelessWidget {
                   for (var i = 0; i < problem.options.length; i++)
                     renderer.renderMarkdown(
                       '${String.fromCharCode(65 + i)}. ${problem.options[i]}',
-                      options: const MathRenderOptions(fontSize: 12.5),
+                      options:
+                          const MathRenderOptions(fontSize: AppMathSizes.compact),
                     ),
                 ],
               ),

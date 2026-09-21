@@ -5,6 +5,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'app_fonts.dart';
+
 /// 调色板。对应原型里的 CSS 变量。
 abstract final class AppColors {
   // 品牌与语义色
@@ -108,8 +110,20 @@ abstract final class AppShadows {
 ///
 /// 本项目就这样真实翻过一次车：公式键盘的按钮渲染成了 8 个空白按钮。
 /// `test/theme_test.dart` 里有一条用例专门守住这件事。
+///
+/// ## ⚠️ 每一条也都必须带**字体族**
+///
+/// 与 `color` 是同一个机制：这些 token 会被 `textTheme.copyWith(...)`
+/// **整体替换**掉默认样式，而默认样式是带 `fontFamily` 的。不写字体族，
+/// 继承链就在这里断掉 —— 而 `DefaultTextStyle` 正是从 `bodyMedium` 派生的，
+/// 于是页面上所有 `TextStyle(fontSize: X)`（它们自己不带字体族）全部失去
+/// 中文字体，退回 Skia 的隐式回退。
+///
+/// 这就是「字体类型不定」的机制：本文件里漏一条，那一处的文字就换一个字体。
 abstract final class AppTypography {
   static const pageTitle = TextStyle(
+    fontFamily: AppFonts.sans,
+    fontFamilyFallback: AppFonts.sansFallback,
     fontSize: 22,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.5,
@@ -118,6 +132,8 @@ abstract final class AppTypography {
   );
 
   static const sectionTitle = TextStyle(
+    fontFamily: AppFonts.sans,
+    fontFamilyFallback: AppFonts.sansFallback,
     fontSize: 16,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.2,
@@ -125,9 +141,16 @@ abstract final class AppTypography {
     color: AppColors.ink1,
   );
 
-  static const body =
-      TextStyle(fontSize: 14, height: 1.6, color: AppColors.ink1);
+  static const body = TextStyle(
+    fontFamily: AppFonts.sans,
+    fontFamilyFallback: AppFonts.sansFallback,
+    fontSize: 14,
+    height: 1.6,
+    color: AppColors.ink1,
+  );
   static const bodyStrong = TextStyle(
+    fontFamily: AppFonts.sans,
+    fontFamilyFallback: AppFonts.sansFallback,
     fontSize: 14,
     fontWeight: FontWeight.w600,
     height: 1.6,
@@ -135,26 +158,98 @@ abstract final class AppTypography {
   );
 
   /// 题干正文。行高刻意放大以容纳公式。
-  static const stem =
-      TextStyle(fontSize: 15, height: 2.1, color: AppColors.ink1);
+  static const stem = TextStyle(
+    fontFamily: AppFonts.sans,
+    fontFamilyFallback: AppFonts.sansFallback,
+    fontSize: 15,
+    height: 2.1,
+    color: AppColors.ink1,
+  );
 
-  static const caption = TextStyle(fontSize: 12, color: AppColors.ink3);
+  static const caption = TextStyle(
+    fontFamily: AppFonts.sans,
+    fontFamilyFallback: AppFonts.sansFallback,
+    fontSize: 12,
+    color: AppColors.ink3,
+  );
   static const label = TextStyle(
+    fontFamily: AppFonts.sans,
+    fontFamilyFallback: AppFonts.sansFallback,
     fontSize: 11.5,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.4,
     color: AppColors.ink3,
   );
 
-  /// 等宽：显示 LaTeX 源码。
+  /// 等宽：显示 LaTeX 源码与文件路径。
   ///
   /// 同样带 color —— 理由见上面的说明，漏一条就会有一处文字隐形。
+  ///
+  /// ⚠️ 这里**必须带中文回退**：它渲染的路径完全可能是中文
+  /// （`D:\我的题库\library`），而 Consolas 没有汉字字形。
   static const mono = TextStyle(
-    fontFamily: 'monospace',
+    fontFamily: AppFonts.mono,
+    fontFamilyFallback: AppFonts.monoFallback,
     fontSize: 12,
     height: 1.6,
     color: AppColors.ink2,
   );
+}
+
+/// 公式字号。
+///
+/// ## 为什么需要集中
+///
+/// 改这里之前，公式字号散落在 12.5 / 13 / 13.5 / 14 四个值上，而且
+/// **同一个页面里就不一致**：知识库详情页的「核心公式」显式传了 12.5、
+/// 而「别名公式」没传（用默认 14）—— 两行公式一大一小，用户看到的就是
+/// 「公式大小不一致」。
+///
+/// 更具体的教训：`kFormulaFontSize` 的注释早就写明「为什么是 14 而不是
+/// 12.5」（KaTeX 上下标只有 70%，12.5px 时下标只剩 8.8px），但调用点
+/// 硬编码传了 12.5，把那个决定整个覆盖掉了 —— 常量改对了、行为没变。
+/// **所以字号要能从一个地方看见全貌**，而不是散在各调用点。
+///
+/// 同一处缺陷后来还**残留了一次**：核心公式修好之后，
+/// 「别名公式」那行仍留着 `fontSize: 13`，于是变成 16 与 13 并存。
+/// 现在由 `test/knowledge_size_test.dart` 直接扫源码守住调用点不得覆盖。
+///
+/// ## 为什么是两档而不是一档
+///
+/// 分档依据是**阅读距离**，不是页面：
+/// - [compact] 列表、核对这类一屏要塞下更多条目、以扫读为主的地方
+/// - [reading] 详情、复习、知识库、录入预览这类逐字读的地方
+///
+/// 强行拉成一档会让列表项变高（减小每屏信息量）或让详情页的公式变小
+/// （正是上面那个 12.5 的老问题），两个都得付出代价。
+abstract final class AppMathSizes {
+  const AppMathSizes._();
+
+  /// 紧凑：错题本列表、批量导入核对。
+  static const double compact = 13;
+
+  /// 阅读：知识库详情、复习、录入预览。
+  ///
+  /// ## 为什么是 16（用户反馈"公式过小"后从 14 提上来）
+  ///
+  /// KaTeX 的上下标按主字号的 **70%** 渲染，正文里的公式大小直接决定
+  /// 上下标可不可读：
+  ///
+  /// | 主字号 | 上下标 | 评价 |
+  /// |---|---|---|
+  /// | 12.5 | 8.8 | 用户反馈"公式太小"（第一次） |
+  /// | 14 | 9.8 | 仍偏小（第二次反馈） |
+  /// | **16** | **11.2** | 与 `secondary` 档（12）接近，能读 |
+  ///
+  /// 另一条依据是与周围文字的关系：知识库详情正文是 13、题干是 15，
+  /// 公式却只有 14 —— **公式比正文还小**。提到 16 后它与题干同档，
+  /// 视觉上"公式是主角"这件事才立得住。
+  static const double reading = 16;
+
+  /// 独立公式（`MathStyle.display`）。
+  ///
+  /// 比 [reading] 再大一档：独立成行的公式是"要盯着看"的内容。
+  static const double display = 18;
 }
 
 /// 主题构建。
@@ -183,12 +278,22 @@ abstract final class AppTheme {
       surfaceContainerHigh: AppColors.surface2,
     );
 
+    // ⚠️ 字体族必须在**这一层**给出，它是全应用继承链的根。
+    //
+    // `ThemeData` 的 `fontFamilyFallback` 只会被应用到它自己构造出来的
+    // **默认** textTheme 上（见 Flutter 的 `theme_data.dart` 第 514 行附近），
+    // 而下面 `copyWith(textTheme: ...)` 又替换掉了其中四个条目 ——
+    // 那四个条目自己也带字体族（见 `AppTypography`）。两边都写才是一条
+    // 完整的链：少写这一层，页面上所有裸 `TextStyle(fontSize: X)` 都会
+    // 退回 Skia 的隐式回退，「字体类型不定」就是这么来的。
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.bg,
       splashFactory: InkSparkle.splashFactory,
       visualDensity: VisualDensity.standard,
+      fontFamily: AppFonts.sans,
+      fontFamilyFallback: AppFonts.sansFallback,
     );
 
     return base.copyWith(
@@ -223,7 +328,12 @@ abstract final class AppTheme {
           foregroundColor: Colors.white,
           minimumSize: const Size(0, AppSpacing.minTouchTarget),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.rMd),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontFamily: AppFonts.sans,
+            fontFamilyFallback: AppFonts.sansFallback,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -232,7 +342,12 @@ abstract final class AppTheme {
           side: const BorderSide(color: AppColors.line, width: 1.2),
           minimumSize: const Size(0, AppSpacing.minTouchTarget),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.rMd),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontFamily: AppFonts.sans,
+            fontFamilyFallback: AppFonts.sansFallback,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -259,12 +374,19 @@ abstract final class AppTheme {
           borderRadius: AppRadius.rMd,
           borderSide: BorderSide(color: AppColors.primary, width: 1.6),
         ),
-        hintStyle: TextStyle(color: AppColors.ink4, fontSize: 14),
+        hintStyle: TextStyle(
+          fontFamily: AppFonts.sans,
+          fontFamilyFallback: AppFonts.sansFallback,
+          color: AppColors.ink4,
+          fontSize: 14,
+        ),
       ),
       chipTheme: const ChipThemeData(
         backgroundColor: AppColors.surface2,
         side: BorderSide.none,
         labelStyle: TextStyle(
+          fontFamily: AppFonts.sans,
+          fontFamilyFallback: AppFonts.sansFallback,
           fontSize: 11.5,
           fontWeight: FontWeight.w600,
           color: AppColors.ink2,
@@ -279,7 +401,12 @@ abstract final class AppTheme {
           color: AppColors.ink1,
           borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
-        textStyle: const TextStyle(fontSize: 12, color: Colors.white),
+        textStyle: const TextStyle(
+          fontFamily: AppFonts.sans,
+          fontFamilyFallback: AppFonts.sansFallback,
+          fontSize: 12,
+          color: Colors.white,
+        ),
       ),
       scrollbarTheme: ScrollbarThemeData(
         thickness: WidgetStateProperty.all(8),

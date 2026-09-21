@@ -18,10 +18,12 @@ import 'package:flutter/material.dart';
 
 import '../../core/math/latex_text_split.dart';
 import '../../core/math/math_renderer.dart';
+import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import 'knowledge_formula_row.dart';
 import 'knowledge_node_style.dart';
+import 'knowledge_sizes.dart';
 
 /// 知识点详情：定义 / 核心公式 / 常见陷阱 / 考频 / 别名。
 class KnowledgeLeafDetail extends StatelessWidget {
@@ -77,7 +79,7 @@ class KnowledgeLeafDetail extends StatelessWidget {
                 child: Text(
                   leaf.name,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: KnowledgeSizes.heading,
                     fontWeight: FontWeight.w700,
                     height: 1.35,
                   ),
@@ -88,7 +90,11 @@ class KnowledgeLeafDetail extends StatelessWidget {
           ),
           if (crumbs.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(crumbs.join(' › '), style: AppTypography.caption),
+            // caption 默认 ink3（白底 3.2:1，低于 AA）—— 面包屑是要读的
+            Text(crumbs.join(' › '),
+                style: const TextStyle(
+                    fontSize: KnowledgeSizes.secondary,
+                    color: kSecondaryInk)),
           ],
 
           // ── 定义 ──────────────────────────────────────────────────────
@@ -96,7 +102,9 @@ class KnowledgeLeafDetail extends StatelessWidget {
             const _SectionTitle('定义'),
             MathRendering.renderer.renderMarkdown(
               leaf.definition!,
-              options: const MathRenderOptions(fontSize: 12.5),
+              // 与下面的「核心公式」同档（`AppMathSizes.reading`）——
+              // 一段话里的行内公式和下面成行的公式应当一样大
+              options: const MathRenderOptions(fontSize: AppMathSizes.reading),
             ),
           ],
 
@@ -108,7 +116,10 @@ class KnowledgeLeafDetail extends StatelessWidget {
                 key: ValueKey('formula-${leaf.id}-$i'),
                 tex: formulas[i],
                 index: i + 1,
-                fontSize: 12.5,
+                // 刻意**不**传 fontSize：那会把 `kFormulaFontSize`
+                // （= `AppMathSizes.reading`，14）这个决定覆盖掉，
+                // 于是同一页里「别名公式」走 14、「核心公式」走 12.5。
+                // 这里用默认值即可。
               ),
           ],
 
@@ -145,7 +156,7 @@ class KnowledgeLeafDetail extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 6),
               child: Text(
                 '题干里可能这样写 —— 别名命中也会把这个考点召回给 AI',
-                style: _secondary(11),
+                style: _secondary(KnowledgeSizes.secondary),
               ),
             ),
             // 文字别名（「极值」「二重积分」这类）用 chip 排；
@@ -162,7 +173,7 @@ class KnowledgeLeafDetail extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 3),
                       child: Text('+${textAliases.length - 12}',
-                          style: _secondary(11)),
+                          style: _secondary(KnowledgeSizes.secondary)),
                     ),
                 ],
               ),
@@ -172,7 +183,9 @@ class KnowledgeLeafDetail extends StatelessWidget {
                 KnowledgeFormulaRow(
                   key: ValueKey('alias-formula-${leaf.id}-$a'),
                   tex: a,
-                  fontSize: 13,
+                  // 同样**不传** fontSize —— 这里此前硬编码传了 13，
+                  // 于是同一张卡里「核心公式」走 `kFormulaFontSize`(16)、
+                  // 「别名公式」走 13，又是一大一小。这是那处缺陷的残留。
                 ),
             ],
           ],
@@ -204,7 +217,6 @@ bool _looksLikeLatex(String s) =>
 /// 卡片里的面包屑、说明、计数都属于"要读的文字"，所以显式用 ink2。
 TextStyle _secondary(double size) =>
     TextStyle(fontSize: size, color: kSecondaryInk);
-
 /// 从本体里取出该考点的面包屑（学科分段 › 章节）。
 ///
 /// 两个视图都要用它，所以放在这里 —— 各自写一遍迟早会不一致
@@ -242,9 +254,11 @@ class _SectionTitle extends StatelessWidget {
           Text(
             text,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: KnowledgeSizes.secondary,
               fontWeight: FontWeight.w700,
-              color: AppColors.ink3,
+              // ink3 在卡片底色（bg）上只有 3.2:1，低于 AA —— 而分节标记
+              // 是"一眼扫到就知道这段是什么"的东西，必须能读清
+              color: kSecondaryInk,
               letterSpacing: 0.6,
             ),
           ),
@@ -252,7 +266,8 @@ class _SectionTitle extends StatelessWidget {
             const SizedBox(width: 5),
             Text(
               '$count 条',
-              style: const TextStyle(fontSize: 10.5, color: AppColors.ink4),
+              style: const TextStyle(
+                  fontSize: KnowledgeSizes.secondary, color: kSecondaryInk),
             ),
           ],
           const SizedBox(width: 8),
@@ -288,7 +303,7 @@ class _TrapItem extends StatelessWidget {
             child: Text(
               '$index.',
               style: const TextStyle(
-                fontSize: 11.5,
+                fontSize: KnowledgeSizes.secondary,
                 fontWeight: FontWeight.w700,
                 color: AppColors.warningInk,
                 fontFeatures: [FontFeature.tabularFigures()],
@@ -299,7 +314,7 @@ class _TrapItem extends StatelessWidget {
             child: Text(
               text.replaceAll('★ ', ''),
               style: const TextStyle(
-                fontSize: 11.5,
+                fontSize: KnowledgeSizes.body,
                 height: 1.65,
                 color: AppColors.warningInk,
               ),
@@ -329,15 +344,16 @@ class _FactRow extends StatelessWidget {
             width: 40,
             child: Text(
               label,
-              style: const TextStyle(fontSize: 11.5, color: AppColors.ink3),
+              style: const TextStyle(
+                  fontSize: KnowledgeSizes.body, color: kSecondaryInk),
             ),
           ),
           Expanded(
             child: Text(
               value,
               style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
+                fontSize: KnowledgeSizes.body,
+                fontWeight: AppFonts.bold,
                 color: AppColors.ink2,
               ),
             ),
@@ -368,7 +384,7 @@ class _WeightPill extends StatelessWidget {
       child: Text(
         '考频 ${weight.toStringAsFixed(2)}',
         style: TextStyle(
-          fontSize: 10.5,
+          fontSize: KnowledgeSizes.secondary,
           fontWeight: FontWeight.w700,
           color: color,
         ),
@@ -391,7 +407,8 @@ class _AliasChip extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 10.5, color: AppColors.ink2),
+        style: const TextStyle(
+            fontSize: KnowledgeSizes.secondary, color: AppColors.ink2),
       ),
     );
   }

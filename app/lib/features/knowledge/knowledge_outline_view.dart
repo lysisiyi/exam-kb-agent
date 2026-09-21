@@ -13,11 +13,13 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import 'knowledge_graph_layout.dart' show graphKindOf;
 import 'knowledge_leaf_detail.dart';
 import 'knowledge_node_style.dart';
+import 'knowledge_sizes.dart';
 
 /// 大纲视图。
 class KnowledgeOutlineView extends StatefulWidget {
@@ -264,7 +266,7 @@ class _OutlineRowTile extends StatelessWidget {
                   child: Text(
                     row.number,
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: KnowledgeSizes.secondary,
                       fontWeight: FontWeight.w700,
                       color: theme.accent,
                       fontFeatures: const [FontFeature.tabularFigures()],
@@ -278,8 +280,12 @@ class _OutlineRowTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     // 名字色**与图谱节点同源**（theme.textInk）：同一个叶子
                     // 在两个视图里深浅一致，层级靠字重 + accent 表达
+                    //
+                    // 字号也**与图谱同源**（`KnowledgeSizes.title`）：同一个
+                    // 叶子在两个视图里大小一致。层级同样不靠字号表达 ——
+                    // 靠字重（分支 w700 / 叶子 w400）。
                     style: TextStyle(
-                      fontSize: isBranch ? 13 : 12.5,
+                      fontSize: KnowledgeSizes.title,
                       fontWeight: isBranch ? FontWeight.w700 : FontWeight.w400,
                       color: theme.textInk,
                     ),
@@ -289,14 +295,18 @@ class _OutlineRowTile extends StatelessWidget {
                 if (isBranch)
                   Text(
                     row.childCount == 0 ? '空' : '${row.leafCount} 个考点',
-                    style: const TextStyle(fontSize: 11.5, color: kSecondaryInk),
+                    style: const TextStyle(
+                        fontSize: KnowledgeSizes.secondary,
+                        color: kSecondaryInk),
                   )
                 else
                   Text(
                     node.examYears.isEmpty
                         ? '暂无考频'
                         : '考过 ${node.examYears.length} 次',
-                    style: const TextStyle(fontSize: 11.5, color: kSecondaryInk),
+                    style: const TextStyle(
+                        fontSize: KnowledgeSizes.secondary,
+                        color: kSecondaryInk),
                   ),
                 const SizedBox(width: 8),
                 SizedBox(
@@ -307,7 +317,7 @@ class _OutlineRowTile extends StatelessWidget {
                           node.examWeight!.toStringAsFixed(2),
                           textAlign: TextAlign.right,
                           style: TextStyle(
-                            fontSize: 11.5,
+                            fontSize: KnowledgeSizes.secondary,
                             fontWeight: FontWeight.w700,
                             color: weightInk(node.examWeight),
                             fontFeatures: const [FontFeature.tabularFigures()],
@@ -368,8 +378,10 @@ class _OutlineHeader extends StatelessWidget {
           ),
           if (top.isNotEmpty) ...[
             const SizedBox(height: 2),
+            // caption 默认 ink3（白底 3.2:1，低于 AA）—— 这句是要读的说明
             const Text('高频考点 Top 10（按考频权重）',
-                style: AppTypography.caption),
+                style: TextStyle(
+                    fontSize: KnowledgeSizes.secondary, color: kSecondaryInk)),
             const SizedBox(height: 6),
             Wrap(
               spacing: 7,
@@ -410,8 +422,8 @@ class _WeightChip extends StatelessWidget {
             Text(
               kp.name,
               style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
+                fontSize: KnowledgeSizes.secondary,
+                fontWeight: AppFonts.bold,
                 color: color,
               ),
             ),
@@ -419,7 +431,7 @@ class _WeightChip extends StatelessWidget {
             Text(
               w.toStringAsFixed(2),
               style: TextStyle(
-                fontSize: 10.5,
+                fontSize: KnowledgeSizes.secondary,
                 fontWeight: FontWeight.w700,
                 color: color.withValues(alpha: 0.75),
               ),

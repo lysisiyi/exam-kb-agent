@@ -30,6 +30,22 @@
 /// 摘错的后果不是"中文变成方框"，而是**整条公式变成红色乱码**
 /// （切出来的 LaTeX 片段各自都不完整，katex 直接抛 ParseError）。
 ///
+/// ## 第二条入口：裸中文
+///
+/// 中文**没有**包在 `\text{}` 里、直接写在数学模式里（`无解\iff r(A)<r(A|b)`）
+/// 也要救 —— 真实语料里有，用户自己录入时更常见。这段走的是
+/// [splitLatexText] 主循环里那条"找不到命令"的分支，安全性判据与
+/// `\text{}` 共用 [_isTopLevel]，并额外要求中文**不紧贴命令名**
+/// （见 [_precededByCommandName]：`\overline解` 的 `解` 是命令参数）。
+///
+/// ## 剩下多少救不了
+///
+/// 2026-09-21 实测：语料 1400 条公式、610 条含中文，**18 条摘不出来**
+/// （8 命令参数 / 5 `\left..\right` / 3 上下标 / 2 环境），摘分率 96.8%。
+/// 这 18 条的中文仍会交给 KaTeX，只能指望 Skia 的隐式字体回退 ——
+/// 而那件事在 `flutter test` 里**验证不了**（测试字体 Ahem 把每个字形都
+/// 画成实心方框），所以要靠真机确认。
+///
 /// 这条不变量由 `test/cjk_split_corpus_test.dart` 守着：
 /// 它不只看"切开了多少条"，还要求**每一个 LatexChunk 自己都能被 katex 解析**。
 /// 少了后一条，切坏公式这件事可以长期潜伏 —— 切分率看起来还很漂亮。
@@ -133,9 +149,7 @@ String? _matchQuadSeparator(String tex, int i) {
     if (!tex.startsWith(cmd, i)) continue;
     final after = i + cmd.length;
     if (after < tex.length) {
-      final c = tex.codeUnitAt(after);
-      final isLetter = (c >= 0x61 && c <= 0x7A) || (c >= 0x41 && c <= 0x5A);
-      if (isLetter) continue; // `\quadratic` 之类不是分隔符
+      if (_isAsciiLetter(tex.codeUnitAt(after))) continue; // `\quadratic` 之类不是分隔符
     }
     return cmd;
   }
@@ -160,6 +174,40 @@ List<MathChunk> splitLatexText(String tex) {
     // 只对 \text{...} / \textrm{...} / \mbox{...} 动手
     final cmd = _matchTextCommand(tex, i);
     if (cmd == null) {
+      // ── 裸中文 ──────────────────────────────────────────────────────────
+      //
+      // 中文**没有**包在 `\text{}` 里，直接写在数学模式里。这在真实语料
+      // 中就有（`无解\iff r(A)<r(A|b)`），而用户自己录入时更常见 ——
+      // 不是每个人都知道公式里的中文要包 `\text{}`。
+      //
+      // 这条路径此前完全不处理：`_matchTextCommand` 找不到命令，于是整条
+      // 公式原样交给 katex；而 KaTeX 字体对裸中文同样没有字形，
+      // 结果依然是方框。也就是说改动之前**没有任何机制**能救这类公式。
+      //
+      // 安全性判据与 `\text{}` 完全一致 —— 只在顶层摘。所以 `x_{旧}`
+      // （中文在花括号里）照旧不动：摘掉会留下 `x_{` 这种不能解析的残片，
+      // 整条公式会变成红色乱码，比方框更糟。
+      //
+      // ⚠️ 还要多守一条：**紧贴着命令名的中文不能摘**。
+      // `\overline解` 里的 `解` 是 `\overline` 的参数（TeX 允许参数不加
+      // 花括号），摘掉就留下一个缺参数的 `\overline` —— katex 直接抛错，
+      // 整条公式降级成红色乱码。而 `设A为矩阵` 里的 `A` 是独立记号，
+      // 摘掉它后面的中文完全安全。两者的区别就是 [_precededByCommandName]。
+      if (_isTopLevel(tex, i) &&
+          !_precededByCommandName(tex, i) &&
+          _isCjkOrFullWidthRune(tex.codeUnitAt(i))) {
+        var j = i;
+        while (j < tex.length && _isCjkOrFullWidthRune(tex.codeUnitAt(j))) {
+          j++;
+        }
+        final prefix = tex.substring(cursor, i);
+        if (prefix.isNotEmpty) out.add(LatexChunk(prefix));
+        out.add(TextChunk(tex.substring(i, j)));
+        cursor = j;
+        i = j;
+        found = true;
+        continue;
+      }
       i++;
       continue;
     }
@@ -275,15 +323,25 @@ String _unescapeTextBody(String s) {
   return b.toString();
 }
 
+/// 单个码点是不是中文或全角标点。
+///
+/// 抽成函数是因为**裸中文**（没有 `\text{}` 包裹、直接写在数学模式里）
+/// 也要按码点逐个识别，见 [splitLatexText]。
+bool _isCjkOrFullWidthRune(int r) {
+  // CJK 统一表意文字 + 扩展 A
+  if (r >= 0x4E00 && r <= 0x9FFF) return true;
+  if (r >= 0x3400 && r <= 0x4DBF) return true;
+  // CJK 标点（、。「」等）
+  if (r >= 0x3000 && r <= 0x303F) return true;
+  // 全角形式（（）、，：；！？）
+  if (r >= 0xFF00 && r <= 0xFFEF) return true;
+  return false;
+}
+
 /// 文本片段里是否含中文或全角标点。
-bool _hasCjkOrFullWidth(String s) {  for (final r in s.runes) {
-    // CJK 统一表意文字 + 扩展 A
-    if (r >= 0x4E00 && r <= 0x9FFF) return true;
-    if (r >= 0x3400 && r <= 0x4DBF) return true;
-    // CJK 标点（、。「」等）
-    if (r >= 0x3000 && r <= 0x303F) return true;
-    // 全角形式（（）、，：；！？）
-    if (r >= 0xFF00 && r <= 0xFFEF) return true;
+bool _hasCjkOrFullWidth(String s) {
+  for (final r in s.runes) {
+    if (_isCjkOrFullWidthRune(r)) return true;
   }
   return false;
 }
@@ -413,6 +471,41 @@ String _prevNonSpace(String tex, int pos) {
   return j < 0 ? '' : tex[j];
 }
 
+/// [pos] 左边紧挨着的那个记号，是不是一个**反斜杠命令的名字**。
+///
+/// 用来区分两种长得一样的写法：
+///
+/// | 写法 | 左边的记号 | 汉字是它的参数吗 | 能不能摘 |
+/// |---|---|---|---|
+/// | `\overline解` | 命令 `\overline` | 是（TeX 允许参数不带花括号） | ❌ 不能 |
+/// | `\mathbf A解` | 独立字符 `A` | 否（`\mathbf` 只吃 `A`） | ✅ 能 |
+/// | `设A为矩阵` | 独立字符 `A` | —— | ✅ 能 |
+///
+/// 判据：从 [pos] 往前跳过空白，再跳过一串字母；如果字母串**紧挨着 `\`**，
+/// 那它就是一个命令名而不是独立字符。
+///
+/// ⚠️ 摘错的代价不对称：摘对了是"中文不再显示成方框"，摘错了是
+/// **整条公式变成红色乱码**。所以这条判据宁可保守 ——
+/// `\alpha解` 这种写法也一并挡住，代价只是一条公式的中文留在方框里。
+bool _precededByCommandName(String tex, int pos) {
+  var j = pos - 1;
+  while (j >= 0 && (tex[j] == ' ' || tex[j] == '\t')) {
+    j--;
+  }
+  if (j < 0) return false;
+
+  if (!_isAsciiLetter(tex.codeUnitAt(j))) return false;
+
+  // 往前走完整个命令名
+  while (j >= 0 && _isAsciiLetter(tex.codeUnitAt(j))) {
+    j--;
+  }
+  return j >= 0 && tex[j] == r'\';
+}
+
+bool _isAsciiLetter(int c) =>
+    (c >= 0x61 && c <= 0x7A) || (c >= 0x41 && c <= 0x5A);
+
 /// 是否处在未闭合的 `\left...\right` 或 `\begin{}...\end{}` 之内。
 bool _insidePairing(String tex, int pos) {
   var leftDepth = 0;
@@ -455,8 +548,6 @@ bool _isDelimiterCommand(String tex, int i, String cmd) {
   if (!tex.startsWith(cmd, i)) return false;
   final after = i + cmd.length;
   if (after >= tex.length) return true; // 公式到此结束，算定界符
-  final c = tex.codeUnitAt(after);
-  final isLetter = (c >= 0x61 && c <= 0x7A) || (c >= 0x41 && c <= 0x5A);
-  return !isLetter;
+  return !_isAsciiLetter(tex.codeUnitAt(after));
 }
 

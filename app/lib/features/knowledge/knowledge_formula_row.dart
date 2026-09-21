@@ -31,21 +31,38 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:katex/katex.dart' as katex;
 import 'package:katex_dart/katex_dart.dart' show KatexOptions, renderToBox;
 
+import '../../core/math/latex_text_split.dart';
 import '../../core/math/math_renderer.dart';
+import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
+import 'knowledge_node_style.dart' show kSecondaryInk;
+import 'knowledge_sizes.dart';
 
 /// 缩到这个比例还不放得下，就改成横向滚动（而不是继续缩）。
 ///
-/// 0.85 的来源：正文基础 14px 时，KaTeX 的上下标只有它的 **70%**（9.8px）——
-/// 再乘 0.85 就只剩 8.3px，已经在"能看见但读不了"的边缘。早先这个下限是
-/// 0.72（上下标 ≈ 7px），用户反馈"公式太小不利于阅读"就是它。
+/// 0.85 的来源：KaTeX 的上下标只有主字号的 **70%**，而正文档公式是 16px
+/// （`AppMathSizes.reading`）—— 上下标 11.2px，再乘 0.85 还有 9.5px，
+/// 仍在"能读"的范围里。早先这个下限是 0.72 且公式只有 14px，
+/// 上下标缩完约 7px，用户反馈"公式太小不利于阅读"说的就是它。
 const double kFormulaMinScale = 0.85;
 
 /// 知识点详情里公式的基础字号。
 ///
-/// 为什么是 14 而不是 12.5：上下标按 70% 渲染，14px → 9.8px（可读）；
-/// 12.5px → 8.8px（偏小）。见 KaTeX 的 script style 比例。
-const double kFormulaFontSize = 14;
+/// **只是别名**，数值来自 `AppMathSizes.reading`（16）。
+///
+/// ## 为什么定在 16
+///
+/// 上下标按 70% 渲染：16px → 11.2px（能读），
+/// 而 12.5px → 8.8px、14px → 9.8px 都偏小。
+///
+/// ## 历史上这里翻过两次车
+///
+/// 第一次：调用点（`knowledge_leaf_detail.dart`）硬编码传 12.5，
+/// 把这个常量整个覆盖掉 —— 于是同一页里「核心公式」12.5、「别名公式」14。
+/// 第二次：核心公式那处修掉了，**别名公式那处还留着 `fontSize: 13`**，
+/// 变成 16 与 13 并存。两处现在都不传参了，
+/// 并由 `test/knowledge_size_test.dart` 守住"调用点不得覆盖"。
+const double kFormulaFontSize = AppMathSizes.reading;
 
 /// 公式宽度的缓存。键是 `字号|tex`。
 ///
@@ -54,18 +71,70 @@ const double kFormulaFontSize = 14;
 final Map<String, double> _widthCache = {};
 
 /// 一条公式在 [fontSize] 下的像素宽度。解析失败返回 null。
+///
+/// ## 为什么必须逐片量，而不是量整条
+///
+/// 真正渲染这条公式的是 `KatexRenderer`，而它会把公式里能安全摘出的中文
+/// （见 `latex_text_split.dart`）从 KaTeX 手里拿走、改由 **Flutter 的
+/// `TextSpan`** 排。于是实际宽度是
+///
+/// ```
+/// Σ(katex 片段宽度) + Σ(中文片段宽度)
+/// ```
+///
+/// 而这里此前量的是"把整条 tex 交给 katex"的宽度 —— 那个数把中文也算进
+/// KaTeX 的字体度里，而 KaTeX 字体**根本没有汉字字形**，量出来的是一个
+/// 与真实渲染无关的数。后果分两种，都很隐蔽：
+///
+/// - 量**小了** → 判成"放得下"，实际排出来溢出边框，被父级 `Expanded`
+///   静默裁掉，既没有横滑也没有提示 —— 用户看到的就是"公式显示不全"。
+/// - 量**大了** → 明明放得下却给套一层横向滚动，"公式较宽"的提示
+///   误报，用户拖了半天发现右边全是空白。
+///
+/// 判据与实际渲染同源之后，这两种误判一起消失。
 double? formulaWidth(String tex, double fontSize) {
   final key = '${fontSize.toStringAsFixed(2)}|$tex';
   final hit = _widthCache[key];
   if (hit != null) return hit;
   try {
-    final box = renderToBox(tex, options: const KatexOptions());
-    final w = katex.boxSizePxPadded(box, fontSize).width;
-    _widthCache[key] = w;
-    return w;
+    var total = 0.0;
+    for (final chunk in splitLatexText(tex)) {
+      switch (chunk) {
+        case LatexChunk(:final tex):
+          // 与 katex 真正排版用的是同一棵箱子树，所以这一段量与渲染一致
+          final box = renderToBox(tex, options: const KatexOptions());
+          total += katex.boxSizePxPadded(box, fontSize).width;
+        case TextChunk(:final text):
+          total += _plainTextWidth(text, fontSize);
+      }
+    }
+    _widthCache[key] = total;
+    return total;
   } catch (_) {
     return null; // 非法 LaTeX：交给渲染器去降级显示源码
   }
+}
+
+/// 一段中文在 Flutter 里排出来的宽度。
+///
+/// 字体链必须与 `KatexRenderer` 摘出中文时用的**完全一致**
+/// （[AppFonts.sans] + [AppFonts.sansFallback]）—— 否则又是一次
+/// "量的和排的不是同一个东西"，只是换了个地方发生。
+///
+/// ⚠️ 宽度与 `height` 无关，所以这里不必复刻渲染层的行高。
+double _plainTextWidth(String text, double fontSize) {
+  final tp = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: TextStyle(
+        fontFamily: AppFonts.sans,
+        fontFamilyFallback: AppFonts.sansFallback,
+        fontSize: fontSize,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  return tp.width;
 }
 
 /// 仅供测试：清掉宽度缓存。
@@ -99,7 +168,27 @@ class FittedFormula extends StatelessWidget {
     return LayoutBuilder(
       builder: (ctx, c) {
         final avail = c.maxWidth;
-        final need = formulaWidth(tex, fontSize);
+
+        // ⚠️ 必须把**系统字号缩放**算进来，否则下面三个分支会同时判错。
+        //
+        // `KatexRenderer` 真正交给 katex 的字号是
+        // `fontSize × MediaQuery.textScalerOf(context).scale(1.0)`
+        // —— 见它的 `scaleFor`：katex 内部的 `TextPainter` 不带
+        // `TextScaler`，而同一条公式里旁边的中文会被 Flutter 自动缩放，
+        // 所以公式只能自己乘一次。
+        //
+        // 而这个函数此前量的是**未缩放**的宽度，再拿去和 `avail` 比 ——
+        // 两边不同源。后果：在 Windows 上把「设置 → 辅助功能 → 文本大小」
+        // 调到 125% 之后，公式实际比量出来的宽 25%，于是「放得下 / 缩一点 /
+        // 横滑」三个分支全部判错，最终**静默溢出、被父级裁掉**，
+        // 既没有横滑也没有那句提示 —— 正是「公式被裁掉、显示不全」。
+        //
+        // 缩放为 1.0（绝大多数情况）时这一乘等于没乘，不改变原有行为。
+        final scale = MediaQuery.textScalerOf(ctx).scale(1.0);
+        final need = formulaWidth(
+          tex,
+          fontSize * ((scale.isFinite && scale > 0) ? scale : 1.0),
+        );
 
         // 量不出来（非法 LaTeX）：交给渲染器降级，别在这里猜
         if (need == null || need <= avail) {
@@ -127,12 +216,14 @@ class FittedFormula extends StatelessWidget {
               Row(
                 key: ValueKey('formula-scroll-hint-$tex'),
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.swipe, size: 12, color: AppColors.ink3),
-                  const SizedBox(width: 4),
+                children: const [
+                  Icon(Icons.swipe, size: 12, color: kSecondaryInk),
+                  SizedBox(width: 4),
                   Text(
                     '公式较宽，按住左右拖动查看完整内容',
-                    style: AppTypography.caption.copyWith(fontSize: 10.5),
+                    style: TextStyle(
+                        fontSize: KnowledgeSizes.secondary,
+                        color: kSecondaryInk),
                   ),
                 ],
               ),
@@ -186,7 +277,7 @@ class KnowledgeFormulaRow extends StatelessWidget {
                     child: Text(
                       '$index',
                       style: const TextStyle(
-                        fontSize: 11.5,
+                        fontSize: KnowledgeSizes.secondary,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primaryStrong,
                         fontFeatures: [FontFeature.tabularFigures()],

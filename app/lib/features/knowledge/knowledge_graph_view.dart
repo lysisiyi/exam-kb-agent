@@ -28,6 +28,7 @@ import '../../domain/knowledge/knowledge_point.dart';
 import 'knowledge_graph_layout.dart';
 import 'knowledge_leaf_detail.dart';
 import 'knowledge_node_style.dart';
+import 'knowledge_sizes.dart';
 
 /// 图谱视图。
 class KnowledgeGraphView extends StatefulWidget {
@@ -74,25 +75,24 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
     super.dispose();
   }
 
-  /// 量一段标题的宽度（按当前字号）。结果缓存 —— 同一层里同名节点不多，
+  /// 量一段标题的宽度。结果缓存 —— 同一层里同名节点不多，
   /// 但整棵树有几百个节点，重复量同一串不划算。
-  double _measure(String text) {
-    final hit = _measureCache[text];
+  ///
+  /// [style] 由 [GraphStyle] 给出，**与渲染层用的是同一个对象**：
+  /// 字号、字重、字体链三项都会改变宽度，少一项就又是一次"量排不同源"。
+  double _measure(String text, TextStyle style) {
+    // 缓存键必须含字号与字重 —— 换个字重量同一个字符串，结果并不相同
+    final key = '${style.fontSize}|${style.fontWeight?.value}|$text';
+    final hit = _measureCache[key];
     if (hit != null) return hit;
     final tp = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          fontSize: _style.fontSize,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      text: TextSpan(text: text, style: style),
       textDirection: TextDirection.ltr,
       maxLines: 1,
     )..layout();
     final w = tp.width;
     tp.dispose();
-    _measureCache[text] = w;
+    _measureCache[key] = w;
     return w;
   }
 
@@ -219,6 +219,9 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
                               // 稳定的 key：测试与"定位到某个节点"都用它
                               key: ValueKey('graph-node-${n.id}'),
                               node: n,
+                              // 字号/字重/内边距都从布局结果里取 ——
+                              // 与"量宽度"用的是同一份，见 GraphStyle 的说明
+                              style: g.style,
                               selected: n.id == _selectedId,
                               dimmed: _selectedId != null &&
                                   !path.contains(g.indexById[n.id] ?? -1),
@@ -306,7 +309,7 @@ class _Toolbar extends StatelessWidget {
                 '${(m.getMaxScaleOnAxis() * 100).round()}%',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 11.5,
+                  fontSize: KnowledgeSizes.secondary,
                   fontWeight: FontWeight.w700,
                   color: AppColors.ink2,
                   fontFeatures: [FontFeature.tabularFigures()],
@@ -341,7 +344,9 @@ class _Toolbar extends StatelessWidget {
               padding: EdgeInsets.only(right: 10, left: 2),
               child: Text(
                 '滚轮缩放 · 拖动平移',
-                style: TextStyle(fontSize: 11, color: AppColors.ink3),
+                // 用 kSecondaryInk 而非 ink3：ink3 白底上只有 3.2:1，低于 AA
+                style: TextStyle(
+                    fontSize: KnowledgeSizes.secondary, color: kSecondaryInk),
               ),
             ),
         ],
@@ -448,7 +453,9 @@ class _Legend extends StatelessWidget {
                   Text(
                     nodeKindLabel(k),
                     // 图例也是要读的文字：用 ink2（ink3 只有 3.2:1）
-                    style: const TextStyle(fontSize: 11, color: kSecondaryInk),
+                    style: const TextStyle(
+                        fontSize: KnowledgeSizes.secondary,
+                        color: kSecondaryInk),
                   ),
                 ],
               ),
@@ -465,6 +472,11 @@ class _Legend extends StatelessWidget {
 
 class _GraphNodeCard extends StatelessWidget {
   final GraphNode node;
+
+  /// 与布局同源的样式。**不要在这里写死字号或字重** ——
+  /// 那正是"量的和排的不是一个东西"的来源（见 `GraphStyle` 的注释）。
+  final GraphStyle style;
+
   final bool selected;
   final bool dimmed;
   final VoidCallback onTap;
@@ -472,6 +484,7 @@ class _GraphNodeCard extends StatelessWidget {
   const _GraphNodeCard({
     super.key,
     required this.node,
+    required this.style,
     required this.selected,
     required this.dimmed,
     required this.onTap,
@@ -503,7 +516,8 @@ class _GraphNodeCard extends StatelessWidget {
                   width: selected ? 2 : 1,
                 ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 9),
+              // 内边距与布局量宽时用的是同一个值（style.paddingH）
+              padding: EdgeInsets.symmetric(horizontal: style.paddingH),
               alignment: Alignment.centerLeft,
               child: Row(
                 children: [
@@ -512,24 +526,15 @@ class _GraphNodeCard extends StatelessWidget {
                       node.point.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: kind == GraphNodeKind.leaf
-                            ? FontWeight.w500
-                            : FontWeight.w700,
-                        color: ink,
-                      ),
+                      style: style.textStyleOf(kind).copyWith(color: ink),
                     ),
                   ),
                   if (kind == GraphNodeKind.leaf && w != null) ...[
-                    const SizedBox(width: 6),
+                    // 这个徽标也占宽度，已经在 buildKnowledgeGraph 里算进列宽了
+                    SizedBox(width: style.weightGap),
                     Text(
                       w.toStringAsFixed(2),
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: weightInk(w),
-                      ),
+                      style: style.weightStyle.copyWith(color: weightInk(w)),
                     ),
                   ],
                 ],
@@ -690,7 +695,9 @@ class _SelectionPanelState extends State<_SelectionPanel> {
                 Expanded(
                   child: Text(
                     node.point.name,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        fontSize: KnowledgeSizes.title,
+                        fontWeight: FontWeight.w700),
                   ),
                 ),
                 if (crumbs.isNotEmpty)
@@ -700,7 +707,10 @@ class _SelectionPanelState extends State<_SelectionPanel> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.right,
-                      style: AppTypography.caption,
+                      // caption 默认用 ink3（3.2:1，低于 AA）—— 面包屑是要读的
+                      style: const TextStyle(
+                          fontSize: KnowledgeSizes.secondary,
+                          color: kSecondaryInk),
                     ),
                   ),
                 IconButton(
@@ -754,12 +764,13 @@ class _SelectionPanelState extends State<_SelectionPanel> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.keyboard_arrow_down,
-                                  size: 14, color: AppColors.ink3),
+                                  size: 14, color: kSecondaryInk),
                               SizedBox(width: 3),
                               Text(
                                 '下面还有内容，可滚动查看',
                                 style: TextStyle(
-                                    fontSize: 10.5, color: AppColors.ink3),
+                                    fontSize: KnowledgeSizes.secondary,
+                                    color: kSecondaryInk),
                               ),
                             ],
                           ),
@@ -809,13 +820,19 @@ class _BranchSummary extends StatelessWidget {
           runSpacing: 4,
           children: [
             Text('$leafCount 个知识点',
-                style: const TextStyle(fontSize: 11.5, color: AppColors.ink2)),
+                style: const TextStyle(
+                    fontSize: KnowledgeSizes.secondary,
+                    color: kSecondaryInk)),
             if (kids.isNotEmpty)
               Text('${kids.length} 个下级',
-                  style: const TextStyle(fontSize: 11.5, color: AppColors.ink2)),
+                  style: const TextStyle(
+                      fontSize: KnowledgeSizes.secondary,
+                      color: kSecondaryInk)),
             if (w != null)
               Text('考频 ${w.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 11.5, color: AppColors.ink2)),
+                  style: const TextStyle(
+                      fontSize: KnowledgeSizes.secondary,
+                      color: kSecondaryInk)),
             Text(node.point.id, style: AppTypography.mono),
           ],
         ),
@@ -835,7 +852,9 @@ class _BranchSummary extends StatelessWidget {
                   ),
                   child: Text(
                     '${k.name}${k.isLeaf ? '' : ' (${kb.leafCountUnder(k.id)})'}',
-                    style: const TextStyle(fontSize: 11, color: AppColors.ink2),
+                    style: const TextStyle(
+                        fontSize: KnowledgeSizes.secondary,
+                        color: kSecondaryInk),
                   ),
                 ),
             ],

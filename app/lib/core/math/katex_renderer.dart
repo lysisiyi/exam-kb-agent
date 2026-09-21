@@ -27,6 +27,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:katex/katex.dart' as katex;
 
+import '../theme/app_fonts.dart';
+import '../theme/app_theme.dart';
 import 'latex_text_split.dart';
 import 'math_renderer.dart';
 
@@ -54,7 +56,12 @@ class KatexRenderer implements MathRenderer {
     MathRenderOptions options = MathRenderOptions.none,
   }) {
     final display = style == MathStyle.display;
-    final base = options.fontSize ?? (display ? 16.0 : 14.0);
+    // 字号走刻度。这里从前是硬编码的 16.0 / 14.0 —— 而复习页、错题本页
+    // 调 `renderMarkdown` 时**不传 options**，于是那些页面的公式大小
+    // 完全由这两个字面量决定，跟 `AppMathSizes` 脱钩：
+    // 改刻度时"知识库的公式变了、复习页没变"。
+    final base = options.fontSize ??
+        (display ? AppMathSizes.display : AppMathSizes.reading);
 
     // 见 [_scaleFor]：公式必须自己乘上系统字号，因为 `katex` 内部的
     // `TextPainter` 不带 `TextScaler`（而旁边的中文由 Flutter 自动缩放）。
@@ -81,7 +88,9 @@ class KatexRenderer implements MathRenderer {
     String markdown, {
     MathRenderOptions options = MathRenderOptions.none,
   }) {
-    final base = options.fontSize ?? 14.0;
+    // 同上：不传 options 的调用点（复习页、错题本、录入、手写录入）
+    // 都靠这个默认值 —— 它必须在刻度里。
+    final base = options.fontSize ?? AppMathSizes.reading;
 
     // 外面这层 Builder 只为了拿到 context 读系统字号。
     // 缓存层（`CachedMathRenderer`）存的就是这个 Builder，而它依赖
@@ -96,9 +105,18 @@ class KatexRenderer implements MathRenderer {
           mathFontSize: base * scaleFor(context),
         );
 
+        // ⚠️ 这一层的 `fontFamily` 不是装饰。
+        //
+        // `spans` 里混着两类东西：KaTeX 画的公式（WidgetSpan，自带
+        // `KaTeX_xxx` 字体）与摘出来的中文（普通 TextSpan，靠继承）。
+        // 中文如果没有明确的字体族，就会退回 Skia 的隐式回退 —— 于是
+        // 同一条公式里的数字是 KaTeX 的衬线字形、中文是某个系统字体，
+        // 看起来像两套东西拼在一起。
         final text = Text.rich(
           TextSpan(children: spans),
           style: TextStyle(
+            fontFamily: AppFonts.sans,
+            fontFamilyFallback: AppFonts.sansFallback,
             fontSize: base,
             color: options.color,
             height: 1.9,
@@ -190,7 +208,12 @@ class KatexRenderer implements MathRenderer {
                 ),
               TextChunk(:final text) => TextSpan(
                   text: text,
-                  style: TextStyle(fontSize: textFontSize, color: color),
+                  style: TextStyle(
+                    fontFamily: AppFonts.sans,
+                    fontFamilyFallback: AppFonts.sansFallback,
+                    fontSize: textFontSize,
+                    color: color,
+                  ),
                 ),
             },
         ],
@@ -224,8 +247,14 @@ class KatexRenderer implements MathRenderer {
       spans.add(TextSpan(
         text: buffer.toString(),
         // 中文用**未缩放**的字号：`Text.rich` 会按 MediaQuery 自己缩放它，
-        // 这里再乘一次就变成双重缩放
-        style: TextStyle(fontSize: textFontSize, color: color),
+        // 这里再乘一次就变成双重缩放。
+        // 字体族必须显式给 —— 这条路径排的全是中文，理由见 `AppFonts`。
+        style: TextStyle(
+          fontFamily: AppFonts.sans,
+          fontFamilyFallback: AppFonts.sansFallback,
+          fontSize: textFontSize,
+          color: color,
+        ),
       ));
       buffer.clear();
     }
@@ -276,7 +305,12 @@ class KatexRenderer implements MathRenderer {
       return [
         TextSpan(
           text: src,
-          style: TextStyle(fontSize: textFontSize, color: color),
+          style: TextStyle(
+            fontFamily: AppFonts.sans,
+            fontFamilyFallback: AppFonts.sansFallback,
+            fontSize: textFontSize,
+            color: color,
+          ),
         ),
       ];
     }
