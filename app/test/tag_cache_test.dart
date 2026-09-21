@@ -293,7 +293,7 @@ void main() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// 计数的假 HTTP 适配器：返回一个合法的 OpenAI 兼容标注响应。
-class _CountingHttp implements HttpAdapter {
+class _CountingHttp extends HttpAdapter {
   final void Function() onCall;
 
   _CountingHttp({required this.onCall});

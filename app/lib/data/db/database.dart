@@ -51,6 +51,8 @@ const String kIndexFileName = 'index.sqlite';
   MetaEntries,
   TagCacheEntries,
   LlmUsageEntries,
+  ChatSessions,
+  ChatMessages,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
@@ -62,7 +64,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -78,6 +80,12 @@ class AppDatabase extends _$AppDatabase {
           if (from < 3) await m.createTable(tagCacheEntries);
           if (from < 3) await m.createTable(llmUsageEntries);
           if (from < 4) await _migrateToV4(m);
+          // v5：对话助手的两张表。纯新增，不动任何既有表 ——
+          // 所以对老库来说是零风险的一步（不需要拷数据）。
+          if (from < 5) {
+            await m.createTable(chatSessions);
+            await m.createTable(chatMessages);
+          }
         },
         beforeOpen: (details) async {
           // 打开外键约束的**执行**开关。注意：当前 schema 里**没有任何

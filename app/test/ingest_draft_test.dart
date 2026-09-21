@@ -36,7 +36,7 @@ import 'support/test_env.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// 可编排的假 HTTP 适配器（与 `ingest_test.dart` 同一套写法）。
-class FakeHttp implements HttpAdapter {
+class FakeHttp extends HttpAdapter {
   final List<Object> responses;
   final List<HttpRequest> requests = [];
   int _i = 0;

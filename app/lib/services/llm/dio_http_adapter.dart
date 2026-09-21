@@ -5,6 +5,8 @@
 /// 重试、错误分类、响应解析 —— 不需要网络、不花 token。
 library;
 
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 import 'llm_client.dart';
@@ -60,6 +62,72 @@ class DioHttpAdapter implements HttpAdapter {
       );
     } catch (e) {
       throw HttpTransportException('请求失败：$e', e);
+    }
+  }
+
+  /// 流式发送，返回响应体文本块流。
+  ///
+  /// ## 两处与 [send] 不同、且都不能照抄的地方
+  ///
+  /// **一、`receiveTimeout` 必须留空。**
+  /// 它管的是"两次数据到达之间"的最大间隔，而不是整个请求的时长。
+  /// 推理型模型在思考阶段可能几十秒不吐一个字 —— 沿用 [send] 那个
+  /// 120 秒的接收超时，会把**正常的慢回复**判成超时掐断，
+  /// 而用户看到的只是"聊到一半没反应了"。
+  ///
+  /// **二、必须用流式的 UTF-8 解码。**
+  /// 一个中文或 emoji 占 3~4 个字节，而 TCP 分块边界几乎必然落在
+  /// 字符中间。`utf8.decode(chunk)` 会直接抛 `FormatException`，
+  /// 加 `allowMalformed` 则会把半个字符变成 `U+FFFD` ——
+  /// 于是回复里冒出"�"。`utf8.decoder` 作为 **StreamTransformer**
+  /// 会自己缓冲不完整的字符，这才是唯一正确的用法。
+  ///
+  /// 块里**不保证**是完整的行（甚至不保证是完整的字符），
+  /// 切行由 `LlmClient` 侧的 `SseParser` 负责。
+  @override
+  Stream<HttpStreamChunk> sendStream(HttpRequest request) async* {
+    final Response<ResponseBody> resp;
+    try {
+      resp = await _dio.request<ResponseBody>(
+        request.url,
+        data: request.body,
+        options: Options(
+          method: request.method,
+          headers: {
+            ...request.headers,
+            // 明确声明要 SSE。少数网关按 Accept 决定回不回事件流格式。
+            'Accept': 'text/event-stream',
+          },
+          responseType: ResponseType.stream,
+          connectTimeout: request.timeout,
+          sendTimeout: request.timeout,
+          receiveTimeout: null, // 见方法头注释第一条
+        ),
+      );
+    } on DioException catch (e) {
+      throw HttpTransportException(_describe(e), e);
+    } catch (e) {
+      throw HttpTransportException('请求失败：$e', e);
+    }
+
+    final code = resp.statusCode ?? 0;
+    final body = resp.data;
+    if (body == null) {
+      // 没有响应体也要交出一个空块：调用方靠它拿到 statusCode
+      // （非 2xx 时就是在这里被识别出来的）。
+      yield HttpStreamChunk(statusCode: code, text: '');
+      return;
+    }
+
+    // ⚠️ `.cast<List<int>>()` 不能省。`Dio` 交出来的是
+    // `Stream<Uint8List>`，而 `utf8.decoder` 是一个
+    // `StreamTransformer<List<int>, String>` —— `StreamTransformer`
+    // 的类型参数出现在 `bind` 的**参数**位置（逆变），
+    // 于是 `Stream<Uint8List>` 直接 `.transform(utf8.decoder)` 会编译不过。
+    // 先 cast 成 `Stream<List<int>>` 就对齐了。
+    final decoded = body.stream.cast<List<int>>().transform(utf8.decoder);
+    await for (final text in decoded) {
+      yield HttpStreamChunk(statusCode: code, text: text);
     }
   }
 

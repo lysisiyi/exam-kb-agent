@@ -29,7 +29,7 @@ import 'package:kaoyan_math_agent/services/tagger/tag_prompt.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// 可编排的假 HTTP 适配器。
-class FakeHttp implements HttpAdapter {
+class FakeHttp extends HttpAdapter {
   /// 按顺序返回的响应。用完后重复最后一个。
   final List<Object> responses;
 

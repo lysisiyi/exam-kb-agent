@@ -12,6 +12,7 @@ import '../domain/fsrs/fsrs_scheduler.dart';
 import '../domain/knowledge/knowledge_point.dart';
 import '../domain/paper/paper_template.dart';
 import '../features/problems/problems_page.dart' show ProblemView;
+import '../services/chat/chat_store.dart';
 import '../services/library/problem_service.dart';
 import '../services/llm/dio_http_adapter.dart';
 import '../services/llm/llm_client.dart';
@@ -22,6 +23,7 @@ import '../services/profile/mastery_service.dart';
 import '../services/review/reminder_service.dart';
 import '../services/review/review_repository.dart';
 import '../services/tagger/knowledge_recall.dart';
+import '../services/tagger/tag_cache_store.dart';
 
 /// 当前选中的科目。
 ///
@@ -399,4 +401,56 @@ final ingestClientProvider = Provider<LlmClient?>((ref) {
   final adapter = DioHttpAdapter();
   ref.onDispose(adapter.close);
   return LlmClient(config: cfg, http: adapter);
+});
+
+/// 对话助手用的客户端。配置不可用时为 null。
+///
+/// ## 为什么与 [ingestClientProvider] 分开
+///
+/// 两者的**能力要求不同**：导入走视觉接口（要发图 / PDF），
+/// 对话走纯文本 + 流式 + 多轮。合成一个的话，
+/// 任何一边加参数都会牵连另一边 —— 而它们的失效方式完全不一样
+/// （导入发错可以重试，对话吐了一半就不能重试了）。
+///
+/// ## 用量为什么在这里接，而不是像导入那样在页面里建客户端
+///
+/// 对话是**多轮、多会话**的，调用点会散落在重试、续聊、历史回看各处。
+/// 挂在客户端上就不会漏 —— 每一轮真实调用各记一条，
+/// 与 `tables.dart` 里"这张表的行数就是真实调用次数"那句一致。
+///
+/// ⚠️ 流式下部分服务商不返回用量，那些轮次会记成 0 token
+/// （行数仍然准确）。详见 `LlmClient.chatStream` 的方法头。
+final chatClientProvider = Provider<LlmClient?>((ref) {
+  final cfg = ref.watch(llmConfigProvider);
+  if (cfg == null) return null;
+
+  final adapter = DioHttpAdapter();
+  ref.onDispose(adapter.close);
+
+  return LlmClient(
+    config: cfg,
+    http: adapter,
+    onUsage: (usage) {
+      // 记账是旁路：写不进去也绝不能影响用户已经看到的回复。
+      // 所以这里不 await、失败就丢 —— 少一条账远好过对话崩掉。
+      try {
+        ref
+            .read(databaseProvider.future)
+            .then((db) => UsageLedger(db).record(
+                  provider: cfg.providerId,
+                  usage: usage,
+                  purpose: 'chat',
+                ))
+            .ignore();
+      } catch (_) {
+        // 见上
+      }
+    },
+  );
+});
+
+/// 对话记录仓。
+final chatStoreProvider = FutureProvider<ChatStore>((ref) async {
+  final db = await ref.watch(databaseProvider.future);
+  return ChatStore(db);
 });

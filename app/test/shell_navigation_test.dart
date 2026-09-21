@@ -33,6 +33,7 @@ import 'package:kaoyan_math_agent/core/platform/platform_services.dart';
 import 'package:kaoyan_math_agent/core/platform/platform_services_mock.dart';
 import 'package:kaoyan_math_agent/core/widgets/adaptive_shell.dart';
 import 'package:kaoyan_math_agent/dev_shell.dart';
+import 'package:kaoyan_math_agent/features/chat/chat_page.dart';
 import 'package:kaoyan_math_agent/features/entry/entry_page.dart';
 import 'package:kaoyan_math_agent/features/ingest/ingest_page.dart';
 import 'package:kaoyan_math_agent/features/knowledge/knowledge_page.dart';
@@ -214,7 +215,7 @@ void main() {
       };
 
       // 这一条同时守住"占位页有没有被忘掉换掉"。
-      // 全部八个目的地都要点名 —— 早先这里只断言了前四个 + 一句
+      // 全部九个目的地都要点名 —— 早先这里只断言了前四个 + 一句
       // `isNot(EntryPage)`，于是"组卷还是占位页"能一路绿到 M6；
       // 而"都指向真页面"这句话在 `dev_shell.dart` 里只是注释，没人守。
       expect(built['知识库'], KnowledgePage);
@@ -224,9 +225,10 @@ void main() {
       expect(built['批量导入'], IngestPage);
       expect(built['组卷'], PaperPage);
       expect(built['画像'], ProfilePage);
+      expect(built['对话'], ChatPage);
       expect(built['设置'], SettingsPage);
 
-      expect(shell.destinations.length, 8, reason: '新增/删除目的地时这条要一起改');
+      expect(shell.destinations.length, 9, reason: '新增/删除目的地时这条要一起改');
 
       // 快捷键提示必须与位置一致：AdaptiveShell 的 Ctrl+N 是按**下标**算的，
       // 提示写错了比没有提示更糟（用户按了没反应，会以为快捷键坏了）

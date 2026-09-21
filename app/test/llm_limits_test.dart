@@ -33,7 +33,7 @@ import 'package:kaoyan_math_agent/services/llm/llm_client.dart';
 import 'package:kaoyan_math_agent/services/llm/provider_registry.dart';
 
 /// 记录请求体、按脚本返回的假适配器。
-class RecordHttp implements HttpAdapter {
+class RecordHttp extends HttpAdapter {
   final List<HttpResponse> responses;
   final List<HttpRequest> requests = [];
   int _i = 0;

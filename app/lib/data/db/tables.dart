@@ -352,3 +352,87 @@ class MetaEntries extends Table {
   @override
   Set<Column> get primaryKey => {key};
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 对话助手
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// ## 为什么对话记录进 SQLite 而不是 Markdown
+//
+// 这个项目的既定分工是「Markdown 是事实源、SQLite 是状态」。
+// 对话属于**状态**而不是事实：它是"跟模型的往返经过"，
+// 不是"关于某道题的、需要人工编辑与版本管理的知识"。
+// 落成 Markdown 会有两个坏处：
+// ① 每条回复都要过一次文件系统与小作文解析，而流式是逐字写的 ——
+//    写一百次文件只为了一句回答；
+// ② 题库目录会被一堆聊天记录淹掉，用户在"文件即数据"的心智里
+//    会以为这些也是要维护的题目。
+//
+// ## 这两张表可以安全删除
+//
+// 删掉只会让用户丢失聊天记录，不影响错题本、复习进度、知识库。
+
+/// 一次对话会话。
+@DataClassName('ChatSessionRow')
+class ChatSessions extends Table {
+  /// 会话 id（本机生成的随机串）。
+  TextColumn get id => text()();
+
+  /// 标题。取首条用户消息的前若干个字 —— 让历史列表一眼能认出来。
+  /// **允许为空**（首条消息还没发出时就会先建会话）。
+  TextColumn get title => text().withDefault(const Constant(''))();
+
+  /// 建会话时用的模型。换模型之后回看旧会话时，
+  /// 能知道"这段话是谁说的"（不同模型的风格差别很明显）。
+  TextColumn get model => text().withDefault(const Constant(''))();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 最后一条消息的时间。历史列表按它倒序 ——
+  /// 用 `createdAt` 排序的话，接着聊旧会话不会把它顶上去。
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// 会话里的一条消息。
+@DataClassName('ChatMessageRow')
+class ChatMessages extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  TextColumn get sessionId => text()();
+
+  /// `user` 或 `assistant`。
+  ///
+  /// 存字符串而不是整数枚举：这张表将来要能被人直接打开看，
+  /// 而 `2` 是什么意思三个月后没人记得。
+  TextColumn get role => text()();
+
+  TextColumn get content => text()();
+
+  /// 这条回复**是否没写完**。
+  ///
+  /// ## 为什么必须有这个字段
+  ///
+  /// 流式回复是逐字落库的：用户随时可能关窗口、拔网线、或者按停。
+  /// 那一刻已经落盘的内容是**半句话**，而如果把它当成一条正常回复，
+  /// 下次打开看到的是一句莫名其妙断掉的话，用户会以为
+  /// "模型怎么变笨了"，而真相是我们把一次中断伪装成了完整回答。
+  ///
+  /// 有了它，界面可以如实标注"这条回复被中断了"。
+  BoolColumn get interrupted => boolean().withDefault(const Constant(false))();
+
+  /// 这条消息的用量。用户消息恒为 0。
+  ///
+  /// ⚠️ 流式下这些数**可能为 0 而不是真的没花钱** ——
+  /// 部分服务商的流式接口不返回用量（见 `LlmClient.chatStream` 的说明）。
+  /// 所以它只用来做"大概花了多少"的参考，不能当账本。
+  IntColumn get inputTokens => integer().withDefault(const Constant(0))();
+
+  IntColumn get outputTokens => integer().withDefault(const Constant(0))();
+
+  RealColumn get costYuan => real().nullable()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}

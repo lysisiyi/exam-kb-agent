@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/providers.dart';
 import 'core/widgets/adaptive_shell.dart';
+import 'features/chat/chat_page.dart';
 import 'features/entry/entry_page.dart';
 import 'features/ingest/ingest_page.dart';
 import 'features/knowledge/knowledge_page.dart';
@@ -83,10 +84,20 @@ List<NavDestination> buildDevDestinations({
         builder: () => const ProfilePage(),
       ),
       NavDestination(
+        label: '对话',
+        icon: Icons.forum_outlined,
+        selectedIcon: Icons.forum,
+        shortcutHint: 'Ctrl+8',
+        builder: () => const ChatPage(),
+      ),
+      NavDestination(
         label: '设置',
         icon: Icons.settings_outlined,
         selectedIcon: Icons.settings,
-        shortcutHint: 'Ctrl+8',
+        // ⚠️ 这一项排在第 9 位，而 [AdaptiveShell] 的快捷键生成只覆盖
+        // Ctrl+1..9 —— 再加一项就没有快捷键可用了。
+        // 那时要么扩到 Ctrl+0 之外的组合，要么把这批页面分个组。
+        shortcutHint: 'Ctrl+9',
         builder: () => const SettingsPage(),
       ),
     ];

@@ -20,6 +20,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'llm_stream.dart';
 import 'provider_registry.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,9 +63,52 @@ class HttpResponse {
   }
 }
 
+/// 流式响应的一块。
+///
+/// 刻意**不带 SSE 语义** —— 适配器只负责"把响应体按到达顺序吐出来"，
+/// 切分事件、认 `data:` 前缀、处理半行缓冲都是纯逻辑，
+/// 放在 [LlmClient] 里（见 `llm_stream.dart` 的 `SseParser`）。
+/// ⇒ 那些边界条件能在纯 Dart 测试里被完整覆盖，不必起网络、不花 token。
+class HttpStreamChunk {
+  /// HTTP 状态码。**只在第一块里有意义**（状态行在首字节就已确定）。
+  final int statusCode;
+
+  /// 本次新到的原始文本。
+  ///
+  /// ⚠️ 它**不保证是完整的一行**，也不保证是完整的字符 ——
+  /// 切块边界可能落在 `\n` 中间，甚至落在某个中文字符的三个字节中间。
+  /// 消费方必须自己缓冲（[LlmClient] 用的是 `SseParser` + 流式 UTF-8 解码）。
+  final String text;
+
+  const HttpStreamChunk({required this.statusCode, required this.text});
+
+  bool get isSuccess => statusCode >= 200 && statusCode < 300;
+}
+
 /// HTTP 适配器。生产用 Dio，测试用假实现。
 abstract class HttpAdapter {
   Future<HttpResponse> send(HttpRequest request);
+
+  /// 流式发送，返回响应体文本块流。
+  ///
+  /// ## 为什么这里有默认实现（以及为什么子类必须 `extends`）
+  ///
+  /// 绝大多数调用**根本不需要流式** —— 批量导入、标注、组题都是
+  /// "发完等一个 JSON"。把 [sendStream] 做成抽象方法，等于逼着
+  /// 每一个实现者（测试里有 5 个假适配器）写一个自己用不到的桩。
+  ///
+  /// ⚠️ 但 Dart 的 `implements` **不继承默认实现**，只有 `extends` 才继承。
+  /// 所以需要流式的实现者要 `extends HttpAdapter`；
+  /// 写成 `implements HttpAdapter` 的话，编译器会要求你实现
+  /// [sendStream]，而这不是"多写一行"的问题 —— 是接口约定容易被误解的地方。
+  ///
+  /// ⚠️ 返回**已失败的流**而不是同步 `throw`：Dart 的 `await for` 与
+  /// `Stream.listen` 都按异步错误处理，写成同步抛出会让异常从
+  /// "收集流的表达式"里冒出来，而不是从循环体里 ——
+  /// `try` 的覆盖范围会变得难以预期。
+  Stream<HttpStreamChunk> sendStream(HttpRequest request) => Stream.error(
+        UnsupportedError('这个适配器不支持流式响应'),
+      );
 }
 
 /// 网络层异常（连接失败、超时等），与 HTTP 状态码错误区分。
@@ -376,10 +420,80 @@ class ChatAttachment {
   String get displayName => name.isEmpty ? mimeType : name;
 }
 
+/// 对话中的说话方。
+///
+/// 刻意**不含 system** —— 系统提示在 [ChatRequest.system] 里单独给。
+/// 原因是 Anthropic 的 Messages API **不接受** `messages` 里出现
+/// system 角色（必须放顶层 `system` 字段），塞进去会直接 400。
+/// 与其在三家编码里各写一遍"遇到 system 怎么办"，
+/// 不如在类型上就不允许：那样这种错误根本编译不出来。
+enum ChatRole {
+  user,
+  assistant;
+
+  /// Gemini 的助手角色叫 `model`，OpenAI / Anthropic 叫 `assistant`。
+  ///
+  /// 这是三家协议里唯一一处角色命名差异，所以单独给个出口，
+  /// 而不是让编码函数各写各的字符串字面量。
+  String get geminiName => this == ChatRole.assistant ? 'model' : 'user';
+
+  /// 从存储里的字符串还原。
+  ///
+  /// ## 认不出来时退化为 [assistant]，而不是抛异常
+  ///
+  /// 数据库里出现陌生角色名只有两种可能：将来加了新角色（比如工具结果），
+  /// 或者这份数据是别处写坏的。两种情况下**都不能扔异常** ——
+  /// 那会让整个会话打不开，用户直接看不到自己的聊天记录。
+  ///
+  /// 退化方向选 assistant 而不是 user 是刻意的：万一认错了，
+  /// "把模型的话当模型的话"比"把模型的话伪装成用户说的"危害小得多 ——
+  /// 后者会让用户以为自己写过一句从没写过的话。
+  static ChatRole parseStored(String raw) {
+    for (final r in ChatRole.values) {
+      if (r.name == raw) return r;
+    }
+    return ChatRole.assistant;
+  }
+}
+
+/// 对话里的一条消息。
+class ChatMessage {
+  final ChatRole role;
+  final String content;
+
+  const ChatMessage({required this.role, required this.content});
+
+  const ChatMessage.user(this.content) : role = ChatRole.user;
+  const ChatMessage.assistant(this.content) : role = ChatRole.assistant;
+
+  @override
+  String toString() => 'ChatMessage(${role.name}, ${content.length} 字)';
+}
+
 /// 一次对话请求。
 class ChatRequest {
   final String system;
   final String user;
+
+  /// 本次请求**之前**的对话轮次，按时间顺序（早的在前）。
+  ///
+  /// ## 为什么叫 history 而不是 messages
+  ///
+  /// `messages` 很容易被读成"全部消息（含本次这条 user）"。而它其实是
+  /// 夹在 [system] 之后、本次 [user] 之前的那一段，所以叫 history。
+  ///
+  /// ## 为空时零影响
+  ///
+  /// 留空时请求体与改动前**逐字节一致** —— 既有那十来个调用点
+  /// （录入、批量导入、标注、组题）一行都不用改，也不会多花一分钱。
+  ///
+  /// ## 历史消息只发文本，不带附件
+  ///
+  /// 带附件的那条消息在它自己那一轮已经发过图了。若每轮都重发，
+  /// 到第十轮就会同时带上十张图的 base64 —— 费用是**平方级**增长的。
+  /// 代价是模型看不到"之前那张图"，但它看得到当时的文字，
+  /// 对"接着聊"这个场景够用。
+  final List<ChatMessage> history;
 
   /// 随请求一起发出去的图片 / PDF。
   ///
@@ -403,6 +517,7 @@ class ChatRequest {
   const ChatRequest({
     required this.system,
     required this.user,
+    this.history = const [],
     this.attachments = const [],
     this.jsonMode = false,
     this.temperature = 0.1,
@@ -456,6 +571,34 @@ class ChatResponse {
     if (r == null) return false;
     return r == 'length' || r == 'max_tokens' || r == 'maxtokens';
   }
+}
+
+/// 流式对话过程中的一次事件。
+///
+/// 用 `sealed` 而不是"一个带 nullable 字段的结果类"是因为：
+/// 调用方必须**把两种情形分开处理** —— [ChatDelta] 是"已经到手的字"，
+/// 可以立刻画到屏幕上；[ChatDone] 是"这一轮结束了"，要落库、要记账、
+/// 可能还要接着跑下一轮工具调用。合成一个类的话，
+/// 漏判其中一种（比如把 delta 也当成结束）不会有任何编译期提示。
+sealed class ChatStreamEvent {
+  const ChatStreamEvent();
+}
+
+/// 模型新吐出的一段文本。**可能只是半个词**，别拿它当完整句子。
+class ChatDelta extends ChatStreamEvent {
+  final String text;
+
+  const ChatDelta(this.text);
+}
+
+/// 这一轮结束。带完整文本、用量与停止原因。
+///
+/// 里面的 [ChatResponse] 与 [LlmClient.chat] 返回的是同一个类型 ——
+/// 于是"非流式"与"流式"两条路在**落库与记账**上可以共用同一段代码。
+class ChatDone extends ChatStreamEvent {
+  final ChatResponse response;
+
+  const ChatDone(this.response);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -569,34 +712,277 @@ class LlmClient {
     );
   }
 
+  /// 当前服务商是否支持流式输出。
+  ///
+  /// 暂时只有 OpenAI 兼容协议。Anthropic 与 Gemini 的 SSE 格式完全不同
+  /// （Anthropic 走 `content_block_delta` 事件流，Gemini 要 `alt=sse`
+  /// 且把文本埋在 `candidates[].content.parts[]` 里），
+  /// 是单独一期的事 —— 见 `docs/PROGRESS.md` 的对话助手分期。
+  ///
+  /// 调用方（对话页）应当先问这个，不支持时退回非流式的 [chat]，
+  /// 而不是走到 [chatStream] 里撞一个异常。
+  bool get supportsStreaming =>
+      config.spec?.protocol == LlmProtocol.openAiCompatible;
+
+  /// 发送一次**流式**请求，逐段吐出模型新增的文本。
+  ///
+  /// ## 与 [chat] 的三点不同
+  ///
+  /// **一、重试的口径不同 —— 这是最关键的一条。**
+  /// 一旦有字吐出来，就**绝不能重试**：用户已经看到"洛必"两个字，
+  /// 重试会让它再从"洛必"开始，回复里出现接不上的重复片段，
+  /// 而用户完全无法判断哪一遍算数。所以只在"一个字都还没吐"时重试 ——
+  /// 那时失败发生在建连阶段，语义与 [chat] 一致。
+  ///
+  /// **二、用量可能拿不到。** OpenAI 兼容接口默认**不返回**流式的 usage，
+  /// 要显式要 `stream_options.include_usage` 才有；而几家国产服务商
+  /// 对这个字段支持不一，传了可能直接 400。所以只对**已知支持**的传
+  /// （与 `jsonMode` 同一策略），其余拿不到就记 0。
+  /// ⚠️ 于是用量台账里对话的 token 数可能**偏低**，但**行数仍然准确**
+  /// （每一次真实调用各记一行，见 `tables.dart` 的说明）。
+  /// 拿不到用量时界面上会如实写出来，不让用户以为"聊天是免费的"。
+  ///
+  /// **三、返回事件流而非一次性结果。** [ChatDone] 里带着与 [chat]
+  /// 同构的 [ChatResponse]，所以调用方可以只认它、忽略中间过程。
+  Stream<ChatStreamEvent> chatStream(ChatRequest request) async* {
+    final spec = config.spec;
+    if (spec == null) {
+      throw const LlmException(LlmErrorKind.invalidKey, '未知的服务商');
+    }
+    if (!supportsStreaming) {
+      throw LlmException(
+        LlmErrorKind.badRequest,
+        '${spec.label} 走的 ${spec.protocol.name} 协议还不支持流式输出。',
+      );
+    }
+
+    Object? lastError;
+    var attempt = 0;
+
+    while (attempt < retry.maxAttempts) {
+      attempt++;
+
+      final parser = SseParser();
+      final acc = _StreamAcc();
+      final errorBody = StringBuffer();
+      var statusCode = 0;
+      Object? failure;
+
+      try {
+        final chunks = http.sendStream(_buildRequest(request, stream: true));
+        await for (final chunk in chunks) {
+          statusCode = chunk.statusCode;
+          // 非 2xx：把 body 收全了再分类 —— 状态行之外，
+          // 服务商真正想说的话（欠费 / Key 错 / 参数不合法）都写在 body 里。
+          if (!chunk.isSuccess) {
+            errorBody.write(chunk.text);
+            continue;
+          }
+          for (final payload in parser.feed(chunk.text)) {
+            final delta = _consumeFrame(payload, acc);
+            if (delta != null) yield ChatDelta(delta);
+          }
+        }
+        // 流正常结束。缓冲区里若还剩半行，服务商就是没发结尾换行 ——
+        // 不补这一下，用户看到的是"最后一句莫名缺了一截"。
+        for (final payload in parser.flush()) {
+          final delta = _consumeFrame(payload, acc);
+          if (delta != null) yield ChatDelta(delta);
+        }
+      } on LlmException catch (e) {
+        failure = e;
+      } on HttpTransportException catch (e) {
+        failure = e;
+      } catch (e) {
+        failure = e;
+      }
+
+      // ① 非 2xx。分类后按可重试性决定。
+      if (errorBody.isNotEmpty) {
+        final e = _classifyHttpError(
+          HttpResponse(statusCode: statusCode, body: errorBody.toString()),
+        );
+        lastError = e;
+        if (!e.kind.isRetryable || attempt >= retry.maxAttempts) throw e;
+        await sleep(retry.backoffFor(attempt));
+        continue;
+      }
+
+      // ② 流中途断了。
+      if (failure != null) {
+        // ⚠️ 已经吐过字就绝不重试 —— 见方法头注释第一条。
+        if (acc.gotText || attempt >= retry.maxAttempts) {
+          throw failure is LlmException
+              ? failure
+              : LlmException(
+                  failure is HttpTransportException
+                      ? _classifyTransport(failure)
+                      : LlmErrorKind.unknown,
+                  '$failure',
+                );
+        }
+        lastError = failure;
+        await sleep(retry.backoffFor(attempt));
+        continue;
+      }
+
+      // ③ 正常结束，但一个字都没有。
+      if (acc.text.isEmpty) {
+        throw LlmException(
+          LlmErrorKind.badResponse,
+          '流式响应里没有文本内容',
+          rawBody: _truncate(acc.lastPayload),
+        );
+      }
+
+      // 记账放在这里：与 [chat] 同理，内容不可用也一样计费 ——
+      // 但"完全没有文本"那种我们刚抛了错，那一笔在服务商侧通常也不计费。
+      if (onUsage != null) {
+        try {
+          onUsage!(acc.usage);
+        } catch (_) {
+          // 记账是旁路，绝不能影响对话本身的成败
+        }
+      }
+
+      yield ChatDone(ChatResponse(
+        text: acc.text.toString(),
+        usage: acc.usage,
+        providerId: config.providerId,
+        attempts: attempt,
+        finishReason: acc.finishReason.isEmpty ? null : acc.finishReason,
+      ));
+      return;
+    }
+
+    throw LlmException(
+      LlmErrorKind.unknown,
+      '重试 ${retry.maxAttempts} 次后仍失败：$lastError',
+    );
+  }
+
+  /// 吃一帧 SSE 载荷，把结果并进 [acc]，返回这帧**新增**的文本。
+  ///
+  /// 返回 null 表示这帧没有文本可吐 —— 心跳、只有 usage 的收尾帧、
+  /// `[DONE]` 都属于此类。**它们不是错误**，只是没什么可说的。
+  String? _consumeFrame(String payload, _StreamAcc acc) {
+    if (payload == '[DONE]') {
+      acc.sawDone = true;
+      return null;
+    }
+    if (payload.isEmpty) return null;
+
+    // 留住最后见过的原始载荷：整条流一个字都没解析出来时，
+    // 它就是唯一能说明"服务商到底回了什么"的证据。没有它，
+    // 报错只剩一句"没有文本内容"，排查等于从零开始。
+    acc.lastPayload = payload;
+
+    final decoded = _tryJsonMap(payload);
+    if (decoded == null) return null;
+
+    // 停止原因与用量可能出现在任意一帧（多数服务商放在最后一帧）。
+    // ⚠️ 它们必须在 delta 分支**之外**判断：OpenAI 会先发一帧
+    // `choices: []` 而只有 usage 的收尾帧，那种帧的 delta 是 null，
+    // 挂在 delta 里就会把用量整个漏掉。
+    final fr = _extractFinishReason(decoded, LlmProtocol.openAiCompatible);
+    if (fr != null && fr.isNotEmpty) acc.finishReason = fr;
+    final u = _extractUsage(decoded);
+    if (u.totalTokens > 0) acc.usage = u;
+
+    final delta = _openAiDelta(decoded);
+    if (delta == null || delta.isEmpty) return null;
+
+    acc.gotText = true;
+    acc.text.write(delta);
+    return delta;
+  }
+
+  /// OpenAI 兼容协议的增量文本。
+  ///
+  /// 三种形态都要认：`delta.content` 是字符串（绝大多数）、
+  /// 是数组（部分实现把内容拆成 `[{type:text,text:...}]`）、
+  /// 以及旧版 completions 的顶层 `text`（个别自建代理还在用）。
+  String? _openAiDelta(Map<dynamic, dynamic> j) {
+    final choices = j['choices'];
+    if (choices is! List || choices.isEmpty) return null;
+    final first = choices.first;
+    if (first is! Map) return null;
+
+    final delta = first['delta'];
+    if (delta is Map) {
+      final c = delta['content'];
+      if (c is String) return c;
+      if (c is List) {
+        return c
+            .whereType<Map<Object?, Object?>>()
+            .map((p) => p['text']?.toString() ?? '')
+            .join();
+      }
+    }
+    return first['text']?.toString();
+  }
+
+  /// 解析一帧载荷为 Map。不是 JSON 就返回 null。
+  ///
+  /// 静默跳过是有意的：部分服务商会在流里插非 JSON 的保活内容。
+  /// 若整条流都没有可解析的帧，[chatStream] 会用 [.., 原始载荷]
+  /// 报错，所以这里"吞掉"不会让问题变得不可查。
+  static Map<dynamic, dynamic>? _tryJsonMap(String payload) {
+    try {
+      final v = jsonDecode(payload);
+      return v is Map ? v : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ───────────────────────────────────────────────────────────────────────
   // 请求构造
   // ───────────────────────────────────────────────────────────────────────
 
-  HttpRequest _buildRequest(ChatRequest req) {
+  HttpRequest _buildRequest(ChatRequest req, {bool stream = false}) {
     final spec = config.spec;
     if (spec == null) {
       throw const LlmException(LlmErrorKind.invalidKey, '未知的服务商');
     }
 
     return switch (spec.protocol) {
-      LlmProtocol.openAiCompatible => _buildOpenAi(req, spec),
+      LlmProtocol.openAiCompatible => _buildOpenAi(req, spec, stream: stream),
+      // Anthropic / Gemini 目前只有非流式。[LlmClient.chatStream] 在入口
+      // 就按 `supportsStreaming` 挡掉了，所以走不到这里。
       LlmProtocol.anthropic => _buildAnthropic(req),
       LlmProtocol.gemini => _buildGemini(req),
     };
   }
 
   /// OpenAI 兼容（覆盖 DeepSeek / 通义 / 智谱 / Moonshot / OpenAI / Ollama / 自建）。
-  HttpRequest _buildOpenAi(ChatRequest req, ProviderSpec spec) {
+  HttpRequest _buildOpenAi(
+    ChatRequest req,
+    ProviderSpec spec, {
+    bool stream = false,
+  }) {
     final body = <String, dynamic>{
       'model': config.model,
       'messages': [
         {'role': 'system', 'content': req.system},
+        // 历史轮次原样展开。为空时这段 `for` 一个元素都不产生，
+        // 数组与改动前逐字节相同。
+        for (final m in req.history)
+          {'role': m.role.name, 'content': m.content},
         {'role': 'user', 'content': _openAiUserContent(req)},
       ],
       'temperature': req.temperature,
-      'stream': false,
+      'stream': stream,
     };
+
+    // 流式下默认**拿不到**用量，要显式开口子。但几家国产服务商
+    // 不认识这个字段，传了可能直接 400 —— 所以只对已知支持的传，
+    // 与下面 jsonMode 同一策略：宁可在少数服务商上少记用量，
+    // 也不能让对话在它们上面直接不可用。
+    const supportsStreamUsage = {'openai', 'deepseek'};
+    if (stream && supportsStreamUsage.contains(spec.id)) {
+      body['stream_options'] = {'include_usage': true};
+    }
     if (req.maxTokens != null) {
       body['max_tokens'] = _clampMaxTokens(req.maxTokens!);
     }
@@ -677,6 +1063,8 @@ class LlmClient {
       'model': config.model,
       'system': req.system,
       'messages': [
+        for (final m in req.history)
+          {'role': m.role.name, 'content': m.content},
         {'role': 'user', 'content': _anthropicUserContent(req)},
       ],
       'temperature': req.temperature,
@@ -718,6 +1106,16 @@ class LlmClient {
         ],
       },
       'contents': [
+        // ⚠️ Gemini 的助手角色是 `model` 而不是 `assistant` ——
+        // 写成 assistant 不会报参数错，而是被当成未知角色处理，
+        // 表现为"模型完全不记得上一轮说过什么"。
+        for (final m in req.history)
+          {
+            'role': m.role.geminiName,
+            'parts': [
+              {'text': m.content},
+            ],
+          },
         {
           'role': 'user',
           'parts': _geminiParts(req),
@@ -1046,4 +1444,32 @@ class LlmClient {
 
   static String _truncate(String s) =>
       s.length <= 500 ? s : '${s.substring(0, 500)}…';
+}
+
+/// 流式解析过程中累积的状态。纯数据袋，没有行为 ——
+/// 行为都写在 [LlmClient._consumeFrame] 里，因为那里才拿得到协议上下文。
+class _StreamAcc {
+  /// 已经吐出去的完整文本。
+  final StringBuffer text = StringBuffer();
+
+  /// 是否吐过至少一个字。
+  ///
+  /// 它决定"中途出错能不能重试"：吐过了就不能（见 [LlmClient.chatStream]
+  /// 的方法头注释）。每次重试都会新建一个 [_StreamAcc]，
+  /// 所以这个标志天然是按尝试次数隔离的。
+  bool gotText = false;
+
+  String finishReason = '';
+
+  /// 拿到的最新用量。**可能一直是零** —— 见 [LlmClient.chatStream]
+  /// 方法头注释第二条（部分服务商的流式响应根本不带 usage）。
+  LlmUsage usage = const LlmUsage();
+
+  /// 最后见过的原始载荷，仅用于出错时的诊断。
+  String lastPayload = '';
+
+  /// 是否见过终止标记。目前只用于将来区分"服务商正常收尾"与"连接被掐断"，
+  /// 暂不参与判定 —— 留着是因为这个信息只有在这里能拿到，
+  /// 事后无法从别处补。
+  bool sawDone = false;
 }
