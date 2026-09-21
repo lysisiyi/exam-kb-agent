@@ -11,8 +11,11 @@ import '../data/markdown/problem_store.dart';
 import '../domain/fsrs/fsrs_scheduler.dart';
 import '../domain/knowledge/knowledge_point.dart';
 import '../domain/paper/paper_template.dart';
+import '../features/chat/chat_prompt.dart';
 import '../features/problems/problems_page.dart' show ProblemView;
+import '../services/chat/chat_agent.dart';
 import '../services/chat/chat_store.dart';
+import '../services/chat/chat_tools.dart';
 import '../services/library/problem_service.dart';
 import '../services/llm/dio_http_adapter.dart';
 import '../services/llm/llm_client.dart';
@@ -453,4 +456,81 @@ final chatClientProvider = Provider<LlmClient?>((ref) {
 final chatStoreProvider = FutureProvider<ChatStore>((ref) async {
   final db = await ref.watch(databaseProvider.future);
   return ChatStore(db);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 对话助手的工具（P2）
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 助手能调用的**只读**工具集合。
+///
+/// ## 这里为什么只有数据库是"现在就取"的
+///
+/// 其余依赖（题目仓库、复习仓库、画像服务、知识点本体）都传**加载函数**，
+/// 真正的解析发生在某个工具第一次要用它时。理由见 `chat_tools.dart`
+/// 文件头那份说明 —— 一句话：大部分对话用不到它们，而它们都不便宜。
+///
+/// 副作用是这一层变得很轻：唯一的真实依赖是数据库，而它在测试里
+/// 向来被换成内存库。于是页面测试不需要额外搭一套文件系统。
+final chatToolsProvider = FutureProvider<ChatToolRegistry>((ref) async {
+  final db = await ref.watch(databaseProvider.future);
+
+  /// 拿本体；失败返回 null（而不是抛）。
+  ///
+  /// 见 [KnowledgeLoader]：本体坏了的时候，工具仍应能用，
+  /// 只是考点名退化成 id。
+  Future<KnowledgeBase?> kbOrNull() async {
+    try {
+      return await ref.read(knowledgeBaseProvider.future);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  return ChatToolRegistry([
+    WrongProblemsTool(db),
+    GetProblemTool(
+      db: db,
+      loadStore: () => ref.read(problemStoreProvider.future),
+      loadKnowledge: kbOrNull,
+    ),
+    KnowledgePointsTool(() => ref.read(knowledgeBaseProvider.future)),
+    ProfileTool(
+      loadService: () => ref.read(masteryServiceProvider.future),
+      loadKnowledge: () => ref.read(knowledgeBaseProvider.future),
+    ),
+    DueReviewTool(
+      loadRepo: () => ref.read(reviewRepositoryProvider.future),
+      loadKnowledge: kbOrNull,
+    ),
+  ]);
+});
+
+/// 对话助手的工具循环。
+///
+/// ## 服务商不支持工具时不是"报错"，而是"没有工具"
+///
+/// `tools` 为空时，这个循环的行为与 P1 的纯聊天**完全一致**
+/// （请求体里不会出现 `tools` 字段）。这样页面只需要一条代码路径，
+/// 而不是"支持工具时走这套、不支持时走那套" —— 后者必然有一半
+/// 长期没人跑，坏掉也发现不了。
+///
+/// 代价是用户看不出"这个服务商用不了工具"，所以页面上要**单独说**
+/// 这件事（见对话页顶部的能力说明），而不是靠这里静默降级。
+final chatAgentProvider = FutureProvider<ChatAgent?>((ref) async {
+  final client = ref.watch(chatClientProvider);
+  if (client == null) return null;
+
+  final registry = await ref.watch(chatToolsProvider.future);
+  // 只有 OpenAI 兼容协议能传工具（见 `LlmClient._buildRequest`）。
+  // 在这里清空而不是让请求层抛异常：换个服务商就整轮对话用不了，
+  // 那是很差的体验 —— 它至少还能聊天。
+  final withTools = client.supportsTools;
+  return ChatAgent(
+    client: client,
+    tools: withTools ? registry : ChatToolRegistry.empty,
+    // ⚠️ 提示词必须与"真的有没有传 tools"一致。
+    // 不一致的话模型会假装自己查过（见 `chat_prompt.dart` 的文件头）。
+    system: chatSystemPrompt(withTools: withTools),
+  );
 });

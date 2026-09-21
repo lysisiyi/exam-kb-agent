@@ -20,6 +20,7 @@ import 'package:kaoyan_math_agent/core/providers.dart';
 import 'package:kaoyan_math_agent/data/db/database.dart';
 import 'package:kaoyan_math_agent/features/chat/chat_page.dart';
 import 'package:kaoyan_math_agent/services/chat/chat_store.dart';
+import 'package:kaoyan_math_agent/services/chat/chat_tools.dart';
 import 'package:kaoyan_math_agent/services/llm/llm_client.dart';
 import 'package:kaoyan_math_agent/services/llm/provider_registry.dart';
 
@@ -78,6 +79,17 @@ LlmClient _client(HttpAdapter http) => LlmClient(
       sleep: (_) async {},
     );
 
+/// 只用来"让配置看起来是配好的"的客户端：这些用例一条请求都不发。
+///
+/// 脚本里给一轮正常的收尾，避免将来有人误触发请求时拿到一个
+/// 空脚本导致的 RangeError（那种失败会指向脚手架，而不是真实 bug）。
+LlmClient _idleClient() => _client(FakeStreamHttp([
+      [
+        _c(_sse(_delta('（未使用）'))),
+        _c(_sse(_stop())),
+      ],
+    ]));
+
 String _delta(String t) => jsonEncode({
       'choices': [
         {
@@ -101,6 +113,73 @@ String _sse(String payload) => 'data: $payload\n\n';
 HttpStreamChunk _c(String text) =>
     HttpStreamChunk(statusCode: 200, text: text);
 
+// ── 工具调用的 SSE 构造 ──────────────────────────────────────────────────────
+
+/// 一帧工具调用分片。
+///
+/// ⚠️ 真实服务商是把参数 JSON **切成好几片**陆续发的（第一片带 id 与函数名，
+/// 后面的片只有 `index` 和参数片段）。这里的 `args` 就是要故意分两次传，
+/// 才能覆盖"分片拼接"那条路径 —— 一次性发完整 JSON 是测不到的。
+String _toolChunk({
+  required int index,
+  String? id,
+  String? name,
+  String? args,
+}) =>
+    jsonEncode({
+      'choices': [
+        {
+          'delta': {
+            'tool_calls': [
+              {
+                'index': index,
+                'type': 'function',
+                if (id != null) 'id': id,
+                'function': {
+                  if (name != null) 'name': name,
+                  if (args != null) 'arguments': args,
+                },
+              }
+            ],
+          }
+        }
+      ],
+    });
+
+String _finishReason(String reason) => jsonEncode({
+      'choices': [
+        {
+          'delta': <String, dynamic>{},
+          'finish_reason': reason,
+        }
+      ],
+      'usage': {'prompt_tokens': 10, 'completion_tokens': 5},
+    });
+
+/// 一个只有名字的假工具，用来把整条链路跑通而不依赖真实数据。
+class _StubTool extends ChatTool {
+  final String toolName;
+  final ToolOutcome outcome;
+
+  /// 实际收到的参数（测试用它断言"模型传的值有没有原样送到"）。
+  final List<Map<String, dynamic>> received = [];
+
+  /// 每次执行前等这么久，用来制造"正在查…"的可见窗口。
+  final Duration delay;
+
+  _StubTool(this.toolName, this.outcome, {this.delay = Duration.zero});
+
+  @override
+  ToolSpec get spec => ToolSpec(name: toolName, description: '测试用假工具');
+
+  @override
+  Future<ToolOutcome> run(Map<String, dynamic> args) async {
+    received.add(args);
+    if (delay > Duration.zero) await Future<void>.delayed(delay);
+    return outcome;
+  }
+}
+
 void main() {
   late AppDatabase db;
 
@@ -115,6 +194,7 @@ void main() {
   Future<void> pumpChat(
     WidgetTester tester, {
     LlmClient? client,
+    ChatToolRegistry? tools,
     Size size = const Size(1200, 900),
   }) async {
     tester.view.physicalSize = size;
@@ -127,6 +207,15 @@ void main() {
           databaseProvider.overrideWith((ref) async => db),
           // 直接给客户端，绕开真实的安全存储与网络
           chatClientProvider.overrideWith((ref) => client),
+          // ⚠️ 配置也要一起覆盖。之前只有 `chatClientProvider` 被换掉，
+          // 而页面的能力说明读的是 `llmConfigProvider` —— 它一路走到
+          // 真实的 `LlmSettingsStore`，在测试环境里永远是"没配置"。
+          // 于是"配好了"这条分支根本没被测到。两者必须同源。
+          llmConfigProvider.overrideWith((ref) => client?.config),
+          // 不传就用**真实的**工具集合（只依赖被换成内存库的 database），
+          // 这样"注册表能否装配起来"这件事也在页面上被覆盖到。
+          // 传 `ChatToolRegistry.empty` 用来测"服务商不支持工具"那条路。
+          if (tools != null) chatToolsProvider.overrideWith((ref) async => tools),
         ],
         child: MaterialApp(
           home: BreakpointScope.fromSize(
@@ -175,10 +264,38 @@ void main() {
       expect(find.textContaining('设置'), findsWidgets);
     });
 
-    testWidgets('能力边界在顶部常态显示（不能只写在提示词里）', (tester) async {
-      await pumpChat(tester);
+    testWidgets('能力边界在顶部常态显示，且说的是"能读、只读"', (tester) async {
+      // ⚠️ 必须给一个客户端：不给就等于"没配服务商"，
+      // 页面会走"还没配置"那条分支（那是另一个用例的事）。
+      await pumpChat(tester, client: _idleClient());
+
+      // 这份配置是 openai —— 工具可用，所以说明应该是"能读"，
+      // 而不是 P1 那句"看不到你的题库"（那句话接上工具后就过期了）。
+      // 顺带断言"只读"也写在这一句里 —— 能读但不提"不改数据"，
+      // 用户会担心它自己动手。
+      expect(
+        find.textContaining('能读你的错题本、知识点与画像；只读'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('服务商用不了工具时，顶部要如实说"看不到题库"并给办法', (tester) async {
+      await pumpChat(
+        tester,
+        client: _idleClient(),
+        tools: ChatToolRegistry.empty,
+      );
 
       expect(find.textContaining('看不到你的题库'), findsOneWidget);
+      // 只说"不行"没有用，要告诉用户换服务商能解决
+      expect(find.textContaining('DeepSeek'), findsOneWidget);
+    });
+
+    testWidgets('工具可用时空态就引导去问自己的数据（否则没人会去试）', (tester) async {
+      await pumpChat(tester, client: _idleClient());
+
+      expect(find.textContaining('我今天该复习什么'), findsOneWidget);
+      expect(find.textContaining('它现在读不到你的题库'), findsNothing);
     });
   });
 
@@ -428,6 +545,159 @@ void main() {
       // 会话列表里那条还在（它本来就该在），但气泡清空了
       expect(bubbleWith('第一段对话的内容'), findsNothing);
       expect(find.text('有什么想问的？'), findsOneWidget);
+    });
+
+    testWidgets('新对话要连带清掉溯源，否则上一段的"查过什么"会跟过来', (tester) async {
+      final tool = _StubTool(
+        'query_wrong_problems',
+        const ToolOutcome(content: '{"matched":1}', summary: '查到 1 道错题'),
+      );
+      await pumpChat(
+        tester,
+        client: _client(FakeStreamHttp([
+          [
+            _c(_sse(_toolChunk(index: 0, id: 'c1', name: tool.toolName, args: '{}'))),
+            _c(_sse(_finishReason('tool_calls'))),
+          ],
+          [
+            _c(_sse(_delta('答'))),
+            _c(_sse(_stop())),
+          ],
+        ])),
+        tools: ChatToolRegistry([tool]),
+      );
+
+      await sendText(tester, '问');
+      expect(find.textContaining('查到 1 道错题'), findsOneWidget);
+
+      await tester.tap(find.text('新对话'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('查到 1 道错题'), findsNothing,
+          reason: '新对话里不该留着上一段的工具记录');
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  group('工具调用（P2）', () {
+    /// 两轮脚本：先要工具，拿到结果后再作答。
+    FakeStreamHttp twoRound(_StubTool tool) => FakeStreamHttp([
+          [
+            _c(_sse(_toolChunk(index: 0, id: 'call_1', name: tool.toolName, args: '{"kp":'))),
+            _c(_sse(_toolChunk(index: 0, args: '"中值定理"}'))),
+            _c(_sse(_finishReason('tool_calls'))),
+          ],
+          [
+            _c(_sse(_delta('根据你的错题本，'))),
+            _c(_sse(_delta('中值定理是最薄弱的。'))),
+            _c(_sse(_stop())),
+          ],
+        ]);
+
+    testWidgets('模型先查工具再作答：正文显示，且标出查了什么', (tester) async {
+      final tool = _StubTool(
+        'query_wrong_problems',
+        const ToolOutcome(content: '{"matched":12}', summary: '查到 12 道错题'),
+      );
+      await pumpChat(tester, client: _client(twoRound(tool)), tools: ChatToolRegistry([tool]));
+
+      await sendText(tester, '我哪块最弱');
+
+      expect(bubbleWith('根据你的错题本，中值定理是最薄弱的。'), findsOneWidget);
+      // 溯源要看得见 —— 否则"查出来的"和"编出来的"在界面上长得一样
+      expect(find.textContaining('查错题本'), findsOneWidget);
+      expect(find.textContaining('查到 12 道错题'), findsOneWidget);
+      // 参数分片必须拼对（少拼一片就会变成非法 JSON）
+      expect(tool.received.single['kp'], '中值定理');
+    });
+
+    testWidgets('工具记录落库，重开会话还能看到溯源', (tester) async {
+      final tool = _StubTool(
+        'query_profile',
+        const ToolOutcome(content: '{"totalProblems":30}', summary: '画像：30 题'),
+      );
+      await pumpChat(tester, client: _client(twoRound(tool)), tools: ChatToolRegistry([tool]));
+
+      await sendText(tester, '我哪块最弱');
+      await tester.pumpAndSettle();
+
+      final store = ChatStore(db);
+      final s = await store.load((await store.listSessions()).single.id);
+      final last = s!.entries.last;
+      expect(last.content, contains('中值定理是最薄弱的'));
+      expect(last.interrupted, isFalse);
+      expect(last.toolTrace.length, 1);
+      expect(last.toolTrace.single.name, 'query_profile');
+      expect(last.toolTrace.single.ok, isTrue);
+      expect(last.toolTrace.single.summary, '画像：30 题');
+    });
+
+    testWidgets('第二轮请求要带上"要过什么"与"拿到了什么"', (tester) async {
+      // 不带这两条消息，模型会不知道结果、甚至重复调用同一个工具
+      final tool = _StubTool(
+        'query_wrong_problems',
+        const ToolOutcome(content: '{"matched":3}', summary: '查到 3 道错题'),
+      );
+      final http = twoRound(tool);
+      await pumpChat(tester, client: _client(http), tools: ChatToolRegistry([tool]));
+
+      await sendText(tester, '我哪块最弱');
+
+      expect(http.requests.length, 2, reason: '两轮 = 两次真实调用，各记一次账');
+      final second =
+          jsonDecode(http.requests.last.body ?? '{}') as Map<String, dynamic>;
+      final messages = (second['messages'] as List).cast<Map<String, dynamic>>();
+
+      final assistant = messages.firstWhere((m) => m['role'] == 'assistant');
+      expect(assistant['tool_calls'], isNotNull);
+      final call = (assistant['tool_calls'] as List).single as Map;
+      expect((call['function'] as Map)['name'], 'query_wrong_problems');
+
+      final result = messages.firstWhere((m) => m['role'] == 'tool');
+      expect(result['tool_call_id'], 'call_1');
+      expect(result['content'], contains('matched'));
+    });
+
+    testWidgets('工具在跑的那几秒要显示"正在查…"，否则界面像卡住了', (tester) async {
+      final tool = _StubTool(
+        'query_due_reviews',
+        const ToolOutcome(content: '{}', summary: '今天到期 5 张'),
+        // 制造一个可见的执行窗口
+        delay: const Duration(milliseconds: 300),
+      );
+      await pumpChat(tester, client: _client(twoRound(tool)), tools: ChatToolRegistry([tool]));
+
+      await tester.enterText(find.byType(TextField), '今天该复习什么');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(find.textContaining('正在查'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('正在查'), findsNothing,
+          reason: '查完了就该把"正在查"收掉');
+      expect(find.textContaining('今天到期 5 张'), findsOneWidget);
+    });
+
+    testWidgets('工具执行失败也要标出来（与"查到 0 条"是两回事）', (tester) async {
+      final tool = _StubTool(
+        'query_wrong_problems',
+        ToolOutcome.failure('查询执行失败：数据库锁住了', summary: '查错题本执行失败'),
+      );
+      await pumpChat(tester, client: _client(twoRound(tool)), tools: ChatToolRegistry([tool]));
+
+      await sendText(tester, '问');
+
+      // 失败照样要落库，否则用户以为那次查询根本没发生
+      final store = ChatStore(db);
+      final s = await store.load((await store.listSessions()).single.id);
+      final trace = s!.entries.last.toolTrace.single;
+      expect(trace.ok, isFalse);
+      expect(trace.summary, contains('失败'));
     });
   });
 }

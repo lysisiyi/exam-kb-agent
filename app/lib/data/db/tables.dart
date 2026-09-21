@@ -434,5 +434,23 @@ class ChatMessages extends Table {
 
   RealColumn get costYuan => real().nullable()();
 
+  /// 这条回复**查过什么**。JSON 数组，如
+  /// `[{"name":"query_wrong_problems","args":"kp=中值定理","ok":true,"summary":"查到 12 道错题"}]`。
+  ///
+  /// ## 为什么值得占一列
+  ///
+  /// 有了工具之后，助手说的话**有出处了** —— 但出处不可见时它就等于没有：
+  /// 用户看到"你在中值定理上错得最多"这句话，没有任何办法判断它是
+  /// 查出来的还是编的。存下这条记录，重开会话时仍能看到
+  /// "这句结论背后查了哪些东西"。
+  ///
+  /// ⚠️ **只存摘要，不存工具返回的正文**（见 `ToolTraceItem` 的说明）：
+  /// 正文动辄几 KB，而它不会再被显示。
+  ///
+  /// 这一列同样是**派生信息**：删掉只影响"这条回复的溯源"，不影响内容。
+  ///
+  /// schema v6 新增，可空 —— 旧行自然为 null，界面按"没有记录"处理。
+  TextColumn get toolTrace => text().nullable()();
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }

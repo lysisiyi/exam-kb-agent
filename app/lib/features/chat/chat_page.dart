@@ -2,10 +2,12 @@
 ///
 /// ## 这一页要回答的问题
 ///
-/// 其余页面都是"用界面操作题库"。这一页是**用说话来操作**的第一步 ——
-/// 目前它只能就数学问题对话，还动不了题库（工具调用是下一期）。
+/// 其余页面都是"用界面操作题库"。这一页是**用说话来操作** ——
+/// P1 只做到"能聊"（流式 + 多轮 + 落盘），P2 给它接上了**只读工具**：
+/// 能查错题本、读某道题的原文、查知识点、查画像、查待复习。
+/// **还不能改任何数据**（那是 P3，带确认流程）。
 ///
-/// ## 四条刻意的设计
+/// ## 五条刻意的设计
 ///
 /// ### 1. 流式回复在**开始时就落盘**，而不是写完才存
 ///
@@ -23,11 +25,17 @@
 /// 半句话如果正常显示，用户会以为"模型怎么变笨了" ——
 /// 而真相是我们把一次中断伪装成了完整回答。
 ///
-/// ### 4. 能力边界要在界面上也说一遍
+/// ### 4. 能力边界在界面上也说一遍
 ///
-/// 提示词里写了"你读不到用户的题库"，但**提示词不是保证** ——
+/// 提示词里写了"你能查什么、不能改什么"，但**提示词不是保证** ——
 /// 模型仍可能顺着用户的话编。所以页面顶部常态显示一行说明，
-/// 让用户从一开始就知道这个助手目前能看到什么。
+/// 而且这行字**跟着实际配置变**：服务商不支持工具时说"看不到你的题库"，
+/// 支持时说"能读、只读"。
+///
+/// ### 5. 查过什么要摆出来
+///
+/// 见 [_TraceStrip]。没有它，"你在中值定理上错得最多"这句话
+/// 是真查出来的还是编的，用户一点办法都没有。
 library;
 
 import 'dart:async';
@@ -39,12 +47,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/layout/breakpoints.dart';
 import '../../core/math/math_renderer.dart';
 import '../../core/providers.dart';
+import '../../services/chat/chat_agent.dart';
 import '../../services/chat/chat_store.dart';
+import '../../services/chat/chat_tools.dart';
 import '../../services/llm/llm_client.dart';
-import 'chat_prompt.dart';
-
-/// 对话助手的系统提示，单独放一个文件便于单独改文案。
-const String _kSystemPrompt = kChatSystemPrompt;
 
 class ChatPage extends ConsumerStatefulWidget {
   const ChatPage({super.key});
@@ -69,6 +75,20 @@ class _ChatPageState extends ConsumerState<ChatPage> {
 
   /// 用户按了停止。收下一个事件时生效。
   bool _stopRequested = false;
+
+  /// 本轮已经用过的工具（正在流式的那条回复的溯源）。
+  ///
+  /// 与 [ChatEntry.toolTrace] 是同一份数据的两个阶段：这里是最新的，
+  /// 落盘后由 [ChatEntry] 持有。之所以还要单独存一份，是因为
+  /// [_patchLast] 只改最后一条消息的字段、不做合并 ——
+  /// 没有它就没法把"刚查完的工具"接到正在流式的那条上。
+  List<ToolTraceItem> _liveTrace = const [];
+
+  /// 正在执行的工具（中文短名）。null 表示此刻没有工具在跑。
+  ///
+  /// 它驱动"正在查错题本…"这行提示。没有它的话，工具执行的那几秒里
+  /// 界面只有一个空的气泡，用户会以为卡住了。
+  String? _runningTool;
 
   String? _error;
 
@@ -138,6 +158,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       _messages = const [];
       _error = null;
       _input.clear();
+      // 溯源与"正在查"都属于**当前这段对话**的状态，
+      // 不清的话新开的对话会顶着上一段的工具记录。
+      _liveTrace = const [];
+      _runningTool = null;
     });
     _focus.requestFocus();
   }
@@ -152,6 +176,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         _session = s;
         _messages = s.entries;
         _error = null;
+        // 历史消息各自带着自己的溯源，全局那份要清空。
+        _liveTrace = const [];
+        _runningTool = null;
       });
       _scrollToEnd(animate: false);
     } catch (e) {
@@ -194,12 +221,26 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final text = _input.text.trim();
     if (text.isEmpty || _streaming) return;
 
-    final client = ref.read(chatClientProvider);
-    if (client == null) {
+    // 工具集合与系统提示词都由这个 provider 一并给出 ——
+    // 两者必须一致（提示词说"你有工具"而请求里没传，模型会假装查过），
+    // 所以在这里一起取，而不是页面各取一半。
+    //
+    // ⚠️ 分两步赋值是必要的：`agent` 后面会被 `setState` 的闭包捕获，
+    // 而"先声明后赋值"的局部变量在 Dart 里**不会**因为一次 null 检查
+    // 就提升类型（闭包捕获会取消提升）。落成一个新的 final 才行。
+    final ChatAgent? loaded;
+    try {
+      loaded = await ref.read(chatAgentProvider.future);
+    } catch (e) {
+      if (mounted) setState(() => _error = '助手初始化失败：$e');
+      return;
+    }
+    if (loaded == null) {
       setState(() => _error = '还没有配置 AI 服务商（或配置不完整）。'
           '请先到「设置」里填好 Key —— 对话需要文本模型。');
       return;
     }
+    final agent = loaded;
 
     final ChatStore store;
     try {
@@ -220,7 +261,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
       // 而用户看到自己说过的话在上面，会以为这段没被记下来。
       final sid = existingId ??
           await store.createSession(
-            model: client.config.model,
+            model: agent.client.config.model,
             title: ChatStore.titleOf(text),
           );
 
@@ -233,7 +274,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         _session ??= ChatSession(
           id: sid,
           title: ChatStore.titleOf(text),
-          model: client.config.model,
+          model: agent.client.config.model,
           createdAt: now,
           updatedAt: now,
         );
@@ -257,10 +298,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         _error = null;
         _streaming = true;
         _stopRequested = false;
+        // 新一轮从零开始 —— 上一轮的溯源不能跟过来。
+        _liveTrace = const [];
+        _runningTool = null;
       });
       _scrollToEnd();
 
-      await _pump(store, client, sid, turnId, text, history);
+      await _pump(store, agent, sid, turnId, text, history);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -270,14 +314,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     }
 
     if (!mounted) return;
-    setState(() => _streaming = false);
+    setState(() {
+      _streaming = false;
+      _runningTool = null;
+    });
     await _reloadSessions();
   }
 
-  /// 真正跑一轮流式对话，并边跑边落盘。
+  /// 真正跑一轮对话（可能含多次工具往返），并边跑边落盘。
   Future<void> _pump(
     ChatStore store,
-    LlmClient client,
+    ChatAgent agent,
     String sessionId,
     int turnId,
     String userText,
@@ -287,20 +334,24 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     var done = false;
 
     try {
-      final stream = client.chatStream(ChatRequest(
-        system: _kSystemPrompt,
-        user: userText,
+      final stream = agent.run(
         history: history,
-        // 比标注(0.1)灵活、比闲聊收敛：数学讲解既要稳、又不能死板
-        temperature: 0.3,
-      ));
+        userText: userText,
+        shouldStop: () => _stopRequested,
+      );
 
       await for (final event in stream) {
         // 用户按了停止。`break` 会连带取消对底层流的订阅。
-        if (_stopRequested) break;
+        //
+        // ⚠️ 但 **[AgentDone] 必须放行**：它带着整轮的最终状态
+        // （累计用量、工具溯源、是否被中断）。在它之前 break，
+        // 盘上就只剩一条"被中断"的记录、用量也记成 0 ——
+        // 而那一轮其实**已经完整跑完了**（钱也花了）。
+        // 用户按下停止的那一刻刚好撞上收尾，是很常见的。
+        if (_stopRequested && event is! AgentDone) break;
 
         switch (event) {
-          case ChatDelta(:final text):
+          case AgentTextDelta(:final text):
             buffer.write(text);
             // 落盘交给 ChatStore 自己节流（见它的文件头）。
             // 这里**不 await**：每来一个字都等一次写盘会把流式拖成幻灯片。
@@ -309,45 +360,92 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             setState(() => _patchLast(content: buffer.toString()));
             _scrollToEnd();
 
-          case ChatDone(:final response):
+          case AgentToolBegin(:final label):
+            if (!mounted) return;
+            setState(() => _runningTool = label);
+            _scrollToEnd();
+
+          case AgentToolEnd(:final item):
+            _liveTrace = [..._liveTrace, item];
+            // 工具记录也走节流：一次回答可能查好几次，
+            // 每次都强制落盘等于把节流绕过去了。
+            unawaited(store.updateTurn(
+              turnId,
+              content: buffer.toString(),
+              toolTrace: _liveTrace,
+            ));
+            if (!mounted) return;
+            setState(() {
+              _runningTool = null;
+              _patchLast(content: buffer.toString(), toolTrace: _liveTrace);
+            });
+            _scrollToEnd();
+
+          case AgentDone(
+              :final text,
+              :final usage,
+              :final trace,
+              :final stopped,
+              :final note
+            ):
             done = true;
             buffer
               ..clear()
-              ..write(response.text);
+              ..write(text);
+            _liveTrace = trace;
+            // ⚠️ 这一次必须 force：整轮的最终状态（正文、用量、溯源、
+            // 是否被中断）都在这里定型，漏掉它就会留下"最后一段没存上"。
             await store.updateTurn(
               turnId,
-              content: response.text,
-              interrupted: false,
-              usage: response.usage,
+              content: text,
+              interrupted: stopped,
+              usage: usage,
+              toolTrace: trace,
               force: true,
             );
             if (!mounted) return;
-            setState(() => _patchLast(
-                  content: response.text,
-                  interrupted: false,
-                  usage: response.usage,
-                ));
+            setState(() {
+              _runningTool = null;
+              _patchLast(
+                content: text,
+                interrupted: stopped,
+                usage: usage,
+                toolTrace: trace,
+              );
+              // 达到轮数上限这类话必须原样转给用户，不能吞掉：
+              // 他看到的是一个戛然而止的回答，不说就会以为是模型不行。
+              _error = note ??
+                  (stopped
+                      ? '已停止接收。这一轮的费用已经产生（服务端不会退回），'
+                          '但内容留在了记录里 —— 接着问就行。'
+                      : null);
+            });
             _scrollToEnd();
         }
       }
 
       if (!done) {
-        // 用户中途停止，或流在结束事件之前就断了。
-        // 两种情况盘上都该是"未完成" —— 已经收到的内容留着，
-        // 因为那些字用户已经看见了。
+        // 走到这里只有一种情况：底层连接被掐断，收尾事件永远没来
+        // （用户按停的那条路会在 AgentDone 里带着 stopped 收尾）。
         await store.updateTurn(
           turnId,
           content: buffer.toString(),
           interrupted: true,
+          toolTrace: _liveTrace,
           force: true,
         );
         if (!mounted) return;
         setState(() {
-          _patchLast(content: buffer.toString(), interrupted: true);
-          if (_stopRequested) {
-            _error = '已停止接收。这一轮的费用已经产生（服务端不会退回），'
-                '但内容留在了记录里 —— 接着问就行。';
-          }
+          _runningTool = null;
+          _patchLast(
+            content: buffer.toString(),
+            interrupted: true,
+            toolTrace: _liveTrace,
+          );
+          _error = _stopRequested
+              ? '已停止接收。这一轮的费用已经产生（服务端不会退回），'
+                  '但内容留在了记录里 —— 接着问就行。'
+              : '这一轮没能正常收尾（连接断了）。已经收到的内容留在了记录里。';
         });
       }
     } catch (e) {
@@ -356,11 +454,17 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         turnId,
         content: buffer.toString(),
         interrupted: true,
+        toolTrace: _liveTrace,
         force: true,
       );
       if (!mounted) return;
       setState(() {
-        _patchLast(content: buffer.toString(), interrupted: true);
+        _runningTool = null;
+        _patchLast(
+          content: buffer.toString(),
+          interrupted: true,
+          toolTrace: _liveTrace,
+        );
         _error = _describeChatError(e);
       });
     } finally {
@@ -396,7 +500,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   // ───────────────────────────────────────────────────────────────────────
 
   /// 只改最后一条（流式中的那条回复）。
-  void _patchLast({String? content, bool? interrupted, LlmUsage? usage}) {
+  void _patchLast({
+    String? content,
+    bool? interrupted,
+    LlmUsage? usage,
+    List<ToolTraceItem>? toolTrace,
+  }) {
     if (_messages.isEmpty) return;
     final last = _messages.last;
     if (last.role != ChatRole.assistant) return;
@@ -408,6 +517,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         content: content ?? last.content,
         interrupted: interrupted ?? last.interrupted,
         usage: usage ?? last.usage,
+        toolTrace: toolTrace ?? last.toolTrace,
         createdAt: last.createdAt,
       ),
     ];
@@ -439,12 +549,34 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final compact = BreakpointScope.of(context) == LayoutBreakpoint.compact;
     final wide = !compact;
 
+    final cfg = ref.watch(llmConfigProvider);
+    final agent = ref.watch(chatAgentProvider).valueOrNull;
+    final toolsOn = agent != null && agent.tools.isNotEmpty;
+
+    /// 顶部那行能力说明。
+    ///
+    /// ## 为什么要分三种而不是两种
+    ///
+    /// "配置好了但工具没就绪"（首次进入、provider 还在 await）如果和
+    /// "没配服务商"说成同一句，用户会去设置里瞎改一个本来没问题的 Key。
+    /// 而"服务商不支持工具"又完全是另一回事 —— 那种情况**换服务商能解决**，
+    /// 得说出来。
+    final capability = cfg == null
+        ? '还没配置 AI 服务商：到「设置」里填好 Key 就能开始'
+        : agent == null
+            ? '正在准备助手…'
+            : !toolsOn
+                ? '${cfg.spec?.label ?? '当前服务商'} 不支持工具调用 —— '
+                    '它看不到你的题库，只能回答你贴过来的题（换成 DeepSeek 等可解决）'
+                : '能读你的错题本、知识点与画像；只读，不会改动任何数据';
+
     final chat = Column(
       children: [
         _Header(
           session: _session,
           hasMessages: _messages.isNotEmpty,
           streaming: _streaming,
+          capability: capability,
           onNew: _newChat,
           onShowSessions: wide
               ? null
@@ -454,11 +586,12 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           _ErrorBar(text: _error!, onDismiss: () => setState(() => _error = null)),
         Expanded(
           child: _messages.isEmpty
-              ? const _Welcome()
+              ? _Welcome(withTools: toolsOn)
               : _MessageList(
                   messages: _messages,
                   controller: _scroll,
                   streaming: _streaming,
+                  runningTool: _runningTool,
                 ),
         ),
         _Composer(
@@ -531,6 +664,10 @@ class _Header extends StatelessWidget {
   final ChatSession? session;
   final bool hasMessages;
   final bool streaming;
+
+  /// 这一行说明"助手现在能看到什么"。由页面按服务商与工具就绪状态算出来。
+  final String capability;
+
   final VoidCallback onNew;
   final VoidCallback? onShowSessions;
 
@@ -538,6 +675,7 @@ class _Header extends StatelessWidget {
     required this.session,
     required this.hasMessages,
     required this.streaming,
+    required this.capability,
     required this.onNew,
     this.onShowSessions,
   });
@@ -576,8 +714,10 @@ class _Header extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  // 边界要在界面上也说一遍：提示词里写了，但提示词不是保证
-                  '能看你贴过来的题；看不到你的题库、错题记录与图谱',
+                  // 能力说明必须在界面上也说一遍：提示词里写了，但
+                  // **提示词不是保证** —— 模型仍可能顺着用户的话编。
+                  // 让用户从一开始就知道这个助手能看到什么。
+                  capability,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
@@ -721,40 +861,58 @@ class _MessageList extends StatelessWidget {
   final ScrollController controller;
   final bool streaming;
 
+  /// 正在执行的工具（中文短名）。只显示在**最后一条**助手气泡上。
+  final String? runningTool;
+
   const _MessageList({
     required this.messages,
     required this.controller,
     required this.streaming,
+    this.runningTool,
   });
 
   @override
   Widget build(BuildContext context) {
+    final lastAssistant =
+        messages.isNotEmpty && messages.last.role == ChatRole.assistant;
     return ListView.builder(
       controller: controller,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       itemCount: messages.length,
-      itemBuilder: (ctx, i) => ChatBubble(
-        entry: messages[i],
-        // 正在流式的那一条（也就是最后一条助手消息）显示光标
-        streaming: streaming &&
-            i == messages.length - 1 &&
-            messages[i].role == ChatRole.assistant,
-      ),
+      itemBuilder: (ctx, i) {
+        final isLast = i == messages.length - 1;
+        return ChatBubble(
+          entry: messages[i],
+          // 正在流式的那一条（也就是最后一条助手消息）显示光标
+          streaming: streaming && isLast && messages[i].role == ChatRole.assistant,
+          // "正在查…"只挂在最后一条上：工具是**这一轮**在跑的，
+          // 把它显示在历史气泡上会让人以为那条回复还在动。
+          runningTool: (isLast && lastAssistant) ? runningTool : null,
+        );
+      },
     );
   }
 }
 
 /// 一条消息气泡。
 ///
-/// 抽成公开类是为了能单独测 —— 它承载了"未完成"与"思考中"
-/// 这两种**必须显示对**的状态。
+/// 抽成公开类是为了能单独测 —— 它承载了"未完成"、"思考中"
+/// 与"查过什么"这三种**必须显示对**的状态。
 class ChatBubble extends StatelessWidget {
   final ChatEntry entry;
 
   /// 这一条正在被流式写入。
   final bool streaming;
 
-  const ChatBubble({super.key, required this.entry, this.streaming = false});
+  /// 此刻正在执行的工具（中文短名）。非空时在气泡顶部显示"正在查…"。
+  final String? runningTool;
+
+  const ChatBubble({
+    super.key,
+    required this.entry,
+    this.streaming = false,
+    this.runningTool,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -762,6 +920,8 @@ class ChatBubble extends StatelessWidget {
     final isUser = entry.role == ChatRole.user;
 
     final body = _body(context, scheme);
+    final showTrace = !isUser &&
+        (entry.toolTrace.isNotEmpty || (streaming && runningTool != null));
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -782,6 +942,14 @@ class ChatBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 溯源放在正文**上面**：它是"这句话从哪来"的前情，
+            // 放在下面会让长回答的读者永远看不到。
+            if (showTrace)
+              _TraceStrip(
+                trace: entry.toolTrace,
+                running: streaming ? runningTool : null,
+                scheme: scheme,
+              ),
             body,
             if (entry.interrupted && !streaming) ..._interruptedNote(scheme),
           ],
@@ -838,11 +1006,97 @@ class ChatBubble extends StatelessWidget {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// 溯源条
+// ───────────────────────────────────────────────────────────────────────────
+
+/// 一条回复"查过什么"。
+///
+/// ## 为什么必须有这个
+///
+/// 接上工具之后，助手说的每句与用户数据有关的话都**有可能**是查出来的、
+/// 也有可能是编的 —— 而两者在文字上长得一模一样，用户无从分辨。
+/// 把"查了什么、查到几条"摆出来，他才有判断的依据。
+///
+/// 这与项目其余部分是同一条纪律：画像里同时显示掌握度**与**复习题数、
+/// 「AI 为什么这么判」面板把召回词摆出来 —— 让结论可核对，而不是
+/// 要求用户相信。
+class _TraceStrip extends StatelessWidget {
+  final List<ToolTraceItem> trace;
+
+  /// 正在执行的工具名。非空时多显示一行"正在查…"。
+  final String? running;
+
+  final ColorScheme scheme;
+
+  const _TraceStrip({
+    required this.trace,
+    required this.running,
+    required this.scheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      // 与正文之间留一点空，但别太多 —— 它是附注，不是正文的一部分。
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final t in trace)
+            _row(
+              t.summary.isEmpty ? t.label : '${t.label} · ${t.summary}',
+              ok: t.ok,
+            ),
+          // 正在查的那一行**排在最后**：它是时间上最新的，
+          // 而上面那些是已经有结果的。
+          if (running != null) _row('正在查$running…', ok: true, pending: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(String text, {required bool ok, bool pending = false}) {
+    // 失败的那一条用错误色：查询失败与"查到 0 条"是两回事，
+    // 后者是我们真的问过了，前者是我们没问到。
+    final color = ok ? scheme.onSurfaceVariant : scheme.error;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(ok ? Icons.search : Icons.error_outline, size: 12.5, color: color),
+          const SizedBox(width: 5),
+          // 必须 Flexible：工具摘要可能很长（比如把用户的考点名带进去），
+          // 而外层气泡宽度有限，不换行就会溢出成一条黄色警示带。
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: color,
+                fontStyle: pending ? FontStyle.italic : FontStyle.normal,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // 空态与错误条
 // ───────────────────────────────────────────────────────────────────────────
 
 class _Welcome extends StatelessWidget {
-  const _Welcome();
+  /// 当前是否真的能查数据。空态文案必须跟着变 ——
+  /// 明明能查还写着"它现在读不到你的题库"，用户永远不会去试。
+  final bool withTools;
+
+  const _Welcome({required this.withTools});
 
   @override
   Widget build(BuildContext context) {
@@ -864,11 +1118,22 @@ class _Welcome extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                '可以：\n'
-                '· 贴一道题过来，让它讲思路；\n'
-                '· 问概念辨析（比如"洛必达和泰勒什么时候用哪个"）；\n'
-                '· 让它帮你归类型（"这类题的通用套路是什么"）。\n\n'
-                '它现在读不到你的题库 —— 想看自己的薄弱点，去「画像」页。',
+                withTools
+                    ? '可以直接问你的数据：\n'
+                        '· "我哪块最弱？" —— 它会查画像\n'
+                        '· "我今天该复习什么？" —— 它会查复习计划\n'
+                        '· "我在中值定理上有哪些错题？" —— 它会查错题本\n'
+                        '· "讲讲我那道 2023-shu1-T18" —— 它会读原文\n\n'
+                        '也可以贴一道题过来让它讲思路，或问概念辨析。\n\n'
+                        // ⚠️ 这里是纯 Text，不能出现 Markdown 记号 ——
+                        // 星号会原样显示出来（A3 那次踩过同一个坑）。
+                        '它是只读的，不会改动你的题库；每次回答都会标出'
+                        '它查了什么。'
+                    : '可以：\n'
+                        '· 贴一道题过来，让它讲思路；\n'
+                        '· 问概念辨析（比如"洛必达和泰勒什么时候用哪个"）；\n'
+                        '· 让它帮你归类型（"这类题的通用套路是什么"）。\n\n'
+                        '它现在读不到你的题库 —— 想看自己的薄弱点，去「画像」页。',
                 style: TextStyle(fontSize: 13, height: 1.85, color: scheme.onSurfaceVariant),
               ),
             ],

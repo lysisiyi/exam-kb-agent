@@ -165,6 +165,10 @@ void main() {
       // `error_causes` 列"，于是重新打开时 `ADD COLUMN` 撞上已存在的列
       // 直接抛 SqliteException —— 测试红了，但那不是产品缺陷，
       // 是这个夹具没有真的把库退回 v2。
+      //
+      // ⚠️ 每加一版 `addColumn` 迁移，这里就**必须**多退一列。
+      // `createTable` 是 IF NOT EXISTS（重复建表无所谓），但 `addColumn`
+      // 是裸的 ALTER —— 列还在就报 "duplicate column name"。
       final dir = await Directory.systemTemp.createTemp('dsh-migrate-');
       addTearDown(() async {
         try {
@@ -190,12 +194,16 @@ void main() {
           );
       await current.close();
 
-      // 退回 v2：删掉后来才有的两张表、一列，再把版本号写回 2
+      // 退回 v2：删掉后来才有的两张表、两列，再把版本号写回 2
       final rollback = AppDatabase.openFile(file);
       await rollback.customStatement('DROP TABLE tag_cache_entries');
       await rollback.customStatement('DROP TABLE llm_usage_entries');
       await rollback.customStatement(
         'ALTER TABLE problems_index DROP COLUMN error_causes',
+      );
+      // v4 加的 error_causes 之外，还有 v6 加的 tool_trace
+      await rollback.customStatement(
+        'ALTER TABLE chat_messages DROP COLUMN tool_trace',
       );
       await rollback.customStatement('PRAGMA user_version = 2');
       await rollback.close();
@@ -220,6 +228,14 @@ void main() {
       final colNames = cols.map((r) => r.read<String>('name')).toSet();
       expect(colNames, contains('error_causes'),
           reason: 'v4 迁移必须把这一列加上，否则画像的错因分布永远是空的');
+
+      // v6 的那一列同理：P1 落盘的会话没有它，补不上就回看不了"查过什么"
+      final chatCols = await upgraded
+          .customSelect('PRAGMA table_info(chat_messages)')
+          .get();
+      final chatColNames = chatCols.map((r) => r.read<String>('name')).toSet();
+      expect(chatColNames, contains('tool_trace'),
+          reason: 'v6 迁移必须补出工具调用记录列，否则旧会话读回来会缺字段');
 
       // 已经存在的那一行缓存**不会**被重建（迁移只建表，不动数据）
       expect(await upgraded.select(upgraded.tagCacheEntries).get(), isEmpty,

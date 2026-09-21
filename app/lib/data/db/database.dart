@@ -64,7 +64,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -86,6 +86,14 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(chatSessions);
             await m.createTable(chatMessages);
           }
+          // v6：对话消息加一列"查过什么"（工具调用的溯源）。
+          //
+          // 用 `addColumn` 而不是重建表：新列可空、没有默认值需求，
+          // SQLite 的 `ALTER TABLE ... ADD COLUMN` 就能完成，
+          // 不必走 v2 那种"建新表→拷数据→换名"的重活。
+          // 老库里的行在这一列上是 NULL，`decodeToolTrace` 按
+          // "没有记录"处理 —— 界面上不会显示出异常的空块。
+          if (from < 6) await m.addColumn(chatMessages, chatMessages.toolTrace);
         },
         beforeOpen: (details) async {
           // 打开外键约束的**执行**开关。注意：当前 schema 里**没有任何

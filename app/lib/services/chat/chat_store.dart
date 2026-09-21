@@ -26,6 +26,7 @@ import 'package:drift/drift.dart';
 
 import '../../data/db/database.dart';
 import '../llm/llm_client.dart';
+import 'chat_tools.dart';
 
 /// 流式回复落盘的最小间隔。
 ///
@@ -49,6 +50,13 @@ class ChatEntry {
   /// 这条消息的用量。用户消息恒为 0。
   final LlmUsage usage;
 
+  /// 这条回复**查过什么**（工具调用的摘要）。
+  ///
+  /// 空列表有两种情况，界面上要区分开 —— 但不必分得很细：
+  /// "这一轮没用工具"和"旧版本记录没有这一列"都是空，
+  /// 两者在界面上都表现为"不显示溯源那一段"。
+  final List<ToolTraceItem> toolTrace;
+
   final DateTime createdAt;
 
   const ChatEntry({
@@ -57,6 +65,7 @@ class ChatEntry {
     required this.content,
     this.interrupted = false,
     this.usage = const LlmUsage(),
+    this.toolTrace = const [],
     required this.createdAt,
   });
 
@@ -232,11 +241,16 @@ class ChatStore {
   /// ⚠️ **流结束时必须传 `force: true`**。没有它，最后一次写入可能
   /// 因为落在节流窗口里被跳过 —— 表现是"回复的最后几十个字没存上"，
   /// 而且只在回复较快时出现。
+  ///
+  /// [toolTrace] 为 null 表示**不动这一列**（与 `usage` 同一策略）。
+  /// 工具往返是逐次发生的，界面上每查一次就可能想更新一次，
+  /// 所以它跟正文一样走节流；只有 `force: true` 的那一次一定落盘。
   Future<void> updateTurn(
     int id, {
     required String content,
     bool? interrupted,
     LlmUsage? usage,
+    List<ToolTraceItem>? toolTrace,
     bool force = false,
   }) async {
     final t = _now();
@@ -258,6 +272,9 @@ class ChatStore {
         outputTokens:
             usage == null ? const Value.absent() : Value(usage.outputTokens),
         costYuan: usage == null ? const Value.absent() : Value(usage.costYuan),
+        toolTrace: toolTrace == null
+            ? const Value.absent()
+            : Value(encodeToolTrace(toolTrace)),
       ));
     } catch (_) {
       // 存不下不该让进行中的对话崩掉。但要把节流记录回退 ——
@@ -329,6 +346,7 @@ class ChatStore {
         role: ChatRole.parseStored(r.role),
         content: r.content,
         interrupted: r.interrupted,
+        toolTrace: decodeToolTrace(r.toolTrace),
         createdAt: r.createdAt,
         usage: LlmUsage(
           inputTokens: r.inputTokens,

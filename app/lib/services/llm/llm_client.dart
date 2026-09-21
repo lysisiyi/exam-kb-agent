@@ -429,25 +429,50 @@ class ChatAttachment {
 /// 不如在类型上就不允许：那样这种错误根本编译不出来。
 enum ChatRole {
   user,
-  assistant;
+  assistant,
+
+  /// 工具执行结果。**只有 OpenAI 兼容协议有这种角色。**
+  ///
+  /// Anthropic 把工具结果塞进 `user` 消息的 `tool_result` 内容块，
+  /// Gemini 塞进 `functionResponse` 部分 —— 三家都没有"工具"这个角色。
+  /// 所以它一旦出现在非 OpenAI 协议的请求里，就是编码层漏了判断，
+  /// 见 [ChatRole.geminiName] 与 [LlmClient._buildRequest]。
+  tool;
 
   /// Gemini 的助手角色叫 `model`，OpenAI / Anthropic 叫 `assistant`。
   ///
   /// 这是三家协议里唯一一处角色命名差异，所以单独给个出口，
   /// 而不是让编码函数各写各的字符串字面量。
-  String get geminiName => this == ChatRole.assistant ? 'model' : 'user';
+  ///
+  /// ⚠️ [ChatRole.tool] 会**抛异常**而不是退化成某个字符串。
+  /// 退化成 `user` 的话，工具返回的 JSON 会被当成"用户说的一句话"
+  /// 送给模型 —— 模型很可能照着这段 JSON 编出解释，而没有任何报错。
+  /// 宁可在这里炸，也不要让一次静默的语义错位流到用户面前。
+  String get geminiName => switch (this) {
+        ChatRole.assistant => 'model',
+        ChatRole.user => 'user',
+        ChatRole.tool => throw UnsupportedError(
+            'Gemini 协议里工具结果不是独立角色（是 functionResponse 内容块）；'
+            '出现这个异常说明编码层漏了拦截。',
+          ),
+      };
 
   /// 从存储里的字符串还原。
   ///
   /// ## 认不出来时退化为 [assistant]，而不是抛异常
   ///
-  /// 数据库里出现陌生角色名只有两种可能：将来加了新角色（比如工具结果），
+  /// 数据库里出现陌生角色名只有两种可能：将来又加了新角色，
   /// 或者这份数据是别处写坏的。两种情况下**都不能扔异常** ——
   /// 那会让整个会话打不开，用户直接看不到自己的聊天记录。
   ///
   /// 退化方向选 assistant 而不是 user 是刻意的：万一认错了，
   /// "把模型的话当模型的话"比"把模型的话伪装成用户说的"危害小得多 ——
   /// 后者会让用户以为自己写过一句从没写过的话。
+  ///
+  /// ⚠️ [ChatRole.tool] 现在**算正常值**（P2 加的工具结果角色）。
+  /// 不过它只活在一次工具往返的**内存消息链**里，不会写进
+  /// `chat_messages`（那一列只有 user / assistant，见 `ChatStore`）——
+  /// 所以这条分支实际只在读到别处写坏的数据时才会走到。
   static ChatRole parseStored(String raw) {
     for (final r in ChatRole.values) {
       if (r.name == raw) return r;
@@ -457,17 +482,141 @@ enum ChatRole {
 }
 
 /// 对话里的一条消息。
+///
+/// ## 为什么普通消息与工具消息共用一个类
+///
+/// 工具调用的一轮往返是一条**链**：`assistant`（带 tool_calls）
+/// → `tool`（带 tool_call_id 的结果）→ `assistant`（最终回答）。
+/// 这条链必须按顺序原样回灌给模型，否则它不知道自己刚才要过什么。
+/// 若把工具消息另立一个类、另开一个列表，就必然要处理
+/// "两者谁先谁后"这个本不该存在的问题。放一个列表里，
+/// 顺序就是列表顺序。
+///
+/// 三个新增字段都只在特定角色上有意义，为空时**编码结果与从前逐字节一致**。
 class ChatMessage {
   final ChatRole role;
   final String content;
 
-  const ChatMessage({required this.role, required this.content});
+  /// 助手这一轮**请求调用**的工具。仅 [ChatRole.assistant] 可能非空。
+  final List<ToolCall> toolCalls;
 
-  const ChatMessage.user(this.content) : role = ChatRole.user;
-  const ChatMessage.assistant(this.content) : role = ChatRole.assistant;
+  /// 这条消息是哪个工具调用的结果。仅 [ChatRole.tool] 非空。
+  ///
+  /// 服务商靠它把结果与请求配对 —— 一轮里可以并行调多个工具，
+  /// 少了它，多个结果就分不清谁是谁的。
+  final String? toolCallId;
+
+  const ChatMessage({
+    required this.role,
+    required this.content,
+    this.toolCalls = const [],
+    this.toolCallId,
+  });
+
+  const ChatMessage.user(this.content)
+      : role = ChatRole.user,
+        toolCalls = const [],
+        toolCallId = null;
+
+  const ChatMessage.assistant(this.content, {this.toolCalls = const []})
+      : role = ChatRole.assistant,
+        toolCallId = null;
+
+  /// 一条工具执行结果。
+  const ChatMessage.tool({
+    required this.toolCallId,
+    required this.content,
+  })  : role = ChatRole.tool,
+        toolCalls = const [];
+
+  /// 是不是一条"带工具调用的助手消息"。
+  bool get hasToolCalls => toolCalls.isNotEmpty;
 
   @override
-  String toString() => 'ChatMessage(${role.name}, ${content.length} 字)';
+  String toString() => 'ChatMessage(${role.name}, ${content.length} 字'
+      '${hasToolCalls ? ', 调用 ${toolCalls.length} 个工具' : ''})';
+}
+
+/// 一个可以被模型调用的工具（OpenAI 的 function calling 规格）。
+///
+/// [parameters] 必须是 JSON Schema。服务商**只在它认得这个 schema**时
+/// 才会正常填参数：写错类型（比如 `type` 写成 `string` 而 properties
+/// 里放了个数组）不会报错，只会让模型瞎填。
+class ToolSpec {
+  final String name;
+
+  /// 给**模型**看的说明，不是给用户看的。
+  ///
+  /// 写清楚"什么时候该用它"比"它做什么"更重要 —— 四个查询工具的能力
+  /// 有重叠（都能按知识点筛），模型选错工具不会失败，只会白花一次调用。
+  final String description;
+
+  final Map<String, dynamic> parameters;
+
+  const ToolSpec({
+    required this.name,
+    required this.description,
+    this.parameters = const {'type': 'object', 'properties': <String, dynamic>{}},
+  });
+
+  /// 编码成 OpenAI 的 tools 数组元素。
+  Map<String, dynamic> toOpenAiJson() => {
+        'type': 'function',
+        'function': {
+          'name': name,
+          'description': description,
+          'parameters': parameters,
+        },
+      };
+}
+
+/// 模型请求的一次工具调用。
+class ToolCall {
+  /// 服务商给的调用 id。回灌结果时必须原样带回。
+  ///
+  /// ⚠️ 流式下它**可能只在第一片里出现**，后续分片只有 index 与参数。
+  /// 聚合逻辑见 [LlmClient._consumeFrame]。
+  final String id;
+
+  final String name;
+
+  /// 参数的**原始** JSON 字符串。
+  ///
+  /// 保留原文是因为模型偶尔会吐出非法 JSON（多一个逗号、少一个引号）。
+  /// 那时我们既不能执行它，也不该假装它是空的 ——
+  /// 报错信息里带上原文，才能让人看出模型想干什么。
+  final String arguments;
+
+  /// 解析后的参数。解析失败时为 null。
+  final Map<String, dynamic>? parsed;
+
+  ToolCall({required this.id, required this.name, required this.arguments})
+      : parsed = _tryParseArgs(arguments);
+
+  /// 实际可用的参数。解析失败时返回空 map（调用方按"缺参数"处理，
+  /// 而不是拿一个半截的参数去查询）。
+  Map<String, dynamic> get args => parsed ?? const {};
+
+  bool get isParsed => parsed != null;
+
+  static Map<String, dynamic>? _tryParseArgs(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return const {};
+    try {
+      final j = jsonDecode(t);
+      if (j is Map) return j.cast<String, dynamic>();
+      // 模型偶尔会包一层数组（`[{...}]`）—— 取第一个对象，比整条丢掉好
+      if (j is List && j.isNotEmpty && j.first is Map) {
+        return (j.first as Map).cast<String, dynamic>();
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  String toString() => 'ToolCall($name, id=$id, args=${arguments.length} 字节)';
 }
 
 /// 一次对话请求。
@@ -511,8 +660,42 @@ class ChatRequest {
   /// 温度。标注任务用低温度（0.1）保证稳定。
   final double temperature;
 
+  /// 完整的对话消息列表（**不含** system）。
+  ///
+  /// ## 为什么需要一个"显式消息列表"，而不是复用 [history] + [user]
+  ///
+  /// `history + user` 这种形状隐含一个假设：**最后一条一定是用户说的话**。
+  /// 带工具的一轮往返打破了这个假设 —— 它的结尾是一条 `tool` 结果
+  /// （`assistant(tool_calls)` → `tool(结果)` → 再问模型）。
+  /// 那种序列用"history 加一条 user"表达不出来：
+  /// 把工具结果塞进 `user`，模型会把 JSON 当成人话；
+  /// 塞进 `history` 又会在末尾多出一条不该有的空 user。
+  ///
+  /// 所以给一条明确的出口：本字段非空时**忽略** [user] 与 [history]，
+  /// [system] 依然单独给（Anthropic 要求它在顶层）。
+  ///
+  /// 为空时（既有那十来个调用点）行为与从前逐字节一致。
+  final List<ChatMessage> messages;
+
   /// 最大输出 token。
   final int? maxTokens;
+
+  /// 本轮允许模型调用的工具。
+  ///
+  /// ## 为空时零影响
+  ///
+  /// 与 [history] 同一策略：留空时请求体里**不会出现** `tools` 字段，
+  /// 于是既有的十来个纯文本调用点完全不受影响，也不会因为多传一个
+  /// 服务商不认的字段而 400。
+  ///
+  /// ## 只有 OpenAI 兼容协议能传
+  ///
+  /// Anthropic / Gemini 的工具格式与 OpenAI **完全不同**
+  /// （`tools` 的 schema 形状、工具结果的承载方式都不一样）。
+  /// 硬套 OpenAI 格式的结果是模型收不到工具却也不报错，
+  /// 于是它开始凭空编参数。所以 [_buildRequest] 里直接拦下来报错，
+  /// 而不是试着"通用化"。另两家留到 P4。
+  final List<ToolSpec> tools;
 
   const ChatRequest({
     required this.system,
@@ -522,9 +705,16 @@ class ChatRequest {
     this.jsonMode = false,
     this.temperature = 0.1,
     this.maxTokens,
+    this.tools = const [],
+    this.messages = const [],
   });
 
   bool get hasAttachments => attachments.isNotEmpty;
+
+  bool get hasTools => tools.isNotEmpty;
+
+  /// 是否走"显式消息列表"这条路。
+  bool get hasExplicitMessages => messages.isNotEmpty;
 }
 
 /// 一次对话响应。
@@ -542,13 +732,29 @@ class ChatResponse {
   /// Gemini `finishReason`）。取不到时为 null。
   final String? finishReason;
 
+  /// 模型这一轮请求调用的工具。为空表示它直接给了最终回答。
+  ///
+  /// ⚠️ **非空时 [text] 通常为空** —— 这是 OpenAI 的正常行为：
+  /// 决定调工具的那一轮不产出正文。所以调用方判断"这一轮结束了吗"
+  /// 不能只看 [text]，要看 [toolCalls] 是否为空。
+  final List<ToolCall> toolCalls;
+
   const ChatResponse({
     required this.text,
     required this.usage,
     this.providerId = '',
     this.attempts = 1,
     this.finishReason,
+    this.toolCalls = const [],
   });
+
+  /// 模型这是**想调工具**，而不是在回答。
+  ///
+  /// 它比调用方自己写 `toolCalls.isNotEmpty` 更值得存在，是因为
+  /// "工具轮"与"最终回答轮"要走的代码路径完全不同（一个要执行后回灌，
+  /// 一个要落盘收尾），而这两条路一旦走串，症状是
+  /// "回答里混着没执行的工具名" —— 很难从现象反推。
+  bool get wantsTools => toolCalls.isNotEmpty;
 
   /// 输出是否**因为达到上限被截断**。
   ///
@@ -724,6 +930,16 @@ class LlmClient {
   bool get supportsStreaming =>
       config.spec?.protocol == LlmProtocol.openAiCompatible;
 
+  /// 这个服务商能不能用工具（function calling）。
+  ///
+  /// 与 [supportsStreaming] 是同一批（都只有 OpenAI 兼容协议）。
+  /// 分开两个 getter 而不是合成一个，是因为它们**将来会不同**：
+  /// P4 要给 Anthropic / Gemini 补的是"流式**与**工具"两件事，
+  /// 而补的过程中很可能出现"流式好了、工具还没好"的中间状态 ——
+  /// 那时界面该退回非流式对话，却仍不该把工具按钮点亮。
+  bool get supportsTools =>
+      config.spec?.protocol == LlmProtocol.openAiCompatible;
+
   /// 发送一次**流式**请求，逐段吐出模型新增的文本。
   ///
   /// ## 与 [chat] 的三点不同
@@ -826,8 +1042,14 @@ class LlmClient {
         continue;
       }
 
-      // ③ 正常结束，但一个字都没有。
-      if (acc.text.isEmpty) {
+      // ③ 正常结束，但既没有文本、也没有工具调用。
+      //
+      // ⚠️ "没有文本"**不等于**出错：模型决定调工具的那一轮就是
+      // 一点正文都不产出（见 [ChatResponse.toolCalls]）。早先这里只看
+      // 文本，于是每一次工具调用都会被判成"流式响应里没有文本内容" ——
+      // 工具功能会以"服务商坏了"的样子整个失效。
+      final calls = acc.buildToolCalls();
+      if (acc.text.isEmpty && calls.isEmpty) {
         throw LlmException(
           LlmErrorKind.badResponse,
           '流式响应里没有文本内容',
@@ -851,6 +1073,7 @@ class LlmClient {
         providerId: config.providerId,
         attempts: attempt,
         finishReason: acc.finishReason.isEmpty ? null : acc.finishReason,
+        toolCalls: calls,
       ));
       return;
     }
@@ -889,12 +1112,68 @@ class LlmClient {
     final u = _extractUsage(decoded);
     if (u.totalTokens > 0) acc.usage = u;
 
+    // 工具调用分片。要在取文本**之前**处理：两者互斥
+    // （同一帧不会既有正文又有工具分片），但工具分片会横跨很多帧，
+    // 少过一帧就少一段参数 JSON，而那种残缺是**静默**的 ——
+    // 参数解析失败的报错长得很像"模型乱填参数"。
+    _mergeToolDeltas(decoded, acc);
+
     final delta = _openAiDelta(decoded);
     if (delta == null || delta.isEmpty) return null;
 
     acc.gotText = true;
     acc.text.write(delta);
     return delta;
+  }
+
+  /// 把一帧里的 `delta.tool_calls` 并进累积器。
+  ///
+  /// ## 为什么必须按 `index` 聚合
+  ///
+  /// OpenAI 的流式工具调用是**分片**的：函数名出现在第一片，
+  /// 参数 JSON 被切成很多片陆续到达，而**每一片都带同样的 index**。
+  /// 一轮可以并行调多个工具，于是分片会交织出现 ——
+  /// 不按 index 归位的话，两个工具的参数字符串会被拼到一起。
+  ///
+  /// ## 参数是**字符串拼接**，不是 JSON 合并
+  ///
+  /// 服务商把 `arguments` 当普通文本切片发，我们只能按顺序接起来
+  /// 再一次性解析。中途任何一片都不能单独解析 ——
+  /// 所以 [ToolCall] 是在**整条流结束后**才构造的。
+  void _mergeToolDeltas(Map<dynamic, dynamic> j, _StreamAcc acc) {
+    final choices = j['choices'];
+    if (choices is! List || choices.isEmpty) return;
+    final first = choices.first;
+    if (first is! Map) return;
+    final delta = first['delta'];
+    if (delta is! Map) return;
+    final calls = delta['tool_calls'];
+    if (calls is! List) return;
+
+    for (final raw in calls) {
+      if (raw is! Map) continue;
+
+      // 没有 index 时退化到"当前最后一个槽位"：个别自建代理不发 index
+      // 而一轮只调一个工具，那种情况下这是唯一说得通的解释。
+      final idx = raw['index'];
+      final i = idx is int
+          ? idx
+          : (acc.toolCalls.isEmpty
+              ? 0
+              : acc.toolCalls.keys.reduce((a, b) => a > b ? a : b));
+      final slot = acc.toolCalls.putIfAbsent(i, _ToolCallAcc.new);
+
+      final id = raw['id'];
+      if (id is String && id.isNotEmpty) slot.id = id;
+
+      final fn = raw['function'];
+      if (fn is Map) {
+        final name = fn['name'];
+        if (name is String && name.isNotEmpty) slot.name = name;
+        final args = fn['arguments'];
+        if (args is String) slot.arguments.write(args);
+      }
+    }
   }
 
   /// OpenAI 兼容协议的增量文本。
@@ -946,6 +1225,49 @@ class LlmClient {
       throw const LlmException(LlmErrorKind.invalidKey, '未知的服务商');
     }
 
+    // ⚠️ 工具调用的**唯一**拦截点。
+    //
+    // 拦在编码之前而不是让三家编码各自处理，理由是三家的工具格式
+    // 差异太大：OpenAI 是 `tools` + `tool` 角色，Anthropic 是
+    // `tools` + user 消息里的 `tool_result` 块，Gemini 是
+    // `functionDeclarations` + `functionResponse`。任何"通用化"的尝试
+    // 都会变成三个半成品。
+    //
+    // 更要紧的是**失败方式**：如果只是把 OpenAI 格式原样发给 Anthropic，
+    // 它多半会忽略不认识的字段并照常回答 —— 于是模型收不到工具、
+    // 却仍然被要求"根据工具结果回答"。它会开始编。这属于
+    // "看起来在工作"的问题，比直接报错难查得多。
+    if (req.hasTools && spec.protocol != LlmProtocol.openAiCompatible) {
+      throw LlmException(
+        LlmErrorKind.badRequest,
+        '${spec.label} 走的 ${spec.protocol.name} 协议还不支持工具调用。'
+        '要让它读你的题库，请先在「设置」里换成 OpenAI 兼容的服务商'
+        '（DeepSeek / 通义 / 智谱 / OpenAI 等）。',
+      );
+    }
+
+    // 历史里若夹着工具消息（上一轮工具往返的回灌），同理不能送错协议。
+    // 这类消息比 `tools` 字段更危险：它是**已经在对话里**的内容，
+    // 漏掉它会让模型看不到自己刚要过什么，从而重复调用或凭空作答。
+    if (spec.protocol != LlmProtocol.openAiCompatible &&
+        req.history.any((m) => m.role == ChatRole.tool || m.hasToolCalls)) {
+      throw LlmException(
+        LlmErrorKind.badRequest,
+        '这段对话里包含工具调用记录，而 ${spec.label} 的协议还不支持回灌它们。'
+        '请换成 OpenAI 兼容的服务商，或新开一段对话。',
+      );
+    }
+
+    // `messages` 这条路上没有地方安放附件：图片/PDF 属于"当前这一轮"，
+    // 而显式消息列表里可以有好几条。硬塞进去会改变既有语义，
+    // 所以直接挡住（目前唯一的调用方是工具往返，它不需要附件）。
+    if (req.hasExplicitMessages && req.hasAttachments) {
+      throw const LlmException(
+        LlmErrorKind.badRequest,
+        '同一次请求不能既给显式消息列表、又带附件。',
+      );
+    }
+
     return switch (spec.protocol) {
       LlmProtocol.openAiCompatible => _buildOpenAi(req, spec, stream: stream),
       // Anthropic / Gemini 目前只有非流式。[LlmClient.chatStream] 在入口
@@ -965,11 +1287,14 @@ class LlmClient {
       'model': config.model,
       'messages': [
         {'role': 'system', 'content': req.system},
-        // 历史轮次原样展开。为空时这段 `for` 一个元素都不产生，
-        // 数组与改动前逐字节相同。
-        for (final m in req.history)
-          {'role': m.role.name, 'content': m.content},
-        {'role': 'user', 'content': _openAiUserContent(req)},
+        // 显式消息列表优先（工具往返走的这条）。为空时走下面那条，
+        // 产生的结果与引入工具之前逐字节相同。
+        if (req.hasExplicitMessages)
+          for (final m in req.messages) _openAiMessage(m)
+        else ...[
+          for (final m in req.history) _openAiMessage(m),
+          {'role': 'user', 'content': _openAiUserContent(req)},
+        ],
       ],
       'temperature': req.temperature,
       'stream': stream,
@@ -997,11 +1322,54 @@ class LlmClient {
       body['response_format'] = {'type': 'json_object'};
     }
 
+    // 工具。为空时**这个键根本不出现** —— 见 [ChatRequest.tools] 的说明。
+    if (req.hasTools) {
+      body['tools'] = [for (final t in req.tools) t.toOpenAiJson()];
+      // 不传 `tool_choice`：默认 `auto` 就是我们要的语义
+      // （模型自己决定查还是不查）。显式传 `auto` 反而在个别自建
+      // 代理上会因为不认识这个字段而 400。
+    }
+
     return HttpRequest(
       url: '${config.baseUrl}/chat/completions',
       headers: config.headers(),
       body: jsonEncode(body),
     );
+  }
+
+  /// 把一条历史消息编码成 OpenAI 的 message。
+  ///
+  /// 三种形态：普通对话（user / assistant 纯文本）、带工具调用的助手消息、
+  /// 工具执行结果。**普通形态的输出与引入工具之前逐字节相同** ——
+  /// 键的顺序也一样，所以既有的非工具调用点不会因为这次改动产生任何差异。
+  static Map<String, dynamic> _openAiMessage(ChatMessage m) {
+    if (m.role == ChatRole.tool) {
+      return {
+        'role': 'tool',
+        // 空 id 也要给键：服务商靠它配对，缺键会直接 400，
+        // 而空串至少能让报错定位到"这一轮少了 id"。
+        'tool_call_id': m.toolCallId ?? '',
+        'content': m.content,
+      };
+    }
+    if (m.hasToolCalls) {
+      return {
+        'role': 'assistant',
+        // 决定调工具的那一轮通常没有正文，但 `content` 键**必须在**
+        // （OpenAI 对缺键与空串的处理不同：缺键会让它认为这是
+        // 一条不完整的 assistant 消息）。给空串最稳。
+        'content': m.content,
+        'tool_calls': [
+          for (final c in m.toolCalls)
+            {
+              'id': c.id,
+              'type': 'function',
+              'function': {'name': c.name, 'arguments': c.arguments},
+            },
+        ],
+      };
+    }
+    return {'role': m.role.name, 'content': m.content};
   }
 
   /// OpenAI 兼容协议的 user content。
@@ -1063,9 +1431,16 @@ class LlmClient {
       'model': config.model,
       'system': req.system,
       'messages': [
-        for (final m in req.history)
-          {'role': m.role.name, 'content': m.content},
-        {'role': 'user', 'content': _anthropicUserContent(req)},
+        // 工具在这条协议上被 [_buildRequest] 挡住了，所以这里不会出现
+        // tool 角色或 tool_calls —— 只需按普通消息展开。
+        if (req.hasExplicitMessages)
+          for (final m in req.messages)
+            {'role': m.role.name, 'content': m.content}
+        else ...[
+          for (final m in req.history)
+            {'role': m.role.name, 'content': m.content},
+          {'role': 'user', 'content': _anthropicUserContent(req)},
+        ],
       ],
       'temperature': req.temperature,
       'max_tokens': _clampMaxTokens(req.maxTokens ?? 4096),
@@ -1106,20 +1481,33 @@ class LlmClient {
         ],
       },
       'contents': [
-        // ⚠️ Gemini 的助手角色是 `model` 而不是 `assistant` ——
-        // 写成 assistant 不会报参数错，而是被当成未知角色处理，
-        // 表现为"模型完全不记得上一轮说过什么"。
-        for (final m in req.history)
+        // 显式消息列表优先（工具往返走的这条）。Gemini 上工具被拦掉了，
+        // 所以这里不会有 tool 角色 —— 走到 `geminiName` 的 tool 分支
+        // 说明拦截失效了，那正是它抛异常要提示的事。
+        if (req.hasExplicitMessages)
+          for (final m in req.messages)
+            {
+              'role': m.role.geminiName,
+              'parts': [
+                {'text': m.content},
+              ],
+            }
+        else ...[
+          // ⚠️ Gemini 的助手角色是 `model` 而不是 `assistant` ——
+          // 写成 assistant 不会报参数错，而是被当成未知角色处理，
+          // 表现为"模型完全不记得上一轮说过什么"。
+          for (final m in req.history)
+            {
+              'role': m.role.geminiName,
+              'parts': [
+                {'text': m.content},
+              ],
+            },
           {
-            'role': m.role.geminiName,
-            'parts': [
-              {'text': m.content},
-            ],
+            'role': 'user',
+            'parts': _geminiParts(req),
           },
-        {
-          'role': 'user',
-          'parts': _geminiParts(req),
-        },
+        ],
       ],
       'generationConfig': {
         'temperature': req.temperature,
@@ -1196,7 +1584,13 @@ class LlmClient {
       _ => _extractOpenAiText(decoded),
     };
 
-    if (text == null || text.trim().isEmpty) {
+    // 非流式也要认工具调用，否则 `chat()` 在"模型决定查题库的那一轮"
+    // 会以"响应里没有文本内容"报错 —— 与流式下那个坑是同一个。
+    final toolCalls = spec?.protocol == LlmProtocol.openAiCompatible
+        ? _extractOpenAiToolCalls(decoded)
+        : const <ToolCall>[];
+
+    if ((text == null || text.trim().isEmpty) && toolCalls.isEmpty) {
       throw LlmException(
         LlmErrorKind.badResponse,
         '响应里没有文本内容',
@@ -1208,11 +1602,12 @@ class LlmClient {
     final usage = _extractUsage(decoded);
 
     return ChatResponse(
-      text: text,
+      text: text ?? '',
       usage: usage,
       providerId: config.providerId,
       attempts: attempt,
       finishReason: _extractFinishReason(decoded, spec?.protocol),
+      toolCalls: toolCalls,
     );
   }
 
@@ -1263,6 +1658,37 @@ class LlmClient {
     // 兼容 text 字段（旧版 completions）
     final text = first['text'];
     return text?.toString();
+  }
+
+  /// 非流式响应里的工具调用（`choices[0].message.tool_calls`）。
+  ///
+  /// 参数是**完整**的 JSON 字符串，不像流式那样需要拼接。
+  List<ToolCall> _extractOpenAiToolCalls(Map<dynamic, dynamic> j) {
+    final choices = j['choices'];
+    if (choices is! List || choices.isEmpty) return const [];
+    final first = choices.first;
+    if (first is! Map) return const [];
+    final message = first['message'];
+    if (message is! Map) return const [];
+    final calls = message['tool_calls'];
+    if (calls is! List) return const [];
+
+    final out = <ToolCall>[];
+    for (final raw in calls) {
+      if (raw is! Map) continue;
+      final fn = raw['function'];
+      if (fn is! Map) continue;
+      // 名字是唯一必须有的东西：没有它连"哪个工具"都不知道，
+      // 而参数错了至少还能报"缺哪个参数"。
+      final name = fn['name']?.toString() ?? '';
+      if (name.isEmpty) continue;
+      out.add(ToolCall(
+        id: raw['id']?.toString() ?? '',
+        name: name,
+        arguments: fn['arguments']?.toString() ?? '',
+      ));
+    }
+    return out;
   }
 
   String? _extractAnthropicText(Map<dynamic, dynamic> j) {
@@ -1472,4 +1898,53 @@ class _StreamAcc {
   /// 暂不参与判定 —— 留着是因为这个信息只有在这里能拿到，
   /// 事后无法从别处补。
   bool sawDone = false;
+
+  /// 工具调用分片，按服务商给的 `index` 归位。
+  ///
+  /// ⚠️ 它**不参与"能不能重试"的判定**（对比 [gotText]）：工具分片
+  /// 用户一个字都没看见，中途失败时整条重来是安全的。而每次重试都会
+  /// 新建一个 [_StreamAcc]，所以残留分片不会串到下一次尝试里。
+  final Map<int, _ToolCallAcc> toolCalls = {};
+
+  /// 把分片拼成完整的工具调用列表。
+  ///
+  /// 只在**整条流结束后**调用一次 —— 参数 JSON 是被切成很多片送来的，
+  /// 中途任何一片都不构成合法的 JSON。
+  List<ToolCall> buildToolCalls() {
+    if (toolCalls.isEmpty) return const [];
+    final keys = toolCalls.keys.toList()..sort();
+    final out = <ToolCall>[];
+    for (final k in keys) {
+      final s = toolCalls[k]!;
+      // 名字为空 = 这一片什么都没要。这种槽位丢掉比送出去好：
+      // 一个无名调用只会换来一句"未知函数"。
+      if (s.name.isEmpty) continue;
+      out.add(ToolCall(
+        // 服务商没给 id 时补一个确定性的占位。补而不是丢，是因为
+        // `tool_call_id` 是"请求 ← → 结果"的唯一配对依据：缺了它，
+        // 我们回灌结果时无法告诉模型"这是你要的那个"。占位符在
+        // 我们自己的请求体内是自洽的（assistant 与 tool 两条消息用同一个），
+        // 宽松的服务商能正常处理，严格的服务商本来也不会漏发 id。
+        id: s.id.isEmpty ? 'call_$k' : s.id,
+        name: s.name,
+        arguments: s.arguments.toString(),
+      ));
+    }
+    return out;
+  }
+}
+
+/// 单个工具调用的分片累积槽。
+class _ToolCallAcc {
+  /// 调用 id。流式下**只在第一片里出现一次**，后续分片没有它。
+  String id = '';
+
+  /// 函数名。同样只出现在第一片。
+  String name = '';
+
+  /// 参数 JSON 的**字符串分片**，按到达顺序拼接。
+  ///
+  /// 用 StringBuffer 而不是尝试逐片解析：`{"kp":` 这样的半截 JSON
+  /// 永远解析不出来，逐片解析只会得到一串"模型乱填参数"的假报错。
+  final StringBuffer arguments = StringBuffer();
 }

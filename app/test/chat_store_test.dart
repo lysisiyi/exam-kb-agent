@@ -313,15 +313,18 @@ void main() {
     test('正常值原样还原', () {
       expect(ChatRole.parseStored('user'), ChatRole.user);
       expect(ChatRole.parseStored('assistant'), ChatRole.assistant);
+      // P2 起 `tool` 也是一个真角色（工具结果）。它不该再落到"陌生值"分支 ——
+      // 否则一条工具消息回看时会被当成模型说的话。
+      expect(ChatRole.parseStored('tool'), ChatRole.tool);
     });
 
     test('陌生值退化为 assistant，而不是抛异常', () {
       // 抛异常会让整个会话打不开 —— 用户直接看不到自己的聊天记录。
       // 退化方向选 assistant 也是刻意的：把模型的话当成模型的话，
       // 好过把它伪装成"用户说过的话"
-      expect(ChatRole.parseStored('tool'), ChatRole.assistant);
-      expect(ChatRole.parseStored(''), ChatRole.assistant);
+      expect(ChatRole.parseStored('function'), ChatRole.assistant);
       expect(ChatRole.parseStored('USER'), ChatRole.assistant);
+      expect(ChatRole.parseStored(''), ChatRole.assistant);
     });
   });
 

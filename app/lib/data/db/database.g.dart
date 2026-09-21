@@ -4881,6 +4881,17 @@ class $ChatMessagesTable extends ChatMessages
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _toolTraceMeta = const VerificationMeta(
+    'toolTrace',
+  );
+  @override
+  late final GeneratedColumn<String> toolTrace = GeneratedColumn<String>(
+    'tool_trace',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -4903,6 +4914,7 @@ class $ChatMessagesTable extends ChatMessages
     inputTokens,
     outputTokens,
     costYuan,
+    toolTrace,
     createdAt,
   ];
   @override
@@ -4977,6 +4989,12 @@ class $ChatMessagesTable extends ChatMessages
         costYuan.isAcceptableOrUnknown(data['cost_yuan']!, _costYuanMeta),
       );
     }
+    if (data.containsKey('tool_trace')) {
+      context.handle(
+        _toolTraceMeta,
+        toolTrace.isAcceptableOrUnknown(data['tool_trace']!, _toolTraceMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -5031,6 +5049,10 @@ class $ChatMessagesTable extends ChatMessages
         DriftSqlType.double,
         data['${effectivePrefix}cost_yuan'],
       ),
+      toolTrace: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tool_trace'],
+      ),
       createdAt:
           attachedDatabase.typeMapping.read(
             DriftSqlType.dateTime,
@@ -5076,6 +5098,24 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
   final int inputTokens;
   final int outputTokens;
   final double? costYuan;
+
+  /// 这条回复**查过什么**。JSON 数组，如
+  /// `[{"name":"query_wrong_problems","args":"kp=中值定理","ok":true,"summary":"查到 12 道错题"}]`。
+  ///
+  /// ## 为什么值得占一列
+  ///
+  /// 有了工具之后，助手说的话**有出处了** —— 但出处不可见时它就等于没有：
+  /// 用户看到"你在中值定理上错得最多"这句话，没有任何办法判断它是
+  /// 查出来的还是编的。存下这条记录，重开会话时仍能看到
+  /// "这句结论背后查了哪些东西"。
+  ///
+  /// ⚠️ **只存摘要，不存工具返回的正文**（见 `ToolTraceItem` 的说明）：
+  /// 正文动辄几 KB，而它不会再被显示。
+  ///
+  /// 这一列同样是**派生信息**：删掉只影响"这条回复的溯源"，不影响内容。
+  ///
+  /// schema v6 新增，可空 —— 旧行自然为 null，界面按"没有记录"处理。
+  final String? toolTrace;
   final DateTime createdAt;
   const ChatMessageRow({
     required this.id,
@@ -5086,6 +5126,7 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
     required this.inputTokens,
     required this.outputTokens,
     this.costYuan,
+    this.toolTrace,
     required this.createdAt,
   });
   @override
@@ -5100,6 +5141,9 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
     map['output_tokens'] = Variable<int>(outputTokens);
     if (!nullToAbsent || costYuan != null) {
       map['cost_yuan'] = Variable<double>(costYuan);
+    }
+    if (!nullToAbsent || toolTrace != null) {
+      map['tool_trace'] = Variable<String>(toolTrace);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -5118,6 +5162,10 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
           costYuan == null && nullToAbsent
               ? const Value.absent()
               : Value(costYuan),
+      toolTrace:
+          toolTrace == null && nullToAbsent
+              ? const Value.absent()
+              : Value(toolTrace),
       createdAt: Value(createdAt),
     );
   }
@@ -5136,6 +5184,7 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
       inputTokens: serializer.fromJson<int>(json['inputTokens']),
       outputTokens: serializer.fromJson<int>(json['outputTokens']),
       costYuan: serializer.fromJson<double?>(json['costYuan']),
+      toolTrace: serializer.fromJson<String?>(json['toolTrace']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -5151,6 +5200,7 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
       'inputTokens': serializer.toJson<int>(inputTokens),
       'outputTokens': serializer.toJson<int>(outputTokens),
       'costYuan': serializer.toJson<double?>(costYuan),
+      'toolTrace': serializer.toJson<String?>(toolTrace),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -5164,6 +5214,7 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
     int? inputTokens,
     int? outputTokens,
     Value<double?> costYuan = const Value.absent(),
+    Value<String?> toolTrace = const Value.absent(),
     DateTime? createdAt,
   }) => ChatMessageRow(
     id: id ?? this.id,
@@ -5174,6 +5225,7 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
     inputTokens: inputTokens ?? this.inputTokens,
     outputTokens: outputTokens ?? this.outputTokens,
     costYuan: costYuan.present ? costYuan.value : this.costYuan,
+    toolTrace: toolTrace.present ? toolTrace.value : this.toolTrace,
     createdAt: createdAt ?? this.createdAt,
   );
   ChatMessageRow copyWithCompanion(ChatMessagesCompanion data) {
@@ -5191,6 +5243,7 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
               ? data.outputTokens.value
               : this.outputTokens,
       costYuan: data.costYuan.present ? data.costYuan.value : this.costYuan,
+      toolTrace: data.toolTrace.present ? data.toolTrace.value : this.toolTrace,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -5206,6 +5259,7 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
           ..write('inputTokens: $inputTokens, ')
           ..write('outputTokens: $outputTokens, ')
           ..write('costYuan: $costYuan, ')
+          ..write('toolTrace: $toolTrace, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -5221,6 +5275,7 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
     inputTokens,
     outputTokens,
     costYuan,
+    toolTrace,
     createdAt,
   );
   @override
@@ -5235,6 +5290,7 @@ class ChatMessageRow extends DataClass implements Insertable<ChatMessageRow> {
           other.inputTokens == this.inputTokens &&
           other.outputTokens == this.outputTokens &&
           other.costYuan == this.costYuan &&
+          other.toolTrace == this.toolTrace &&
           other.createdAt == this.createdAt);
 }
 
@@ -5247,6 +5303,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
   final Value<int> inputTokens;
   final Value<int> outputTokens;
   final Value<double?> costYuan;
+  final Value<String?> toolTrace;
   final Value<DateTime> createdAt;
   const ChatMessagesCompanion({
     this.id = const Value.absent(),
@@ -5257,6 +5314,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
     this.inputTokens = const Value.absent(),
     this.outputTokens = const Value.absent(),
     this.costYuan = const Value.absent(),
+    this.toolTrace = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   ChatMessagesCompanion.insert({
@@ -5268,6 +5326,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
     this.inputTokens = const Value.absent(),
     this.outputTokens = const Value.absent(),
     this.costYuan = const Value.absent(),
+    this.toolTrace = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : sessionId = Value(sessionId),
        role = Value(role),
@@ -5281,6 +5340,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
     Expression<int>? inputTokens,
     Expression<int>? outputTokens,
     Expression<double>? costYuan,
+    Expression<String>? toolTrace,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -5292,6 +5352,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
       if (inputTokens != null) 'input_tokens': inputTokens,
       if (outputTokens != null) 'output_tokens': outputTokens,
       if (costYuan != null) 'cost_yuan': costYuan,
+      if (toolTrace != null) 'tool_trace': toolTrace,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -5305,6 +5366,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
     Value<int>? inputTokens,
     Value<int>? outputTokens,
     Value<double?>? costYuan,
+    Value<String?>? toolTrace,
     Value<DateTime>? createdAt,
   }) {
     return ChatMessagesCompanion(
@@ -5316,6 +5378,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
       inputTokens: inputTokens ?? this.inputTokens,
       outputTokens: outputTokens ?? this.outputTokens,
       costYuan: costYuan ?? this.costYuan,
+      toolTrace: toolTrace ?? this.toolTrace,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -5347,6 +5410,9 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
     if (costYuan.present) {
       map['cost_yuan'] = Variable<double>(costYuan.value);
     }
+    if (toolTrace.present) {
+      map['tool_trace'] = Variable<String>(toolTrace.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -5364,6 +5430,7 @@ class ChatMessagesCompanion extends UpdateCompanion<ChatMessageRow> {
           ..write('inputTokens: $inputTokens, ')
           ..write('outputTokens: $outputTokens, ')
           ..write('costYuan: $costYuan, ')
+          ..write('toolTrace: $toolTrace, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -7913,6 +7980,7 @@ typedef $$ChatMessagesTableCreateCompanionBuilder =
       Value<int> inputTokens,
       Value<int> outputTokens,
       Value<double?> costYuan,
+      Value<String?> toolTrace,
       Value<DateTime> createdAt,
     });
 typedef $$ChatMessagesTableUpdateCompanionBuilder =
@@ -7925,6 +7993,7 @@ typedef $$ChatMessagesTableUpdateCompanionBuilder =
       Value<int> inputTokens,
       Value<int> outputTokens,
       Value<double?> costYuan,
+      Value<String?> toolTrace,
       Value<DateTime> createdAt,
     });
 
@@ -7974,6 +8043,11 @@ class $$ChatMessagesTableFilterComposer
 
   ColumnFilters<double> get costYuan => $composableBuilder(
     column: $table.costYuan,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get toolTrace => $composableBuilder(
+    column: $table.toolTrace,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8032,6 +8106,11 @@ class $$ChatMessagesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get toolTrace => $composableBuilder(
+    column: $table.toolTrace,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -8077,6 +8156,9 @@ class $$ChatMessagesTableAnnotationComposer
   GeneratedColumn<double> get costYuan =>
       $composableBuilder(column: $table.costYuan, builder: (column) => column);
 
+  GeneratedColumn<String> get toolTrace =>
+      $composableBuilder(column: $table.toolTrace, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
@@ -8121,6 +8203,7 @@ class $$ChatMessagesTableTableManager
                 Value<int> inputTokens = const Value.absent(),
                 Value<int> outputTokens = const Value.absent(),
                 Value<double?> costYuan = const Value.absent(),
+                Value<String?> toolTrace = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => ChatMessagesCompanion(
                 id: id,
@@ -8131,6 +8214,7 @@ class $$ChatMessagesTableTableManager
                 inputTokens: inputTokens,
                 outputTokens: outputTokens,
                 costYuan: costYuan,
+                toolTrace: toolTrace,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -8143,6 +8227,7 @@ class $$ChatMessagesTableTableManager
                 Value<int> inputTokens = const Value.absent(),
                 Value<int> outputTokens = const Value.absent(),
                 Value<double?> costYuan = const Value.absent(),
+                Value<String?> toolTrace = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => ChatMessagesCompanion.insert(
                 id: id,
@@ -8153,6 +8238,7 @@ class $$ChatMessagesTableTableManager
                 inputTokens: inputTokens,
                 outputTokens: outputTokens,
                 costYuan: costYuan,
+                toolTrace: toolTrace,
                 createdAt: createdAt,
               ),
           withReferenceMapper:
