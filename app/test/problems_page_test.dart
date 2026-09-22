@@ -18,6 +18,7 @@
 library;
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,6 +54,9 @@ void main() {
         overrides: [
           databaseProvider.overrideWith((ref) async => env.db),
           problemStoreProvider.overrideWith((ref) async => env.store),
+          // 详情表会读题库 images 目录。必须指到临时库：
+          // 不覆盖的话真实 provider 会去碰用户的应用数据目录（见硬约束）。
+          libraryPathsProvider.overrideWith((ref) async => env.paths),
         ],
         child: ResponsiveScope(
           builder: (context, bp) =>
@@ -199,6 +203,57 @@ void main() {
       await settle(tester);
 
       expect(find.textContaining('没有匹配'), findsOneWidget);
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  group('配图展示（混合制：正文用图）', () {
+    /// 1×1 透明 PNG 的字节。写入临时库让 Image.file 有真图可解。
+    final png1x1 = Uint8List.fromList(const [
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+      0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x62, 0x00, 0x00, 0x00, 0x06,
+      0x00, 0x05, 0x63, 0x60, 0x3A, 0x7E, 0x4A, 0x35, 0x00, 0x00, 0x00, 0x00,
+      0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ]);
+
+    testWidgets('详情表渲染 images 字段指向的真实文件', (tester) async {
+      await seed(tester, [
+        const SeedProblem(
+          id: 'p-1',
+          stem: '如图所示的几何体',
+          images: ['p-1-fig1.png'],
+        ),
+      ]);
+      await tester.runAsync(() async {
+        final imagesDir = env.paths.images;
+        await imagesDir.create(recursive: true);
+        await File('${imagesDir.path}/p-1-fig1.png').writeAsBytes(png1x1);
+      });
+      await pumpPage(tester);
+
+      await tester.tap(find.textContaining('如图所示').first);
+      await settle(tester);
+
+      expect(find.byType(Image), findsOneWidget);
+      expect(find.textContaining('配图缺失'), findsNothing);
+    });
+
+    testWidgets('图片文件丢了显示占位提示，而不是报错或空白', (tester) async {
+      await seed(tester, [
+        const SeedProblem(
+          id: 'p-1',
+          stem: '图片丢了的一道题',
+          images: ['missing-fig.png'],
+        ),
+      ]);
+      await pumpPage(tester);
+
+      await tester.tap(find.textContaining('图片丢了').first);
+      await settle(tester);
+
+      expect(find.textContaining('配图缺失：missing-fig.png'), findsOneWidget);
     });
   });
 

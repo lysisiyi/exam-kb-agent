@@ -32,6 +32,7 @@ import '../../data/markdown/problem_markdown.dart';
 import '../../domain/problem_draft.dart';
 import '../../services/review/review_repository.dart';
 import '../entry/entry_page.dart';
+import 'problem_images.dart';
 import 'tag_explanation_panel.dart';
 
 /// 列表的排序/筛选方式。
@@ -588,15 +589,25 @@ class _EmptyState extends StatelessWidget {
 // 详情
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _ProblemDetailSheet extends StatelessWidget {
+class _ProblemDetailSheet extends ConsumerStatefulWidget {
   final Problem problem;
 
   const _ProblemDetailSheet({required this.problem});
 
   @override
+  ConsumerState<_ProblemDetailSheet> createState() =>
+      _ProblemDetailSheetState();
+}
+
+class _ProblemDetailSheetState extends ConsumerState<_ProblemDetailSheet> {
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final renderer = MathRendering.renderer;
+    final problem = widget.problem;
+    // 题库路径没就绪（罕见）时 imagesDirPath 传 null → 组件显示"缺失"占位。
+    final paths = ref.watch(libraryPathsProvider).valueOrNull;
+    final imagesDir = paths?.images.path;
 
     return DraggableScrollableSheet(
       expand: false,
@@ -640,6 +651,10 @@ class _ProblemDetailSheet extends StatelessWidget {
           const Divider(height: 28),
           const _SectionLabel('题干'),
           renderer.renderMarkdown(problem.stem),
+          if (problem.images.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ProblemImageList(images: problem.images, imagesDirPath: imagesDir),
+          ],
           if (problem.options.isNotEmpty) ...[
             const SizedBox(height: 10),
             for (var i = 0; i < problem.options.length; i++)

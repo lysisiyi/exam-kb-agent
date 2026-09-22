@@ -39,6 +39,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/error_causes.dart';
 import '../../domain/fsrs/fsrs_scheduler.dart';
 import '../../services/review/review_repository.dart';
+import '../problems/problem_images.dart';
 import 'error_prescription_panel.dart';
 
 class ReviewPage extends ConsumerStatefulWidget {
@@ -435,7 +436,7 @@ class _Progress extends StatelessWidget {
 }
 
 /// 题面 + （揭晓后）答案与解析 + 错因处方。
-class _CardBody extends StatelessWidget {
+class _CardBody extends ConsumerWidget {
   final DueCard card;
   final bool revealed;
 
@@ -457,7 +458,7 @@ class _CardBody extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final renderer = MathRendering.renderer;
 
@@ -504,6 +505,14 @@ class _CardBody extends StatelessWidget {
           style: const TextStyle(fontSize: 15, height: 1.85),
           child: renderer.renderMarkdown(p.stem),
         ),
+        if (p.images.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          ProblemImageList(
+            images: p.images,
+            // 题库路径未就绪时传 null → 每张显示"缺失"占位，不吞也不炸。
+            imagesDirPath: ref.watch(libraryPathsProvider).valueOrNull?.images.path,
+          ),
+        ],
         if (p.options.isNotEmpty) ...[
           const SizedBox(height: 12),
           for (var i = 0; i < p.options.length; i++)
