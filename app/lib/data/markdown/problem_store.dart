@@ -248,6 +248,7 @@ class ProblemMarkdownSerializer {
         b.writeln('  - ${_yamlScalar(o)}');
       }
     }
+    if (problem.imagesPrimary) b.writeln('images_primary: true');
     if (problem.images.isNotEmpty) {
       b.writeln('images:');
       for (final i in problem.images) {

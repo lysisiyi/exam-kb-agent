@@ -281,6 +281,7 @@ qtype: {qtype}
 difficulty: 2
 source: {src} 第{pno + 1}页
 source_type: textbook
+images_primary: true
 images:
   - images/{qid}.png
 tags: [{tag}, 图片题]

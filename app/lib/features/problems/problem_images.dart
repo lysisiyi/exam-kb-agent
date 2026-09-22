@@ -17,6 +17,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../core/math/math_renderer.dart';
 import '../../core/theme/app_theme.dart';
 
 /// 纵向排布一张题的所有配图。空列表直接不渲染。
@@ -27,10 +28,14 @@ class ProblemImageList extends StatelessWidget {
   /// 题库 images 目录的绝对路径；null 时每张显示"缺失"占位。
   final String? imagesDirPath;
 
+  /// 单张图的最大高度。图为主的扫描题可以放大些（题目本体，字要看得清）。
+  final double maxHeight;
+
   const ProblemImageList({
     super.key,
     required this.images,
     this.imagesDirPath,
+    this.maxHeight = 320,
   });
 
   @override
@@ -41,7 +46,11 @@ class ProblemImageList extends StatelessWidget {
       children: [
         for (var i = 0; i < images.length; i++) ...[
           if (i > 0) const SizedBox(height: 8),
-          _OneImage(name: images[i], imagesDirPath: imagesDirPath),
+          _OneImage(
+            name: images[i],
+            imagesDirPath: imagesDirPath,
+            maxHeight: maxHeight,
+          ),
         ],
       ],
     );
@@ -51,8 +60,13 @@ class ProblemImageList extends StatelessWidget {
 class _OneImage extends StatelessWidget {
   final String name;
   final String? imagesDirPath;
+  final double maxHeight;
 
-  const _OneImage({required this.name, this.imagesDirPath});
+  const _OneImage({
+    required this.name,
+    required this.maxHeight,
+    this.imagesDirPath,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +75,7 @@ class _OneImage extends StatelessWidget {
     final exists = file?.existsSync() ?? false;
 
     return Container(
-      constraints: const BoxConstraints(maxHeight: 320),
+      constraints: BoxConstraints(maxHeight: maxHeight),
       decoration: BoxDecoration(
         border: Border.all(color: theme.dividerColor, width: 0.5),
         borderRadius: BorderRadius.circular(8),
@@ -98,6 +112,73 @@ class _Missing extends StatelessWidget {
           fontSize: 11,
           color: AppColors.ink3,
         ),
+      ),
+    );
+  }
+}
+
+/// 「识别文本（仅供检索）」折叠区 —— 图为主（`imagesPrimary`）的题目专用。
+///
+/// ## 为什么默认收起
+///
+/// 扫描题的正误判断以**图**为准（印刷原题），OCR 文本公式失真很常见
+/// （TexTeller 对复杂分式/矩阵会认错）。把它默认摊开在题干位置，
+/// 用户会误把识别错误当成题目本身的错误；但它又是 FTS 检索的索引来源，
+/// 完全藏起来会让"为什么搜得到这道题"变得不可解释 —— 折叠区就是这两者的
+/// 折中：默认不挡道，想核对时展开。
+class OcrTextDisclosure extends StatelessWidget {
+  /// OCR 识别的题干文本（Markdown + LaTeX，可能失真）。
+  final String stem;
+
+  /// OCR 识别的选项（选择题才有）。
+  final List<String> options;
+
+  const OcrTextDisclosure({
+    super.key,
+    required this.stem,
+    this.options = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final renderer = MathRendering.renderer;
+    return Theme(
+      // ExpansionTile 自带 divider 与展开图标，压掉多余装饰即可。
+      data: theme.copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(bottom: 8),
+        iconColor: theme.colorScheme.onSurfaceVariant,
+        collapsedIconColor: theme.colorScheme.onSurfaceVariant,
+        title: Text(
+          '识别文本（仅供检索，公式可能有误）',
+          style: TextStyle(
+            fontSize: 12,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: DefaultTextStyle.merge(
+              style: const TextStyle(fontSize: 13, height: 1.7),
+              child: renderer.renderMarkdown(stem),
+            ),
+          ),
+          for (var i = 0; i < options.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: DefaultTextStyle.merge(
+                  style: const TextStyle(fontSize: 13, height: 1.7),
+                  child:
+                      renderer.renderMarkdown('${String.fromCharCode(65 + i)}. ${options[i]}'),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

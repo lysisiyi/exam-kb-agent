@@ -501,38 +501,55 @@ class _CardBody extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 14),
-        DefaultTextStyle.merge(
-          style: const TextStyle(fontSize: 15, height: 1.85),
-          child: renderer.renderMarkdown(p.stem),
-        ),
-        if (p.images.isNotEmpty) ...[
-          const SizedBox(height: 12),
+        // 图为主（扫描题）：复习时重做的就是图里的原题，配图直接当题面；
+        // OCR 文本失真多，收进折叠区只作检索核对用。
+        // 否则维持原样：文字题面为主，配图是示意图。
+        if (p.imagesPrimary && p.images.isNotEmpty) ...[
           ProblemImageList(
             images: p.images,
             // 题库路径未就绪时传 null → 每张显示"缺失"占位，不吞也不炸。
-            imagesDirPath: ref.watch(libraryPathsProvider).valueOrNull?.images.path,
+            imagesDirPath:
+                ref.watch(libraryPathsProvider).valueOrNull?.images.path,
+            maxHeight: 420,
           ),
-        ],
-        if (p.options.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          for (var i = 0; i < p.options.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: DefaultTextStyle.merge(
-                style: const TextStyle(fontSize: 14, height: 1.8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${String.fromCharCode(65 + i)}. ',
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w600)),
-                    Expanded(
-                      child: renderer.renderMarkdown(p.options[i]),
-                    ),
-                  ],
+          if (p.stem.isNotEmpty) ...[
+            OcrTextDisclosure(stem: p.stem, options: p.options),
+          ],
+        ] else ...[
+          DefaultTextStyle.merge(
+            style: const TextStyle(fontSize: 15, height: 1.85),
+            child: renderer.renderMarkdown(p.stem),
+          ),
+          if (p.images.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ProblemImageList(
+              images: p.images,
+              // 题库路径未就绪时传 null → 每张显示"缺失"占位，不吞也不炸。
+              imagesDirPath:
+                  ref.watch(libraryPathsProvider).valueOrNull?.images.path,
+            ),
+          ],
+          if (p.options.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            for (var i = 0; i < p.options.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: DefaultTextStyle.merge(
+                  style: const TextStyle(fontSize: 14, height: 1.8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${String.fromCharCode(65 + i)}. ',
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w600)),
+                      Expanded(
+                        child: renderer.renderMarkdown(p.options[i]),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+          ],
         ],
         const SizedBox(height: 22),
         if (!revealed)

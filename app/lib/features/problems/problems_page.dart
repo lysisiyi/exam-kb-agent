@@ -649,19 +649,35 @@ class _ProblemDetailSheetState extends ConsumerState<_ProblemDetailSheet> {
           if (problem.source != null) _kv(theme, '来源', problem.source!),
           _kv(theme, '指纹', problem.fingerprint),
           const Divider(height: 28),
-          const _SectionLabel('题干'),
-          renderer.renderMarkdown(problem.stem),
-          if (problem.images.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            ProblemImageList(images: problem.images, imagesDirPath: imagesDir),
-          ],
-          if (problem.options.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            for (var i = 0; i < problem.options.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text('${String.fromCharCode(65 + i)}. ${problem.options[i]}'),
-              ),
+          // 图为主（扫描题）：配图就是题目本体，OCR 文本收进折叠区；
+          // 否则维持原样：文字为主，配图挂在下方（示意图语义）。
+          if (problem.imagesPrimary && problem.images.isNotEmpty) ...[
+            const _SectionLabel('题干（印刷原图）'),
+            const SizedBox(height: 6),
+            ProblemImageList(
+              images: problem.images,
+              imagesDirPath: imagesDir,
+              maxHeight: 480,
+            ),
+            if (problem.stem.isNotEmpty) ...[
+              OcrTextDisclosure(stem: problem.stem, options: problem.options),
+            ],
+          ] else ...[
+            const _SectionLabel('题干'),
+            renderer.renderMarkdown(problem.stem),
+            if (problem.images.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ProblemImageList(images: problem.images, imagesDirPath: imagesDir),
+            ],
+            if (problem.options.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              for (var i = 0; i < problem.options.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                      '${String.fromCharCode(65 + i)}. ${problem.options[i]}'),
+                ),
+            ],
           ],
           if (problem.answer != null) ...[
             const Divider(height: 28),

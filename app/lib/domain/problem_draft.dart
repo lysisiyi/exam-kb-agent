@@ -106,6 +106,13 @@ class ProblemDraft {
 
   List<String> tags;
 
+  /// 配图（透传字段：录入表单暂不支持编辑图片，
+  /// 但"编辑已录入的题"时必须原样带回去，否则一编辑图就丢）。
+  List<String> images;
+
+  /// 配图是否为题目本体（扫描题）。同为透传字段，见 [images]。
+  bool imagesPrimary;
+
   /// 是否由 AI 标注过。
   bool aiTagged;
 
@@ -135,13 +142,16 @@ class ProblemDraft {
     List<String>? secondaryKpIds,
     List<String>? errorCauses,
     List<String>? tags,
+    List<String>? images,
+    this.imagesPrimary = false,
     this.aiTagged = false,
     this.aiConfidence,
     this.needsReview = false,
   })  : options = options ?? [],
         secondaryKpIds = secondaryKpIds ?? [],
         errorCauses = errorCauses ?? [],
-        tags = tags ?? [];
+        tags = tags ?? [],
+        images = images ?? [];
 
   /// 从已有题目反向填充草稿（用于"编辑已录入的题"）。
   factory ProblemDraft.fromProblem(Problem p) {
@@ -171,6 +181,8 @@ class ProblemDraft {
       secondaryKpIds: secondary,
       errorCauses: [...p.errorCauses],
       tags: [...p.tags],
+      images: [...p.images],
+      imagesPrimary: p.imagesPrimary,
       aiTagged: p.aiTagged,
       aiConfidence: p.aiConfidence,
       needsReview: p.needsReview,
@@ -298,6 +310,8 @@ class ProblemDraft {
       knowledge: knowledgeRefs,
       errorCauses: [...errorCauses],
       options: options.where((o) => o.trim().isNotEmpty).toList(),
+      images: [...images],
+      imagesPrimary: imagesPrimary,
       tags: [...tags],
       stem: stem.trim(),
       answer: _nullIfBlank(answer),
@@ -352,6 +366,8 @@ class ProblemDraft {
         secondaryKpIds: [...secondaryKpIds],
         errorCauses: [...errorCauses],
         tags: [...tags],
+        images: [...images],
+        imagesPrimary: imagesPrimary,
         aiTagged: aiTagged,
         aiConfidence: aiConfidence,
         needsReview: needsReview,

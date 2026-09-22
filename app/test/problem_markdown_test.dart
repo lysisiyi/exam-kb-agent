@@ -120,6 +120,39 @@ tags: [真题, 证明题]
         expect(r.problem!.needsReview, isTrue);
       });
     });
+
+    // `images_primary`（图为主显示）：扫描/裁切导入的题，配图是题目本体。
+    // 与 needs_review 同一条教训：字段必须能读回来，否则用户编辑一次题，
+    // 图为主显示就退回成"文字为主"，OCR 乱文又摊回界面上。
+    group('images_primary 解析与往返', () {
+      String md({String? extra}) =>
+          '---\nid: t\nsubject: math1\n${extra ?? ''}---\n\n## 题干\n\n内容';
+
+      test('没写字段时必须是 false（缺字段退化成旧行为，示意图像不被升为主显示）', () {
+        final p = parser.parse(md()).problem!;
+        expect(p.imagesPrimary, isFalse);
+      });
+
+      test('写了 true 就是 true', () {
+        final p = parser.parse(md(extra: 'images_primary: true\n')).problem!;
+        expect(p.imagesPrimary, isTrue);
+      });
+
+      test('序列化后再解析，标记不丢（往返一致）', () {
+        final p = parser.parse(md(extra: 'images_primary: true\n')).problem!;
+        final again = parser
+            .parse(ProblemMarkdownSerializer.serialize(p))
+            .problem!;
+        expect(again.imagesPrimary, isTrue,
+            reason: '往返丢标记的话，用户编辑一次题，界面就退回文字为主显示');
+      });
+
+      test('false 不写入 frontmatter（保持文件干净）', () {
+        final p = parser.parse(md()).problem!;
+        final text = ProblemMarkdownSerializer.serialize(p);
+        expect(text.contains('images_primary'), isFalse);
+      });
+    });
   });
 
   group('宽容原则：坏数据不能丢题', () {

@@ -118,6 +118,13 @@ class Problem {
   /// 图片相对路径。
   final List<String> images;
 
+  /// 配图是否是**题目本体**（扫描/裁切导入的题）。
+  ///
+  /// true 时界面以配图为主显示，OCR 文本只收进折叠区（供检索透明度）。
+  /// false（默认，含字段缺失）＝ 配图只是示意图，题干文字照常显示 ——
+  /// **缺字段必须退化成旧行为**，否则手工录题配的示意图会被错误升为主显示。
+  final bool imagesPrimary;
+
   final List<String> tags;
 
   /// 题干（Markdown + LaTeX）。
@@ -159,6 +166,7 @@ class Problem {
     this.errorCauses = const [],
     this.options = const [],
     this.images = const [],
+    this.imagesPrimary = false,
     this.tags = const [],
     required this.stem,
     this.answer,
@@ -195,6 +203,7 @@ class Problem {
     List<String>? errorCauses,
     List<String>? options,
     List<String>? images,
+    bool? imagesPrimary,
     List<String>? tags,
     String? stem,
     String? answer,
@@ -219,6 +228,7 @@ class Problem {
         errorCauses: errorCauses ?? this.errorCauses,
         options: options ?? this.options,
         images: images ?? this.images,
+        imagesPrimary: imagesPrimary ?? this.imagesPrimary,
         tags: tags ?? this.tags,
         stem: stem ?? this.stem,
         answer: answer ?? this.answer,
@@ -244,6 +254,7 @@ class Problem {
         'errorCauses': errorCauses,
         'options': options,
         'images': images,
+        'imagesPrimary': imagesPrimary,
         'tags': tags,
         'stem': stem,
         'answer': answer,
@@ -401,6 +412,7 @@ class ProblemMarkdownParser {
       errorCauses: _toStringList(meta['error_causes']),
       options: _toStringList(meta['options']),
       images: _toStringList(meta['images']),
+      imagesPrimary: meta['images_primary'] == true,
       tags: _toStringList(meta['tags']),
       stem: stem,
       answer: _emptyToNull(_normalizeMath(sections.answer ?? '')),
