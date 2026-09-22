@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/core/platform/platform_services.dart';
 import 'package:kaoyan_math_agent/core/platform/platform_services_mock.dart';
+import 'package:kaoyan_math_agent/core/providers.dart';
 import 'package:kaoyan_math_agent/core/theme/app_theme.dart';
 import 'package:kaoyan_math_agent/dev_shell.dart';
 
@@ -39,6 +40,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        // 启动索引同步不进测试：它会读真实题库目录（见 provider 的注释）。
+        overrides: [
+          startupIndexSyncProvider.overrideWith((ref) async => null),
+        ],
         child: MaterialApp(
           theme: AppTheme.light(),
           home: const DevShell(),
@@ -59,6 +64,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
+        // 启动索引同步不进测试：它会读真实题库目录（见 provider 的注释）。
+        overrides: [
+          startupIndexSyncProvider.overrideWith((ref) async => null),
+        ],
         child: MaterialApp(
           theme: AppTheme.light(),
           home: const DevShell(),

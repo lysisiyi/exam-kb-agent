@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/platform/startup_log.dart';
 import '../data/db/database.dart';
 import '../data/error_causes.dart';
 import '../data/index/index_builder.dart';
@@ -116,6 +117,33 @@ final problemStoreProvider = FutureProvider<ProblemStore>((ref) async {
     problemsDir: paths.problems,
     imagesDir: paths.images,
   );
+});
+
+/// 启动时增量同步索引：把**外部直接放进题库目录**的 md 文件收进库。
+///
+/// 为什么需要：`rebuild()` 只在保存/导入后被调用，而题库目录是**事实源**
+/// —— 用户（或转换工具）往 `problems/` 里放文件，重启后必须能看到。
+/// 增量按 mtime 跳过已同步文件，200 题的库全程毫秒级。
+///
+/// **刻意不阻塞启动**：DevShell watch 到它才开始跑；失败只记日志 ——
+/// md 是事实源，索引随时可以重建。测试里如果不想碰真实文件系统，
+/// override 这个 provider 为 `AsyncValue.data(null)` 即可。
+final startupIndexSyncProvider = FutureProvider<IndexReport?>((ref) async {
+  try {
+    final db = await ref.watch(databaseProvider.future);
+    final store = await ref.watch(problemStoreProvider.future);
+    final kb = ref.watch(knowledgeBaseProvider).valueOrNull;
+    final report =
+        await IndexBuilder(db: db, store: store, knowledge: kb).rebuild();
+    if (report.added > 0 || report.updated > 0 || report.removed > 0) {
+      StartupLog.log('启动索引同步：新增 ${report.added} / 更新 '
+          '${report.updated} / 移除 ${report.removed}（失败 ${report.failed}）');
+    }
+    return report;
+  } catch (e) {
+    StartupLog.log('启动索引同步失败（不阻断启动）：$e');
+    return null;
+  }
 });
 
 /// 录入闭环服务。本体未载入时传 null（查重/索引依然可用，只是不校验知识点 id）。

@@ -31,6 +31,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/core/platform/platform_services.dart';
 import 'package:kaoyan_math_agent/core/platform/platform_services_mock.dart';
+import 'package:kaoyan_math_agent/core/providers.dart';
 import 'package:kaoyan_math_agent/core/widgets/adaptive_shell.dart';
 import 'package:kaoyan_math_agent/dev_shell.dart';
 import 'package:kaoyan_math_agent/features/chat/chat_page.dart';
@@ -83,6 +84,10 @@ Future<void> _pumpShell(
 
   await tester.pumpWidget(
     ProviderScope(
+      // realShell 会挂真 DevShell —— 启动索引同步不进测试（会读真实题库目录）。
+      overrides: [
+        startupIndexSyncProvider.overrideWith((ref) async => null),
+      ],
       child: MaterialApp(
         home: realShell
             ? const DevShell()

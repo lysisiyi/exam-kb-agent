@@ -120,6 +120,10 @@ class DevShell extends ConsumerWidget {
     // 复习角标：待复习张数。拿不到就先不显示，不阻塞导航。
     final dueCount = ref.watch(reviewStatsProvider).valueOrNull?.dueNow;
 
+    // 启动索引同步：外部放进题库目录的 md（转换工具/手动添加）重启可见。
+    // 结果不用于渲染；失败在 provider 内部记日志，不影响界面。
+    ref.watch(startupIndexSyncProvider);
+
     return AdaptiveShell(
       initialIndex: initialIndex,
       destinations: buildDevDestinations(dueCount: dueCount),
