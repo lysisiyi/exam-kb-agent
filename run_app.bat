@@ -28,7 +28,7 @@ rem
 rem WARNING: setting HTTP_PROXY unconditionally is actively harmful. It routes
 rem *every* request through it -- including the pub.flutter-io.cn mirror above --
 rem so a proxy that is not running makes `pub get` fail with
-rem   "远程计算机拒绝网络连接 ... address = 127.0.0.1"
+rem   "The remote computer refused the network connection ... address = 127.0.0.1"
 rem even though the mirror itself is perfectly reachable.
 rem
 rem So we only set it when something is actually listening on that port.
@@ -103,9 +103,13 @@ rem --- Build ------------------------------------------------------------------
 rem Release, not Debug: it is what we ship, it needs no Dart VM, and it is what
 rem gets measured for package size. Debug would also work but is ~4x larger.
 
-rem Flutter 的位置**必须从 PATH 找**，不能写死。
-rem 早先这里写的是作者本机的 `D:\software\flutter\bin\flutter.bat` ——
-rem 于是"双击就能跑"这句承诺对任何别人都是假的（脚本会在构建那一步才失败）。
+rem Flutter's location MUST be resolved from PATH, never hard-coded.
+rem An earlier revision hard-coded the author's own `D:\software\flutter\...`,
+rem which made "double-click just works" a false promise for anyone else
+rem (the script would only fail at the build step).
+rem NOTE: keep this file ASCII-only. A `chcp 65001` batch file with non-ASCII
+rem comments gets re-read at a byte offset after the codepage switch, and part
+rem of a comment line can be executed as a command (seen 2026-09-22).
 set "FLUTTER_BIN="
 for /f "delims=" %%F in ('where flutter.bat 2^>nul') do if not defined FLUTTER_BIN set "FLUTTER_BIN=%%F"
 if not defined FLUTTER_BIN (
