@@ -56,7 +56,7 @@ class AgentToolEnd extends AgentEvent {
   const AgentToolEnd(this.item);
 }
 
-/// 整轮结束（正常收尾、用户停止、或达到轮数上限）。
+/// 整轮结束（正常收尾、用户停止、达到轮数上限、或**摆出了一张确认卡片**）。
 class AgentDone extends AgentEvent {
   /// 全部轮次正文拼起来的最终回答。
   final String text;
@@ -72,6 +72,12 @@ class AgentDone extends AgentEvent {
   /// 用户按了停止，或流在收尾前断了。
   final bool stopped;
 
+  /// 这一轮以"摆出确认卡片"结束 —— 改动**还没发生**，等用户点。
+  ///
+  /// 它和 [stopped] 是两回事：这里模型完全没有出错，只是按设计停下来了。
+  /// 界面上要提醒用户"还等你点一下"，否则他会以为那件事已经做完了。
+  final bool awaitingConfirmation;
+
   /// 需要**原样告诉用户**的一句话。null 表示没什么要额外说的。
   ///
   /// 达到轮数上限这类情况必须说：用户看到的是一个"没头没尾的答案"，
@@ -84,6 +90,7 @@ class AgentDone extends AgentEvent {
     this.trace = const [],
     this.rounds = 1,
     this.stopped = false,
+    this.awaitingConfirmation = false,
     this.note,
   });
 }
@@ -129,6 +136,7 @@ class ChatAgent {
     LlmUsage? total;
     var rounds = 0;
     var stopped = false;
+    var awaiting = false;
     String? note;
 
     bool stop() => shouldStop?.call() ?? false;
@@ -193,6 +201,10 @@ class ChatAgent {
       // 缺一条下一次请求就是非法的。
       live.add(ChatMessage.assistant(ended.text, toolCalls: ended.toolCalls));
 
+      // 这一轮里有没有出现"待确认的改动"。有的话这一轮到此为止，
+      // 见下面 break 处的说明。
+      var proposed = false;
+
       for (final call in ended.toolCalls) {
         if (stop()) {
           stopped = true;
@@ -212,9 +224,13 @@ class ChatAgent {
           ok: outcome.ok,
           summary: outcome.summary,
           round: rounds,
+          // 写工具返回的是"提议"，不是结果。它要原样带到界面上 ——
+          // 用户看到的那张确认卡片就是从这里来的。
+          proposal: outcome.proposal,
         );
         trace.add(item);
         yield AgentToolEnd(item);
+        if (item.isProposal) proposed = true;
 
         // 无论成败都要回灌：失败也是一种结果（"这个查询跑不通"），
         // 让模型自己决定是换个方式再查，还是如实告诉用户"我查不到"。
@@ -226,6 +242,17 @@ class ChatAgent {
       }
 
       if (stopped) break;
+
+      // ⚠️ 摆出确认卡片之后**必须停下**，不能把结果回问给模型。
+      //
+      // 因为此刻改动**还没有发生**：用户可能点取消，也可能放着不管。
+      // 再问一次模型，它只会拿到一句"等用户确认"，而它能说出口的
+      // 只有两种话 —— "已经帮你改好了"（假话）或者重复一遍刚才的话
+      // （白花一次钱）。停下来让用户去点，是这里唯一诚实的收尾。
+      if (proposed) {
+        awaiting = true;
+        break;
+      }
     }
 
     yield AgentDone(
@@ -234,6 +261,7 @@ class ChatAgent {
       trace: trace,
       rounds: rounds,
       stopped: stopped,
+      awaitingConfirmation: awaiting,
       note: note,
     );
   }

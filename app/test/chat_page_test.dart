@@ -21,6 +21,7 @@ import 'package:kaoyan_math_agent/data/db/database.dart';
 import 'package:kaoyan_math_agent/features/chat/chat_page.dart';
 import 'package:kaoyan_math_agent/services/chat/chat_store.dart';
 import 'package:kaoyan_math_agent/services/chat/chat_tools.dart';
+import 'package:kaoyan_math_agent/services/chat/chat_writes.dart';
 import 'package:kaoyan_math_agent/services/llm/llm_client.dart';
 import 'package:kaoyan_math_agent/services/llm/provider_registry.dart';
 
@@ -180,6 +181,49 @@ class _StubTool extends ChatTool {
   }
 }
 
+/// 记录"被执行了几次"的假执行器。
+///
+/// ## 为什么必须换成假的
+///
+/// 真实执行器要题目仓库（真文件系统）与组卷仓库（真 asset）。
+/// 在 widget 测试里它们**不是失败而是挂住** —— 假时钟不推进真实 IO。
+/// 而这里要测的是"点击 → 执行 → 显示结论"这条界面链路，
+/// 不是写库本身（那在 `chat_writes_test.dart` 里用真实依赖测过了）。
+class _FakeExecutor extends ChatWriteExecutor {
+  final List<ChatWriteProposal> applied = [];
+  final WriteOutcome result;
+
+  _FakeExecutor(this.result)
+      : super(
+          // 这三个加载器**一次都不该被调到**：apply 已经被覆盖了。
+          // 真被调到说明有人绕过了假执行器去碰真实数据 —— 直接炸出来。
+          loadService: () async => throw StateError('不该碰真实数据'),
+          loadKnowledge: () async => null,
+          loadPaper: () async => throw StateError('不该碰真实数据'),
+        );
+
+  @override
+  Future<WriteOutcome> apply(ChatWriteProposal p) async {
+    applied.add(p);
+    return result;
+  }
+}
+
+/// 一张提案，供界面用例使用。
+ChatWriteProposal _proposal({bool destructive = false}) => ChatWriteProposal(
+      id: 'prop-1',
+      kind: destructive ? kWriteDeleteProblem : kWriteCreateProblem,
+      title: destructive ? '删除这道题' : '录入这道题',
+      summary: destructive ? '不可逆：连同复习进度一起清掉' : '把上面的内容存进错题本',
+      destructive: destructive,
+      fields: const [
+        WriteField('题干', '证明存在 ξ 使 f\'(ξ)=0'),
+        WriteField('错过次数', '4 次'),
+      ],
+      warning: '这道题现在还不能撤销，确认前请再认一遍。',
+      payload: const {'stem': '证明存在 ξ 使 f\'(ξ)=0'},
+    );
+
 void main() {
   late AppDatabase db;
 
@@ -195,6 +239,7 @@ void main() {
     WidgetTester tester, {
     LlmClient? client,
     ChatToolRegistry? tools,
+    ChatWriteExecutor? executor,
     Size size = const Size(1200, 900),
   }) async {
     tester.view.physicalSize = size;
@@ -216,6 +261,10 @@ void main() {
           // 这样"注册表能否装配起来"这件事也在页面上被覆盖到。
           // 传 `ChatToolRegistry.empty` 用来测"服务商不支持工具"那条路。
           if (tools != null) chatToolsProvider.overrideWith((ref) async => tools),
+          // 不传就用**真实的**执行器（要碰文件系统与 asset，widget 测试里
+          // 会挂住）。凡是会点确认的用例都必须传一个假的。
+          if (executor != null)
+            chatWriteExecutorProvider.overrideWith((ref) async => executor),
         ],
         child: MaterialApp(
           home: BreakpointScope.fromSize(
@@ -264,19 +313,20 @@ void main() {
       expect(find.textContaining('设置'), findsWidgets);
     });
 
-    testWidgets('能力边界在顶部常态显示，且说的是"能读、只读"', (tester) async {
+    testWidgets('能力边界在顶部常态显示，且说清"改动要经你确认"', (tester) async {
       // ⚠️ 必须给一个客户端：不给就等于"没配服务商"，
       // 页面会走"还没配置"那条分支（那是另一个用例的事）。
       await pumpChat(tester, client: _idleClient());
 
       // 这份配置是 openai —— 工具可用，所以说明应该是"能读"，
       // 而不是 P1 那句"看不到你的题库"（那句话接上工具后就过期了）。
-      // 顺带断言"只读"也写在这一句里 —— 能读但不提"不改数据"，
-      // 用户会担心它自己动手。
+      // P3 之后还要提"改动先确认"：说了能读、不提能改的话，
+      // 用户会以为它仍然只能看；只说能改、不提确认的话，他会怕它乱动。
       expect(
-        find.textContaining('能读你的错题本、知识点与画像；只读'),
+        find.textContaining('能读你的错题本、知识点与画像；'),
         findsOneWidget,
       );
+      expect(find.textContaining('都会先摆出改动让你确认'), findsOneWidget);
     });
 
     testWidgets('服务商用不了工具时，顶部要如实说"看不到题库"并给办法', (tester) async {
@@ -698,6 +748,249 @@ void main() {
       final trace = s!.entries.last.toolTrace.single;
       expect(trace.ok, isFalse);
       expect(trace.summary, contains('失败'));
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  group('写操作确认（P3）', () {
+    /// 一轮脚本：说一句话，然后调写工具。
+    ///
+    /// **故意不给第二轮** —— 摆出提案后循环就该停下。
+    /// 脚本里多准备的那一轮留作证据：真被调用了，`requests.length` 就会是 2。
+    FakeStreamHttp proposing(_StubTool tool) => FakeStreamHttp([
+          [
+            _c(_sse(_delta('我整理好了，你确认一下：'))),
+            _c(_sse(_toolChunk(
+                index: 0, id: 'w1', name: tool.toolName, args: '{}'))),
+            _c(_sse(_finishReason('tool_calls'))),
+          ],
+          [
+            _c(_sse(_delta('（不该出现）'))),
+            _c(_sse(_stop())),
+          ],
+        ]);
+
+    _StubTool writeTool({bool destructive = false}) => _StubTool(
+          destructive ? 'delete_problem' : 'create_problem',
+          ToolOutcome(
+            content: '{"status":"pending_user_confirmation"}',
+            summary: destructive ? '待确认：删除题目' : '待确认：录入一道题',
+            proposal: _proposal(destructive: destructive),
+          ),
+        );
+
+    testWidgets('摆出确认卡片，而不是谎称已经做完', (tester) async {
+      final tool = writeTool();
+      final http = proposing(tool);
+      final executor = _FakeExecutor(const WriteOutcome(true, '已保存为「x」'));
+      await pumpChat(
+        tester,
+        client: _client(http),
+        tools: ChatToolRegistry([tool]),
+        executor: executor,
+      );
+
+      await sendText(tester, '帮我把这道题记下来');
+
+      expect(find.byType(ProposalCard), findsOneWidget);
+      expect(bubbleWith('我整理好了，你确认一下：'), findsOneWidget);
+      expect(find.textContaining('录入这道题'), findsWidgets);
+      // 卡片必须逐项列出将要发生什么：改了哪一项、能碰到什么、
+      // 以及"不可逆/不能撤销"这类用户不会主动想到的后果。
+      expect(find.textContaining('证明存在 ξ'), findsWidgets);
+      expect(find.textContaining('4 次'), findsOneWidget);
+      expect(find.textContaining('确认前请再认一遍'), findsOneWidget);
+
+      // ⚠️ 最要紧的一条：**没有第二次请求**。
+      // 多问一次模型，它只会拿到"等用户确认"，而它能说出口的只有
+      // "已经帮你改好了"（假话）或重复一遍（白花钱）。
+      expect(http.requests.length, 1,
+          reason: '摆出提案之后就该收尾，不能再问模型');
+
+      // 而且什么都没执行
+      expect(executor.applied, isEmpty);
+    });
+
+    testWidgets('卡片不挤进溯源条（那是给"查过什么"的位置）', (tester) async {
+      final tool = writeTool();
+      await pumpChat(
+        tester,
+        client: _client(proposing(tool)),
+        tools: ChatToolRegistry([tool]),
+      );
+
+      await sendText(tester, '帮我记一下');
+
+      // 溯源条里的写法是「中文短名 · 摘要」，卡片不参与
+      expect(find.textContaining('提议录入题目 ·'), findsNothing);
+      // 但"某道题没查到内容"这类普通调用照旧显示
+      expect(find.byType(ProposalCard), findsOneWidget);
+    });
+
+    testWidgets('没有正文只有卡片时，不说"这条回复没有内容"', (tester) async {
+      // 模型只调工具、一句正文都没写。显示"（这条回复没有内容）"
+      // 会让用户以为坏了 —— 而下面那张卡片才是这一轮的全部内容。
+      final tool = writeTool();
+      await pumpChat(
+        tester,
+        client: _client(FakeStreamHttp([
+          [
+            _c(_sse(_toolChunk(
+                index: 0, id: 'w1', name: tool.toolName, args: '{}'))),
+            _c(_sse(_finishReason('tool_calls'))),
+          ],
+        ])),
+        tools: ChatToolRegistry([tool]),
+      );
+
+      await sendText(tester, '记一下');
+
+      expect(find.text('（这条回复没有内容）'), findsNothing);
+      expect(find.textContaining('确认之后才会生效'), findsOneWidget);
+      expect(find.byType(ProposalCard), findsOneWidget);
+    });
+
+    testWidgets('点确认才执行；结论与"已执行"都写在卡片上，并落库', (tester) async {
+      final tool = writeTool();
+      final executor = _FakeExecutor(
+        const WriteOutcome(true, '已保存为「self-20260922-abc」，可以在错题本里找到它'),
+      );
+      await pumpChat(
+        tester,
+        client: _client(proposing(tool)),
+        tools: ChatToolRegistry([tool]),
+        executor: executor,
+      );
+
+      await sendText(tester, '帮我把这道题记下来');
+      expect(executor.applied, isEmpty, reason: '确认之前必须一次都不执行');
+
+      await tester.tap(find.widgetWithText(FilledButton, '确认'));
+      await tester.pumpAndSettle();
+
+      expect(executor.applied, hasLength(1));
+      expect(executor.applied.single.id, 'prop-1');
+      expect(find.text('已执行'), findsOneWidget);
+      expect(find.textContaining('self-20260922-abc'), findsOneWidget);
+
+      final store = ChatStore(db);
+      final s = await store.load((await store.listSessions()).single.id);
+      final trace = s!.entries.last.toolTrace.single;
+      expect(trace.decision, ToolTraceItem.decisionConfirmed);
+      expect(trace.result, contains('self-20260922-abc'));
+      expect(trace.proposal!.payload['stem'], '证明存在 ξ 使 f\'(ξ)=0',
+          reason: '提案要整份留着 —— 用户得能回看当初确认的是什么');
+    });
+
+    testWidgets('点取消：不执行，卡片标已取消，并说清没动数据', (tester) async {
+      final tool = writeTool();
+      final executor = _FakeExecutor(const WriteOutcome(true, '不该执行'));
+      await pumpChat(
+        tester,
+        client: _client(proposing(tool)),
+        tools: ChatToolRegistry([tool]),
+        executor: executor,
+      );
+
+      await sendText(tester, '帮我把这道题记下来');
+      await tester.tap(find.widgetWithText(TextButton, '取消'));
+      await tester.pumpAndSettle();
+
+      expect(executor.applied, isEmpty);
+      expect(find.text('已取消'), findsOneWidget);
+      expect(find.textContaining('没有改动任何数据'), findsOneWidget);
+
+      final store = ChatStore(db);
+      final s = await store.load((await store.listSessions()).single.id);
+      expect(s!.entries.last.toolTrace.single.decision,
+          ToolTraceItem.decisionCancelled);
+    });
+
+    testWidgets('确认过一次之后按钮就没了（否则手一抖就写两遍）', (tester) async {
+      final tool = writeTool();
+      final executor = _FakeExecutor(const WriteOutcome(true, '已保存'));
+      await pumpChat(
+        tester,
+        client: _client(proposing(tool)),
+        tools: ChatToolRegistry([tool]),
+        executor: executor,
+      );
+
+      await sendText(tester, '记一下');
+      await tester.tap(find.widgetWithText(FilledButton, '确认'));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(FilledButton, '确认'), findsNothing);
+      expect(find.widgetWithText(TextButton, '取消'), findsNothing);
+      expect(executor.applied, hasLength(1));
+    });
+
+    testWidgets('执行失败要如实说"没能执行"并给出原因', (tester) async {
+      final tool = writeTool();
+      final executor = _FakeExecutor(
+        const WriteOutcome(false, '这道题已经不在了，没有改动任何数据'),
+      );
+      await pumpChat(
+        tester,
+        client: _client(proposing(tool)),
+        tools: ChatToolRegistry([tool]),
+        executor: executor,
+      );
+
+      await sendText(tester, '记一下');
+      await tester.tap(find.widgetWithText(FilledButton, '确认'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('没能执行'), findsOneWidget);
+      expect(find.textContaining('已经不在了'), findsWidgets);
+      expect(find.text('已执行'), findsNothing);
+    });
+
+    testWidgets('删题的卡片标"不可逆"，按钮也不说"确认"而说"确认删除"', (tester) async {
+      final tool = writeTool(destructive: true);
+      await pumpChat(
+        tester,
+        client: _client(proposing(tool)),
+        tools: ChatToolRegistry([tool]),
+      );
+
+      await sendText(tester, '把那道题删了');
+
+      expect(find.text('不可逆'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '确认删除'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '确认'), findsNothing);
+    });
+
+    testWidgets('历史里那张卡片重新打开还在，且带着当初的决定', (tester) async {
+      // 先手工造一条"已经确认过"的历史消息：卡片的两种状态
+      // （形状来自 proposal，结论来自 decision）都必须从盘上还原出来。
+      final store = ChatStore(db);
+      final sid = await store.createSession(title: '上次那次改动');
+      await store.appendUserMessage(sid, '帮我把这道题记下来');
+      final turn = await store.beginAssistantTurn(sid);
+      await store.updateTurn(
+        turn,
+        content: '我整理好了，你确认一下：',
+        interrupted: false,
+        toolTrace: [
+          ToolTraceItem(
+            name: 'create_problem',
+            ok: true,
+            summary: '待确认：录入一道题',
+            proposal: _proposal(),
+          ).decided(ToolTraceItem.decisionConfirmed, '已保存为「self-1」'),
+        ],
+        force: true,
+      );
+
+      await pumpChat(tester);
+      await tester.tap(find.text('上次那次改动'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProposalCard), findsOneWidget);
+      expect(find.text('已执行'), findsOneWidget);
+      expect(find.textContaining('self-1'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '确认'), findsNothing);
     });
   });
 }

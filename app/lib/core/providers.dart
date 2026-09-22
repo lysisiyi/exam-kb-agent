@@ -16,6 +16,7 @@ import '../features/problems/problems_page.dart' show ProblemView;
 import '../services/chat/chat_agent.dart';
 import '../services/chat/chat_store.dart';
 import '../services/chat/chat_tools.dart';
+import '../services/chat/chat_writes.dart';
 import '../services/library/problem_service.dart';
 import '../services/llm/dio_http_adapter.dart';
 import '../services/llm/llm_client.dart';
@@ -459,10 +460,10 @@ final chatStoreProvider = FutureProvider<ChatStore>((ref) async {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 对话助手的工具（P2）
+// 对话助手的工具（P2 只读 + P3 提议写操作）
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// 助手能调用的**只读**工具集合。
+/// 助手能调用的工具集合。
 ///
 /// ## 这里为什么只有数据库是"现在就取"的
 ///
@@ -472,6 +473,12 @@ final chatStoreProvider = FutureProvider<ChatStore>((ref) async {
 ///
 /// 副作用是这一层变得很轻：唯一的真实依赖是数据库，而它在测试里
 /// 向来被换成内存库。于是页面测试不需要额外搭一套文件系统。
+///
+/// ## 写工具在这里、写入能力不在这里
+///
+/// 下面有四个"写"工具，但它们的 `run` 一步都不写库 —— 只产出提案。
+/// 真正的写入在 [chatWriteExecutorProvider]，**只有界面上的「确认」按钮
+/// 会读它**。这个 provider 交给模型的东西里没有任何一条能改数据。
 final chatToolsProvider = FutureProvider<ChatToolRegistry>((ref) async {
   final db = await ref.watch(databaseProvider.future);
 
@@ -487,7 +494,26 @@ final chatToolsProvider = FutureProvider<ChatToolRegistry>((ref) async {
     }
   }
 
+  /// 错因词表；失败返回 null（显示时退化成 id）。
+  Future<ErrorCauseCatalog?> causesOrNull() async {
+    try {
+      return await ref.read(errorCauseCatalogProvider.future);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 录入服务。**这里不用 `problemServiceProvider`** —— 那个 provider 在
+  /// 构造时用 `valueOrNull` 取本体，本体还没载入时它会永久持有一个
+  /// `knowledge == null` 的实例，于是保存时不再校验考点 id、
+  /// 索引也不会写上 `primary_kp_name`。写操作值得多一次 await。
+  Future<ProblemService> loadProblemService() async {
+    final store = await ref.read(problemStoreProvider.future);
+    return ProblemService(db: db, store: store, knowledge: await kbOrNull());
+  }
+
   return ChatToolRegistry([
+    // 只读
     WrongProblemsTool(db),
     GetProblemTool(
       db: db,
@@ -503,7 +529,61 @@ final chatToolsProvider = FutureProvider<ChatToolRegistry>((ref) async {
       loadRepo: () => ref.read(reviewRepositoryProvider.future),
       loadKnowledge: kbOrNull,
     ),
+    // 写（只提议，不落库）
+    CreateProblemTool(
+      loadService: loadProblemService,
+      loadKnowledge: kbOrNull,
+      loadCauses: causesOrNull,
+    ),
+    UpdateProblemTool(
+      loadService: loadProblemService,
+      loadKnowledge: kbOrNull,
+      loadCauses: causesOrNull,
+    ),
+    DeleteProblemTool(
+      loadService: loadProblemService,
+      loadKnowledge: kbOrNull,
+    ),
+    ComposePaperTool(
+      loadService: loadProblemService,
+      loadPaper: () => ref.read(paperRepositoryProvider.future),
+    ),
   ]);
+});
+
+/// 写操作的执行器。**只在用户点了确认之后被调用。**
+///
+/// 它与 [chatToolsProvider] 刻意分开，是为了让"模型能碰到的东西"与
+/// "能改数据的东西"在代码上也是两样东西 —— 前者是工具，后者是这个。
+/// 页面拿得到它，模型拿不到。
+final chatWriteExecutorProvider = FutureProvider<ChatWriteExecutor>((ref) async {
+  final db = await ref.watch(databaseProvider.future);
+
+  Future<KnowledgeBase?> kbOrNull() async {
+    try {
+      return await ref.read(knowledgeBaseProvider.future);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<ErrorCauseCatalog?> causesOrNull() async {
+    try {
+      return await ref.read(errorCauseCatalogProvider.future);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  return ChatWriteExecutor(
+    loadService: () async {
+      final store = await ref.read(problemStoreProvider.future);
+      return ProblemService(db: db, store: store, knowledge: await kbOrNull());
+    },
+    loadKnowledge: kbOrNull,
+    loadPaper: () => ref.read(paperRepositoryProvider.future),
+    loadCauses: causesOrNull,
+  );
 });
 
 /// 对话助手的工具循环。

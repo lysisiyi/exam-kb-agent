@@ -36,6 +36,18 @@
 ///
 /// 见 [_TraceStrip]。没有它，"你在中值定理上错得最多"这句话
 /// 是真查出来的还是编的，用户一点办法都没有。
+///
+/// ### 6. 改动必须**先摆出来、点一下才生效**
+///
+/// 见 [_ProposalCard]。助手调写工具时，数据**一个字都没变** ——
+/// 它只是把"将要发生什么"整理成一张卡片（题干、新旧对照、
+/// 会被一起删掉什么）。用户点「确认」才真的写。
+///
+/// 这一条不是"多一道保险"。真实的失败长这样：模型自己决定调用什么、
+/// 传什么参数，用户看到聊天记录里一句"已经帮你改好了"就去干别的了 ——
+/// 而数据库里到底改了什么，**界面上没有任何地方能看出来**。
+/// 所以卡片上必须逐项列出将要发生的事，包括"会一起删掉复习进度"
+/// 这种用户不会主动想到的后果。
 library;
 
 import 'dart:async';
@@ -50,6 +62,7 @@ import '../../core/providers.dart';
 import '../../services/chat/chat_agent.dart';
 import '../../services/chat/chat_store.dart';
 import '../../services/chat/chat_tools.dart';
+import '../../services/chat/chat_writes.dart';
 import '../../services/llm/llm_client.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
@@ -89,6 +102,13 @@ class _ChatPageState extends ConsumerState<ChatPage> {
   /// 它驱动"正在查错题本…"这行提示。没有它的话，工具执行的那几秒里
   /// 界面只有一个空的气泡，用户会以为卡住了。
   String? _runningTool;
+
+  /// 正在执行的写操作提案 id。null 表示此刻没有提案在跑。
+  ///
+  /// 它同时是**重入闸门**：确认按钮点下去到执行完之间会禁掉所有
+  /// 提案按钮。没有这道闸，同一帧里连点两次「确认」会写两遍 ——
+  /// 组卷那种"每次生成一条新记录"的操作会出现两份卷子。
+  String? _busyProposalId;
 
   String? _error;
 
@@ -392,7 +412,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             buffer
               ..clear()
               ..write(text);
-            _liveTrace = trace;
+            // ⚠️ 收尾这份 trace 是**没有决定**的那一版（工具刚回来）。
+            // 极小的窗口里用户可能已经点了确认（见 _mergedWithDecisions），
+            // 直接用它会把手已经动过的改动退回成"待确认"。
+            final settled = _mergedWithDecisions(trace);
+            _liveTrace = settled;
             // ⚠️ 这一次必须 force：整轮的最终状态（正文、用量、溯源、
             // 是否被中断）都在这里定型，漏掉它就会留下"最后一段没存上"。
             await store.updateTurn(
@@ -400,7 +424,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
               content: text,
               interrupted: stopped,
               usage: usage,
-              toolTrace: trace,
+              toolTrace: settled,
               force: true,
             );
             if (!mounted) return;
@@ -410,7 +434,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                 content: text,
                 interrupted: stopped,
                 usage: usage,
-                toolTrace: trace,
+                toolTrace: settled,
               );
               // 达到轮数上限这类话必须原样转给用户，不能吞掉：
               // 他看到的是一个戛然而止的回答，不说就会以为是模型不行。
@@ -507,20 +531,155 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     List<ToolTraceItem>? toolTrace,
   }) {
     if (_messages.isEmpty) return;
-    final last = _messages.last;
-    if (last.role != ChatRole.assistant) return;
+    _patchEntry(
+      _messages.last.id,
+      content: content,
+      interrupted: interrupted,
+      usage: usage,
+      toolTrace: toolTrace,
+    );
+  }
+
+  /// 就地换掉一条消息的字段（不动它在列表里的位置）。
+  ///
+  /// 为什么不是"只改最后一条"：**用户可以在任何一条历史消息上点确认** ——
+  /// 那段对话可能已经是三天前的了。改错条目会让卡片的状态看起来毫无反应。
+  void _patchEntry(
+    int id, {
+    String? content,
+    bool? interrupted,
+    LlmUsage? usage,
+    List<ToolTraceItem>? toolTrace,
+  }) {
+    final i = _messages.indexWhere((m) => m.id == id);
+    if (i < 0) return;
+    final old = _messages[i];
     _messages = [
-      ..._messages.take(_messages.length - 1),
+      ..._messages.take(i),
       ChatEntry(
-        id: last.id,
-        role: last.role,
-        content: content ?? last.content,
-        interrupted: interrupted ?? last.interrupted,
-        usage: usage ?? last.usage,
-        toolTrace: toolTrace ?? last.toolTrace,
-        createdAt: last.createdAt,
+        id: old.id,
+        role: old.role,
+        content: content ?? old.content,
+        interrupted: interrupted ?? old.interrupted,
+        usage: usage ?? old.usage,
+        toolTrace: toolTrace ?? old.toolTrace,
+        createdAt: old.createdAt,
       ),
+      ..._messages.skip(i + 1),
     ];
+  }
+
+  /// 把已经记录过的"用户决定"补回收尾那份 trace 里。
+  ///
+  /// ## 这个极小的窗口是真的存在
+  ///
+  /// 写工具的提案在 `AgentToolEnd` 就到了界面上，而 `AgentDone` 紧随其后。
+  /// 用户在这两个事件之间点下「确认」的话：执行器已经把改动写完了，
+  /// 而 `AgentDone` 带回来的那份 trace 里那张提案**还没有决定** ——
+  /// 直接覆盖会让卡片退回"待确认"，用户再点一次就是**第二次写入**
+  /// （组卷最明显：多出一份卷子）。
+  ///
+  /// 合并的方向只有一个：**已经决定的不会被覆盖回去**。
+  List<ToolTraceItem> _mergedWithDecisions(List<ToolTraceItem> incoming) {
+    final decided = <String, ToolTraceItem>{};
+    for (final m in _messages) {
+      for (final t in m.toolTrace) {
+        final pid = t.proposal?.id;
+        if (pid != null && t.decision != null) decided[pid] = t;
+      }
+    }
+    if (decided.isEmpty) return incoming;
+    return [
+      for (final t in incoming)
+        (t.proposal == null ? null : decided[t.proposal!.id]) ?? t,
+    ];
+  }
+
+  /// 用户对一张确认卡片做出处置。
+  ///
+  /// ## 只有这条路径会真的写库
+  ///
+  /// 模型没有别的办法让改动发生 —— 写工具只产出提案，
+  /// 执行器只在这里被调用。这一句话就是整个 P3 的安全模型。
+  Future<void> _decideProposal(
+    ChatEntry entry,
+    String proposalId,
+    bool confirm,
+  ) async {
+    // 重入闸门必须在**任何 await 之前**：同一帧里的两次点击都还没被
+    // setState 反映出来，晚一步判断就会进两次。
+    if (_busyProposalId != null) return;
+
+    final i = entry.toolTrace.indexWhere((t) => t.proposal?.id == proposalId);
+    if (i < 0) return;
+    final item = entry.toolTrace[i];
+    final proposal = item.proposal!;
+    if (item.decision != null) return;
+
+    setState(() => _busyProposalId = proposalId);
+
+    WriteOutcome out;
+    if (confirm) {
+      try {
+        final executor = await ref.read(chatWriteExecutorProvider.future);
+        out = await executor.apply(proposal);
+      } catch (e) {
+        out = WriteOutcome.failure('执行失败：$e');
+      }
+    } else {
+      out = const WriteOutcome(false, '已取消，没有改动任何数据');
+    }
+
+    final settled = item.decided(
+      confirm
+          ? (out.ok
+              ? ToolTraceItem.decisionConfirmed
+              : ToolTraceItem.decisionFailed)
+          : ToolTraceItem.decisionCancelled,
+      out.message,
+    );
+    final trace = [
+      for (final t in entry.toolTrace)
+        if (t.proposal?.id == proposalId) settled else t,
+    ];
+
+    // 结论必须**立刻**落盘（force）：它是"这次改动到底做没做"的唯一凭据。
+    // 走节流的话，用户看完结果就关掉应用，记录里留下的还是"待确认"。
+    try {
+      final store = await ref.read(chatStoreProvider.future);
+      await store.updateTurn(
+        entry.id,
+        content: entry.content,
+        toolTrace: trace,
+        force: true,
+      );
+    } catch (_) {
+      // 存不下不该让界面崩：结论还在屏幕上，最坏是重开后会显示成待确认
+      // （那时再点一次是安全的 —— 见执行器里的重新校验）。
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _busyProposalId = null;
+      _patchEntry(entry.id, toolTrace: trace);
+      if (confirm && !out.ok) _error = out.message;
+    });
+
+    if (confirm && out.ok) _refreshAfterWrite(proposal.kind);
+  }
+
+  /// 写完之后让别的页面看到新数据。
+  ///
+  /// 这几个 provider 都是"算一次就缓存"的，不 invalidate 的话用户切到
+  /// 错题本会看到改动之前的样子 —— 而那时聊天记录里明明写着"已保存"。
+  ///
+  /// 与「录入」页保存后的那两句是同一份清单（`ingest_page.dart`），
+  /// 刻意保持一致：两处刷新范围不同的话，必然有一处的数据看起来更旧。
+  void _refreshAfterWrite(String kind) {
+    ref.invalidate(problemListProvider);
+    ref.invalidate(reviewStatsProvider);
+    ref.invalidate(masteryReportProvider);
+    if (kind == kWriteComposePaper) ref.invalidate(paperHistoryProvider);
   }
 
   void _scrollToEnd({bool animate = true}) {
@@ -568,7 +727,8 @@ class _ChatPageState extends ConsumerState<ChatPage> {
             : !toolsOn
                 ? '${cfg.spec?.label ?? '当前服务商'} 不支持工具调用 —— '
                     '它看不到你的题库，只能回答你贴过来的题（换成 DeepSeek 等可解决）'
-                : '能读你的错题本、知识点与画像；只读，不会改动任何数据';
+                : '能读你的错题本、知识点与画像；'
+                    '加题/改题/删题/组卷都会先摆出改动让你确认';
 
     final chat = Column(
       children: [
@@ -592,6 +752,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                   controller: _scroll,
                   streaming: _streaming,
                   runningTool: _runningTool,
+                  busyProposalId: _busyProposalId,
+                  onDecide: (entry, proposalId, confirm) =>
+                      unawaited(_decideProposal(entry, proposalId, confirm)),
                 ),
         ),
         _Composer(
@@ -864,11 +1027,22 @@ class _MessageList extends StatelessWidget {
   /// 正在执行的工具（中文短名）。只显示在**最后一条**助手气泡上。
   final String? runningTool;
 
+  /// 正在执行的写操作提案 id。非空时所有卡片的按钮都禁掉。
+  final String? busyProposalId;
+
+  /// 用户对某张确认卡片做出处置。
+  ///
+  /// 为 null 时卡片上的按钮是禁用的（单测里直接渲染气泡就是这种情况）。
+  final void Function(ChatEntry entry, String proposalId, bool confirm)?
+      onDecide;
+
   const _MessageList({
     required this.messages,
     required this.controller,
     required this.streaming,
     this.runningTool,
+    this.busyProposalId,
+    this.onDecide,
   });
 
   @override
@@ -888,6 +1062,8 @@ class _MessageList extends StatelessWidget {
           // "正在查…"只挂在最后一条上：工具是**这一轮**在跑的，
           // 把它显示在历史气泡上会让人以为那条回复还在动。
           runningTool: (isLast && lastAssistant) ? runningTool : null,
+          busyProposalId: busyProposalId,
+          onDecide: onDecide,
         );
       },
     );
@@ -896,8 +1072,8 @@ class _MessageList extends StatelessWidget {
 
 /// 一条消息气泡。
 ///
-/// 抽成公开类是为了能单独测 —— 它承载了"未完成"、"思考中"
-/// 与"查过什么"这三种**必须显示对**的状态。
+/// 抽成公开类是为了能单独测 —— 它承载了"未完成"、"思考中"、
+/// "查过什么"与"待确认的改动"这四种**必须显示对**的状态。
 class ChatBubble extends StatelessWidget {
   final ChatEntry entry;
 
@@ -907,11 +1083,20 @@ class ChatBubble extends StatelessWidget {
   /// 此刻正在执行的工具（中文短名）。非空时在气泡顶部显示"正在查…"。
   final String? runningTool;
 
+  /// 正在执行的写操作提案 id。
+  final String? busyProposalId;
+
+  /// 用户对确认卡片的处置。见 [_MessageList.onDecide]。
+  final void Function(ChatEntry entry, String proposalId, bool confirm)?
+      onDecide;
+
   const ChatBubble({
     super.key,
     required this.entry,
     this.streaming = false,
     this.runningTool,
+    this.busyProposalId,
+    this.onDecide,
   });
 
   @override
@@ -919,9 +1104,22 @@ class ChatBubble extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final isUser = entry.role == ChatRole.user;
 
-    final body = _body(context, scheme);
+    // 工具记录分两类，显示位置不同：
+    // **读**的进溯源条，**写**的（提案）单独成卡片。
+    // 不分开的话，一张"要不要删掉这道题"的卡片会被压成
+    // 溯源条里一行 11px 的灰字 —— 那是最不该被忽略的东西。
+    final readTrace = [
+      for (final t in entry.toolTrace)
+        if (!t.isProposal) t,
+    ];
+    final proposals = [
+      for (final t in entry.toolTrace)
+        if (t.isProposal) t,
+    ];
+
+    final body = _body(context, scheme, hasProposals: proposals.isNotEmpty);
     final showTrace = !isUser &&
-        (entry.toolTrace.isNotEmpty || (streaming && runningTool != null));
+        (readTrace.isNotEmpty || (streaming && runningTool != null));
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -946,11 +1144,23 @@ class ChatBubble extends StatelessWidget {
             // 放在下面会让长回答的读者永远看不到。
             if (showTrace)
               _TraceStrip(
-                trace: entry.toolTrace,
+                trace: readTrace,
                 running: streaming ? runningTool : null,
                 scheme: scheme,
               ),
             body,
+            for (final t in proposals)
+              ProposalCard(
+                item: t,
+                busy: busyProposalId == t.proposal!.id,
+                // 有别的提案在跑时，这一张也禁掉：两次写入同时进行
+                // 会让"哪个成功哪个失败"变得说不清。
+                blocked: busyProposalId != null && busyProposalId != t.proposal!.id,
+                onDecide: onDecide == null
+                    ? null
+                    : (confirm) =>
+                        onDecide!(entry, t.proposal!.id, confirm),
+              ),
             if (entry.interrupted && !streaming) ..._interruptedNote(scheme),
           ],
         ),
@@ -958,9 +1168,22 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
-  Widget _body(BuildContext context, ColorScheme scheme) {
+  Widget _body(
+    BuildContext context,
+    ColorScheme scheme, {
+    required bool hasProposals,
+  }) {
     // 空内容 + 正在流式 = 刚发出、模型还没吐字
     if (!entry.hasContent) {
+      // 只有一张待确认卡片、没有半句正文 —— 那是模型调了写工具就收尾了。
+      // 显示"（这条回复没有内容）"会让用户以为坏了，而实际上
+      // 下面那张卡片才是这一轮的全部内容。
+      if (hasProposals) {
+        return Text(
+          '卡片里是要做的改动，确认之后才会生效：',
+          style: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant),
+        );
+      }
       return Text(
         streaming ? '正在思考…' : '（这条回复没有内容）',
         style: TextStyle(
@@ -1088,6 +1311,335 @@ class _TraceStrip extends StatelessWidget {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// 确认卡片（P3）
+// ───────────────────────────────────────────────────────────────────────────
+
+/// 一张"将要发生什么"的确认卡片。
+///
+/// ## 为什么要逐项列出来，而不是只给一句"确认删除？"
+///
+/// 系统弹窗式的一句话确认（"确定要删除吗？"）在**人自己操作**时够用 ——
+/// 因为点删除之前是他自己一路看过来的。这里不一样：改动是模型整理的，
+/// 用户只知道"我刚才让它帮我删一道题"。
+///
+/// 所以卡片必须能独立回答四个问题：**是哪一道题**（题干）、
+/// **会改成什么样**（新旧对照）、**会一起动到什么**（复习进度/历史）、
+/// **能不能撤回**（删除是不可逆的）。用户凭这张卡片就能判断，
+/// 不需要回忆自己刚才说过什么。
+///
+/// ## 按钮在什么情况下禁用
+///
+/// - [onDecide] 为 null：没有可用的处置通道（单测里直接渲染气泡）。
+/// - [busy]：这一张正在执行。
+/// - [blocked]：**别的**提案正在执行。同时跑两次写入会让
+///   "哪个成了哪个没成"变成一件说不清的事，所以串行。
+class ProposalCard extends StatelessWidget {
+  final ToolTraceItem item;
+
+  /// 这一张正在执行。
+  final bool busy;
+
+  /// 别的提案正在执行。
+  final bool blocked;
+
+  final void Function(bool confirm)? onDecide;
+
+  const ProposalCard({
+    super.key,
+    required this.item,
+    this.busy = false,
+    this.blocked = false,
+    this.onDecide,
+  });
+
+  /// 按改动种类选图标。
+  static IconData iconOf(String kind) => switch (kind) {
+        kWriteCreateProblem => Icons.note_add_outlined,
+        kWriteUpdateProblem => Icons.edit_outlined,
+        kWriteDeleteProblem => Icons.delete_outline,
+        kWriteComposePaper => Icons.description_outlined,
+        _ => Icons.build_outlined,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final p = item.proposal;
+    if (p == null) return const SizedBox.shrink();
+
+    final scheme = Theme.of(context).colorScheme;
+    final accent = p.destructive ? scheme.error : scheme.primary;
+    final settled = item.decision != null;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 6, bottom: 4),
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(10),
+        // 边框用强调色：这张卡片是气泡里**最该被看见**的东西。
+        // 不可逆的操作用错误色，让"删"和"加"在余光里就能分开。
+        border: Border.all(color: accent.withValues(alpha: 0.45), width: 1.2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(iconOf(p.kind), size: 17, color: accent),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      p.title,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (p.summary.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        p.summary,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (p.destructive) _chip('不可逆', scheme.error, scheme),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final f in p.fields) _field(f, scheme),
+          if (p.warning != null) _warning(p.warning!, p.destructive, scheme),
+          const SizedBox(height: 8),
+          ..._footer(context, scheme, p, settled),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(String text, Color color, ColorScheme scheme) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(fontSize: 10.5, color: color),
+        ),
+      );
+
+  Widget _field(WriteField f, ColorScheme scheme) => Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 72,
+              child: Text(
+                f.label,
+                style: TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant),
+              ),
+            ),
+            Expanded(
+              child: f.before == null
+                  ? Text(
+                      f.value,
+                      style: const TextStyle(fontSize: 12.5, height: 1.5),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 旧值划掉、新值加粗：一眼看出"哪里变了"，
+                        // 比两行平铺的"原：…‥ 新：…‥"快得多。
+                        Text(
+                          f.before!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            color: scheme.onSurfaceVariant,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.subdirectory_arrow_right,
+                                size: 12, color: scheme.onSurfaceVariant),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                f.value,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _warning(String text, bool destructive, ColorScheme scheme) {
+    final color = destructive ? scheme.error : scheme.onSurfaceVariant;
+    return Container(
+      margin: const EdgeInsets.only(top: 9),
+      padding: const EdgeInsets.fromLTRB(9, 7, 9, 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 13, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 11.5, height: 1.6, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _footer(
+    BuildContext context,
+    ColorScheme scheme,
+    ChatWriteProposal p,
+    bool settled,
+  ) {
+    if (settled) {
+      final ok = item.decision == ToolTraceItem.decisionConfirmed;
+      final cancelled = item.decision == ToolTraceItem.decisionCancelled;
+      final color = ok
+          ? scheme.primary
+          : cancelled
+              ? scheme.onSurfaceVariant
+              : scheme.error;
+      final icon = ok
+          ? Icons.check_circle_outline
+          : cancelled
+              ? Icons.remove_circle_outline
+              : Icons.error_outline;
+      final label = ok
+          ? '已执行'
+          : cancelled
+              ? '已取消'
+              : '没能执行';
+
+      return [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        if (item.result != null && item.result!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 20, top: 3),
+            child: Text(
+              item.result!,
+              style: const TextStyle(fontSize: 12, height: 1.55),
+            ),
+          ),
+      ];
+    }
+
+    // 还没决定。
+    if (busy) {
+      return [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 13,
+              height: 13,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '正在执行…',
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ];
+    }
+
+    final enabled = onDecide != null && !blocked;
+    final hint = onDecide == null
+        ? '这里点不了确认（缺少处置通道）'
+        : blocked
+            ? '另一个改动正在执行，等它完成'
+            : null;
+
+    final row = Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        TextButton(
+          onPressed: enabled ? () => onDecide!(false) : null,
+          child: const Text('取消', style: TextStyle(fontSize: 12.5)),
+        ),
+        const SizedBox(width: 6),
+        FilledButton(
+          onPressed: enabled ? () => onDecide!(true) : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: p.destructive ? scheme.error : null,
+            foregroundColor: p.destructive ? scheme.onError : null,
+            visualDensity: VisualDensity.compact,
+          ),
+          child: Text(
+            p.destructive ? '确认删除' : '确认',
+            style: const TextStyle(fontSize: 12.5),
+          ),
+        ),
+      ],
+    );
+
+    return [
+      if (hint != null) ...[
+        Text(
+          hint,
+          style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+        ),
+        const SizedBox(height: 4),
+      ],
+      Tooltip(message: hint ?? '', child: row),
+    ];
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // 空态与错误条
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -1124,16 +1676,19 @@ class _Welcome extends StatelessWidget {
                         '· "我今天该复习什么？" —— 它会查复习计划\n'
                         '· "我在中值定理上有哪些错题？" —— 它会查错题本\n'
                         '· "讲讲我那道 2023-shu1-T18" —— 它会读原文\n\n'
-                        '也可以贴一道题过来让它讲思路，或问概念辨析。\n\n'
+                        '也可以贴一道题过来让它讲思路，或者让它帮你做事：\n'
+                        '· "帮我把这道题记进错题本" —— 它会整理成一张待确认的卡片\n'
+                        '· "把我那道错题的解析换成这个" —— 同上，你点确认才生效\n\n'
                         // ⚠️ 这里是纯 Text，不能出现 Markdown 记号 ——
                         // 星号会原样显示出来（A3 那次踩过同一个坑）。
-                        '它是只读的，不会改动你的题库；每次回答都会标出'
-                        '它查了什么。'
+                        '每次回答都会标出它查了什么。要动你的题库时，'
+                        '它会先把改动逐项摆出来 —— 加题、改题、删题、组卷都不例外。'
                     : '可以：\n'
                         '· 贴一道题过来，让它讲思路；\n'
                         '· 问概念辨析（比如"洛必达和泰勒什么时候用哪个"）；\n'
                         '· 让它帮你归类型（"这类题的通用套路是什么"）。\n\n'
-                        '它现在读不到你的题库 —— 想看自己的薄弱点，去「画像」页。',
+                        '它现在读不到你的题库，也不能替你改题 —— '
+                        '想看自己的薄弱点，去「画像」页。',
                 style: TextStyle(fontSize: 13, height: 1.85, color: scheme.onSurfaceVariant),
               ),
             ],
