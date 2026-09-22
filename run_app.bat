@@ -144,4 +144,4 @@ if not "%BUILD_RC%"=="0" (
   exit /b %BUILD_RC%
 )
 
-start "" "%EXE"
+start "" "%EXE%"
