@@ -93,7 +93,20 @@ class AppDatabase extends _$AppDatabase {
           // 不必走 v2 那种"建新表→拷数据→换名"的重活。
           // 老库里的行在这一列上是 NULL，`decodeToolTrace` 按
           // "没有记录"处理 —— 界面上不会显示出异常的空块。
-          if (from < 6) await m.addColumn(chatMessages, chatMessages.toolTrace);
+          //
+          // ⚠️ 加**存在性守卫**：SQLite 的 DDL 会隐式提交，进程在
+          // "列已加、版本号未提交"的瞬间被强杀（taskkill /F 等），
+          // 下次启动就会撞 duplicate column，整条迁移链从此打不开。
+          // 守卫让这一步变成幂等操作 —— 版本号可以放心补交。
+          if (from < 6) {
+            final cols =
+                await customSelect('PRAGMA table_info(chat_messages)').get();
+            final hasTrace =
+                cols.any((r) => r.data['name'] == 'tool_trace');
+            if (!hasTrace) {
+              await m.addColumn(chatMessages, chatMessages.toolTrace);
+            }
+          }
         },
         beforeOpen: (details) async {
           // 打开外键约束的**执行**开关。注意：当前 schema 里**没有任何

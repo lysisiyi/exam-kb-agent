@@ -182,6 +182,16 @@ def main() -> int:
             page_cache.write_text(json.dumps(
                 {"lines": [list(l) for l in lines]}, ensure_ascii=False), encoding="utf-8")
 
+        # 答案页剔除：660 做题本 PDF 的后半是「参考答案」。两个判据并用以防漏：
+        # ① 页眉「参考答案」—— 只有奇数页有（奇偶页眉交替）；
+        # ② 正文【答案】/【分析】/【评注】标记 —— 答案区每页都有，题目区没有。
+        # 答案页的题号会被当成新锚点，把答案文本切成一堆假题 —— 命中即整页跳过。
+        if any("参考答案" in l[4] or "【答案】" in l[4] or "【分析】" in l[4]
+               or "【评注】" in l[4] for l in lines):
+            pending_cont = None
+            stats["pages"] += 1
+            continue
+
         regions, cont = split_page(lines, style, W, H)
 
         # 先把上一页的延续段贴到本页第一题（或独立成图）
@@ -201,6 +211,11 @@ def main() -> int:
             pending_cont = None
 
         for a, bbox, reg_lines in regions:
+            # x 边界按区域内 OCR 行的实际范围取 —— 锚点固定偏移会把
+            # 换行文本（比题号更靠左的段落边距）切掉半个字。
+            if reg_lines:
+                bbox = (max(4, min(l[0] for l in reg_lines) - 10), bbox[1],
+                        min(W - 5, max(l[2] for l in reg_lines) + 14), bbox[3])
             qid = f"{args.tag}_p{pno:03d}_q{a['num']:03d}"
             _save_crop(pg, bbox, img_dir / f"{qid}.png", W, H)
             _write_md(root, args.tag, qid, a, bbox, reg_lines, pno, style)
@@ -240,7 +255,7 @@ def _save_crop(pg, bbox, out: Path, W, H):
 
 def last_qid(root: Path, tag: str, pno: int) -> str:
     ids = sorted(md_dir_glob(root))
-    return ids[-1] if ids else f"{tag}_p{pno:03d}_q000"
+    return ids[-1].stem if ids else f"{tag}_p{pno:03d}_q000"
 
 
 def md_dir_glob(root: Path):
