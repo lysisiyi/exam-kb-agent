@@ -404,29 +404,35 @@ void main() {
       expect(http.calls, 1, reason: 'Key 错了重试多少次都一样');
     });
 
-    test('supportsStreaming：OpenAI 兼容为真，另两家为假', () {
+    test('supportsStreaming：三家已知协议都为真，未知服务商为假', () {
       expect(_client(StreamHttp([])).supportsStreaming, isTrue);
       expect(
         _client(StreamHttp([]), provider: 'deepseek').supportsStreaming,
         isTrue,
       );
-      // 这两家的 SSE 格式与 OpenAI 完全不同，属于单独一期
+      // P4 起两家的 SSE 也实现了：Anthropic 的 content_block 事件流、
+      // Gemini 的 streamGenerateContent?alt=sse
       expect(
         _client(StreamHttp([]), provider: 'anthropic').supportsStreaming,
-        isFalse,
+        isTrue,
       );
       expect(
         _client(StreamHttp([]), provider: 'gemini').supportsStreaming,
+        isTrue,
+      );
+      expect(
+        _client(StreamHttp([]), provider: 'nope').supportsStreaming,
         isFalse,
+        reason: '服务商 id 不认识时连普通请求都发不出去',
       );
     });
 
-    test('不支持流式的服务商：直接说清楚，而不是发一个畸形的请求', () async {
+    test('未知的服务商：直接说清楚，而不是发一个畸形的请求', () async {
       final http = StreamHttp([]);
 
       Object? err;
       try {
-        await _collect(_client(http, provider: 'anthropic'));
+        await _collect(_client(http, provider: 'nope'));
       } catch (e) {
         err = e;
       }

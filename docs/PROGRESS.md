@@ -1582,7 +1582,7 @@ FTS5 内置的 `unicode61` 分词器按**空白与标点**切词。中文句子�
 | **N16** | 连续自用 7 天（V1 验收表最后一条；也是 M8 的验收标准） | 需要用户真机操作 | 7 天 |
 | ~~N17~~ | ~~**对话助手 P2：只读工具**（查错题 / 查知识点 / 查画像 / 查待复习）~~ | ✅ 已完成 | — |
 | **N18** | ~~**对话助手 P3：写操作 + 确认流程**（加题 / 改题 / 删题 / 组卷）~~ | ✅ 已完成 | — |
-| **N19** | **对话助手 P4：Anthropic / Gemini 的流式与工具** | 依赖 N17 | 0.5 天 |
+| **N19** | ~~**对话助手 P4：Anthropic / Gemini 的流式与工具**~~ | ✅ 已完成 | — |
 
 **M0–M8 的代码全部完成，V1 必做十项都有了界面。剩下的全部是"只能由人在
 真机上做"的验证。**
@@ -1908,8 +1908,89 @@ P2 的只读靠"每个工具只调本身不写库的方法"来保证。P3 要能
 
 ### 未做（P4）
 
-- **Anthropic / Gemini 的流式与工具** —— P4。目前这两家上对话可用，
-  但工具被明确禁用（`supportsTools` 为假，提示词切到"无工具"版本）。
+- ~~**Anthropic / Gemini 的流式与工具**~~ —— 已完成，见下方 N19。
+
+---
+
+## N19 · 对话助手 P4：Anthropic / Gemini 的流式与工具（已完成）
+
+P2/P3 的工具往返只按 OpenAI 协议编码；Anthropic / Gemini 上带工具直接抛异常
+（那是**有意的拒绝**——把 OpenAI 格式硬塞过去不会 400，而是模型收不到工具
+却仍被要求"根据工具结果回答"，它会开始编）。P4 把这两家**真正接上**：
+流式分帧、工具声明、工具结果回灌，三家协议各自实现、绝不通用化。
+
+### 两家的形状差在哪（也是最容易写错的地方）
+
+- **Anthropic**：消息是**内容块数组**，不是字符串。助手的话是 `text` 块、
+  要调的工具是 `tool_use` 块；工具结果不是独立角色，是**下一条 user 消息里的
+  `tool_result` 块**，连续多条必须合并进同一条 user（协议要求 user/assistant
+  交替）。参数 schema 的键叫 `input_schema` 而不是 `parameters` —— 写错不会
+  400，而是模型收不到工具然后开始编，属于"看起来在工作"的失败。
+- **Gemini**：助手角色叫 `model`；工具声明包在 `tools[0].functionDeclarations`
+  里；结果用 `functionResponse` 送回，且 `response` 只收 **JSON 对象** ——
+  而我们的工具返回 JSON **字符串**，不解一层就 400。流式必须
+  `streamGenerateContent?alt=sse`，否则返回的是一次性 JSON 数组，
+  `SseParser` 一行都切不出来。`functionResponse` 挂在 `role: user` 的
+  content 里（官方 REST/JS 示例；`role: "function"` 是旧 SDK 写法）——
+  这一条查证过官方文档再写的。
+
+### 流式分帧按协议分派，骨架只有一份
+
+`_consumeFrame` 变成按 `spec.protocol` 分派的入口：OpenAI 的 `delta` 帧、
+Anthropic 的 `content_block_start/delta/stop` 分幕、Gemini 的
+`candidates[].content.parts[]` 各自实现；缓冲、重试、记账仍由同一个
+`chatStream` 承担。三处协议特有的坑都堵在了分帧层：
+
+- **Anthropic 的用量拆在两帧**：输入 token 在 `message_start`、输出在
+  `message_delta` —— 覆盖式合并会把先到的那一半丢掉，所以 `_StreamAcc`
+  改成**各字段取 max**（对 Gemini / OpenAI 的累计值而言取 max 与覆盖等价）。
+- **Anthropic 会在流中途发 error 事件**（overloaded 等）：忽略它，上层只会
+  报"没有文本内容"，真正的原因被吞掉 —— 现在原样抛出。
+- **Gemini 的工具调用不需要拼接**：每帧必须是完整合法 JSON，`args`
+  （结构化对象）不可能切在半截，一帧拿完。⚠️ 若真遇到"大 args 分两帧"的
+  行为（未观察到），这里会变成两个同名调用 —— 拿到真实样本再改，不猜。
+
+### 工具结果回灌的两处关键
+
+- **失败要带标记**：`ChatMessage` 新增 `toolError`（默认 false，普通消息的
+  编码结果与从前逐字节一致），agent 回灌时传 `!outcome.ok`，Anthropic 编码成
+  `tool_result.is_error` —— 模型看到标记会解释失败、换个方式再试，而不是把
+  报错文本当成查询结果继续编。
+- **Gemini 的 functionResponse 必须给函数名**，而 tool 消息上只有调用 id。
+  名字就在它前面那条 assistant 消息的 functionCall 里，编码时边走边记；
+  记不到（消息链断裂，我们自己的 bug）直接抛异常说清楚，不让 Gemini 用一句
+  "function not found"来转述。
+
+### 能力判定收口
+
+`supportsStreaming` / `supportsTools` 三家已知协议**全为真**，为假只剩
+"服务商 id 不认识"一种情形；`chatStream` 入口那道"该协议不支持流式"的
+拦截随之拆除（它已不可能触发）。两个 getter **仍然分开**——将来若某家
+只实现了其一，界面还要分别退。非流式的 `chat()` 同样补上了两家的工具解析
+（否则模型决定调工具的那一轮会以"响应里没有文本内容"报错——与 P2 在
+OpenAI 上踩过的是同一个坑）。history 路径上的工具消息守卫**保留**：那条路
+是纯文本调用点（批量导入 / 标注 / 组题），真出现工具消息说明链路写坏了。
+
+### 验证
+
+- `flutter test` **1052 全绿**（P3 基线 1031，本轮 **+21**：新文件
+  `llm_p4_protocols_test.dart` 22 例，`llm_tools_test.dart` 协议守卫组
+  3 例改 2 例）。
+- `flutter analyze` **No issues found**（零输出）。
+- 新增测试文件 1 个，改动 6 个既有文件（`llm_client` / `chat_agent` /
+  `chat_prompt` / `providers` / `llm_stream_test` / `llm_tools_test`）。
+  **没有 schema 变更**（仍是 v6），`app/pubspec.lock` 无 diff。
+- **变异测试**：把 `absorbUsage` 的 max 合并改成覆盖 → "输入 token 在
+  message_start 里，覆盖式合并会把它丢掉"那条立刻红；还原后全绿。
+
+### ⚠️ 未验证
+
+- **真机连通性**：两家的流式与工具往返只在假 HTTP 适配器上验证了协议形状
+  （帧序列、请求体、参数拼接）。没有真实 Key 跑过一次真请求 ——
+  官方文档的示例形状与实际响应**几乎总是一致**，但"几乎"不是"是"。
+  首次在真机上用 Claude / Gemini 对话时，若工具轮表现异常，
+  优先怀疑 `functionResponse` / `tool_result` 的配对方式。
+- **Gemini 参数分片**：按"一帧拿完"实现（理由见上），未做真实观测。
 
 ---
 
@@ -2031,3 +2112,8 @@ P2 的只读靠"每个工具只调本身不写库的方法"来保证。P3 要能
 | 2026-09-22 | 🐛 **修掉一个推理出来的竞态：确认结果会被收尾事件覆盖回去。** 写工具的提案在 `AgentToolEnd` 就到了界面上，`AgentDone` 紧随其后（毫秒级）。用户在这两个事件之间点下「确认」的话：执行器已经把改动写完了，而 `AgentDone` 带回来的那份 trace 里那张提案**还没有决定** —— 直接覆盖会让卡片退回"待确认"，用户再点一次就是**第二次写入**（组卷最明显：多出一份卷子）。修法是让 `_mergedWithDecisions` 只做单向合并：**已经决定的不会被覆盖回去**。这条没有稳定的复现手段，所以把合并逻辑写成了幂等形式，并且把"确认过一次之后按钮就没了"单独立了一条用例。 |
 | 2026-09-22 | 🧪 **写操作测试特意走"工具提议 → 执行器执行"这条路，而不是分别造数据测两半。** 因为这两半之间唯一的耦合就是 `ChatWriteProposal.payload` 的键名 —— 分别测能测出两半各自"看起来对"，而**接不上**正是最容易发生、也最难在真机上定位的一类错。安全底线单独立了一组：**四个写工具全跑一遍，断言 `problems_index` / `user_problem_state` / `review_logs` / `papers` 四张表的行数与题库目录的 `.md` 数量一个字节都没变**（用"数文件"而不是"数索引行"：`ProblemService.save` 先落文件再刷索引，只盯索引会漏掉中间态）。另有一组专门测"执行前重新校验"：提案可能在盘上躺了几天，这期间原题会被删 —— 改一道已经不存在的题**必须失败，而不是写出一份新的**。 |
 | 2026-09-22 | ✅ 验证：`flutter test` **1031 全绿**（P2 基线 991，本轮 **+40**：写操作层 31 + 对话页新增 9）；`flutter analyze` **No issues found**（零输出）。新增源文件 1 个（`chat_writes.dart` ~590 行）、测试文件 1 个（`chat_writes_test.dart` 31 例），改动 6 个既有文件（`chat_tools` / `chat_agent` / `chat_page` / `chat_prompt` / `providers` / `chat_page_test`）。⚠️ 界面测试里凡是会点「确认」的用例**都必须覆盖 `chatWriteExecutorProvider`**：真实执行器要碰文件系统与 asset，在 widget 测试的假时钟下**不是失败而是挂住**（与 P2 那 12 个用例同一个根因）；假执行器把三个加载器写成 `throw StateError('不该碰真实数据')`，真被调到就直接炸出来。 |
+| 2026-09-22 | 🌐 **对话助手 P4：Anthropic / Gemini 接上流式与工具**（四期至此收口）。两家各有几处"写错不报错、只是静默变错"的形状：Anthropic 的消息是**内容块数组**（空 `text` 块整条 400）、工具结果挂在下一条 user 消息的 `tool_result` 块里（连续多条必须合并，协议要求 user/assistant 交替）、参数 schema 的键是 `input_schema`；Gemini 的助手角色叫 `model`、工具声明包在 `functionDeclarations` 里、`functionResponse.response` 只收 **JSON 对象**（我们的工具返回 JSON 字符串，不解一层就 400）、流式必须 `streamGenerateContent?alt=sse`。**`functionResponse` 挂在 `role:user` 这一条是查证过官方 REST/JS 文档才写的** —— 旧 SDK 的 `role:"function"` 写法REST 不认。 |
+| 2026-09-22 | 🔀 **流式分帧按协议分派，骨架只有一份**：`_consumeFrame` 按 `spec.protocol` 分派三家各自的帧解析，缓冲 / 重试 / 记账仍由同一个 `chatStream` 承担。三处协议特有的坑堵在分帧层：①**Anthropic 的用量拆在两帧**（输入在 `message_start`、输出在 `message_delta`），覆盖式合并会丢掉先到的一半 —— `_StreamAcc` 改成**各字段取 max**（对另外两家的累计值而言取 max 与覆盖等价）；②**Anthropic 会在流中途发 error 事件**，忽略它上层只会报"没有文本内容"，真正的原因（过载）被吞掉 —— 现在原样抛出；③**Gemini 的工具调用不需要拼接**（每帧必须是完整合法 JSON，`args` 不可能切在半截），一帧拿完。⚠️ 若真遇到"大 args 分两帧"的行为（未观察到），这里会变成两个同名调用 —— 拿到真实样本再改，不猜。 |
+| 2026-09-22 | 🏷️ **工具结果回灌的两处关键**：①`ChatMessage` 新增 `toolError`（默认 false，普通消息编码结果与从前逐字节一致），agent 回灌时传 `!outcome.ok`，Anthropic 编码成 `tool_result.is_error` —— 模型看到标记会解释失败，而不是把报错文本当查询结果继续编；②Gemini 的 `functionResponse` 必须给**函数名**而 tool 消息上只有 id —— 名字从它前面那条 assistant 消息的 functionCall 里边走边记，记不到（消息链断裂，我们自己的 bug）直接抛异常说清楚，不让 Gemini 用一句 "function not found" 转述。 |
+| 2026-09-22 | 🚪 **能力判定收口**：`supportsStreaming` / `supportsTools` 三家已知协议全为真，为假只剩"服务商 id 不认识"；`chatStream` 入口那道"该协议不支持流式"的拦截随之拆除（已不可能触发）。两个 getter **仍然分开**——将来某家只实现其一时界面还要分别退。非流式 `chat()` 同样补上两家的工具解析（否则模型决定调工具的那一轮会以"响应里没有文本内容"报错——P2 在 OpenAI 上踩过同一个坑）。history 路径上的工具消息守卫**保留**：那条路是纯文本调用点，真出现工具消息说明链路写坏了。 |
+| 2026-09-22 | ✅ 验证：`flutter test` **1052 全绿**（P3 基线 1031，本轮 **+21**：新文件 `llm_p4_protocols_test.dart` 22 例，`llm_tools_test.dart` 协议守卫组 3 例改 2 例）；`flutter analyze` **No issues found**（零输出）。新增测试文件 1 个，改动 6 个既有文件（`llm_client` / `chat_agent` / `chat_prompt` / `providers` / `llm_stream_test` / `llm_tools_test`）。**没有 schema 变更**（仍是 v6），`app/pubspec.lock` 无 diff。**变异测试**：把 `absorbUsage` 的 max 合并改成覆盖 → "输入 token 在 message_start 里"那条立刻红；还原后全绿。⚠️ **未验证**：两家的真机连通性（只在假 HTTP 适配器上验证了协议形状，没有真实 Key 跑过一次真请求）；Gemini 参数分片按"一帧拿完"实现、未做真实观测 —— 首次真机使用若工具轮异常，优先怀疑 `functionResponse` / `tool_result` 的配对方式。 |

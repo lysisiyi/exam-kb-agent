@@ -8,8 +8,10 @@
 ///   少拼一片就是非法 JSON，而那种失败看起来很像"模型乱填参数"。
 /// - **"没有正文"不等于失败**。模型决定调工具的那一轮一个字都不产出，
 ///   早先这里会抛"流式响应里没有文本内容"，工具功能会整个失效。
-/// - **非 OpenAI 协议必须报错**，而不是把 OpenAI 的格式硬塞过去 ——
-///   后者会静默失败（模型收不到工具却照样回答）。
+/// - **非 OpenAI 协议的 history 路径必须报错**。P4 起显式消息列表
+///   （工具往返）在三家协议上都有真正的编码（见
+///   `llm_p4_protocols_test.dart`），但 history 这条纯文本路不认工具
+///   消息 —— 真出现说明消息链被写坏了，要拦下来。
 library;
 
 import 'dart:convert';
@@ -240,24 +242,8 @@ void main() {
   });
 
   // ───────────────────────────────────────────────────────────────────────────
-  group('协议守卫：只有 OpenAI 兼容能传工具', () {
-    test('Anthropic + tools → 直接报错，且说清怎么办', () async {
-      final http = _Http(sends: []);
-      await expectLater(
-        _client(http, provider: 'anthropic', model: 'claude-3-5-sonnet')
-            .chat(const ChatRequest(system: 's', user: 'u', tools: [_tool])),
-        throwsA(
-          isA<LlmException>().having(
-            (e) => e.message,
-            'message',
-            allOf(contains('不支持工具调用'), contains('设置')),
-          ),
-        ),
-      );
-      expect(http.requests, isEmpty, reason: '拦在编码前，请求根本不该发出去');
-    });
-
-    test('Anthropic + 历史里有工具消息 → 也报错（那是已经在对话里的内容）', () async {
+  group('协议守卫：非 OpenAI 协议的 history 路径不能回灌工具', () {
+    test('Anthropic + 历史里有工具消息 → 报错（那是已经在对话里的内容）', () async {
       final http = _Http(sends: []);
       await expectLater(
         _client(http, provider: 'anthropic', model: 'claude-3-5-sonnet').chat(
@@ -271,15 +257,23 @@ void main() {
         ),
         throwsA(isA<LlmException>()),
       );
+      expect(http.requests, isEmpty, reason: '拦在编码前，请求根本不该发出去');
     });
 
-    test('supportsTools 只在 OpenAI 兼容协议上为真', () {
+    test('supportsTools：已知服务商都为真，未知服务商为假', () {
+      // P4 起三家协议都实现了工具（形状各异，见 llm_p4_protocols_test.dart）
       expect(_client(_Http()).supportsTools, isTrue);
+      expect(
+        _client(_Http(), provider: 'anthropic', model: 'claude-3-5-sonnet')
+            .supportsTools,
+        isTrue,
+      );
       expect(
         _client(_Http(), provider: 'gemini', model: 'gemini-2.0-flash')
             .supportsTools,
-        isFalse,
+        isTrue,
       );
+      expect(_client(_Http(), provider: 'nope').supportsTools, isFalse);
     });
   });
 

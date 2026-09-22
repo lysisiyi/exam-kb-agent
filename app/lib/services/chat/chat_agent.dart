@@ -236,8 +236,15 @@ class ChatAgent {
         // 让模型自己决定是换个方式再查，还是如实告诉用户"我查不到"。
         // 悄悄吞掉失败会让它以为查到了 0 条，然后说"你没有这方面的错题" ——
         // 那是一句**看起来很确定**的假话。
+        // ⚠️ 失败要带上标记（Anthropic 的 is_error 会用它）：带着标记，
+        // 模型把它当"一次失败的尝试"来解释；不带，它可能把报错文本
+        // 当成查询结果继续编。
         live.add(
-          ChatMessage.tool(toolCallId: call.id, content: outcome.content),
+          ChatMessage.tool(
+            toolCallId: call.id,
+            content: outcome.content,
+            toolError: !outcome.ok,
+          ),
         );
       }
 

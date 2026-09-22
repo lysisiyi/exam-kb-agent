@@ -506,26 +506,41 @@ class ChatMessage {
   /// 少了它，多个结果就分不清谁是谁的。
   final String? toolCallId;
 
+  /// 这条工具结果**是不是失败**。仅 [ChatRole.tool] 有意义。
+  ///
+  /// Anthropic 的 `tool_result` 有 `is_error` 标记，模型看到它会换一种
+  /// 反应（解释失败、换个方式再试），而不是把错误文本当成查询结果
+  /// 继续往下编。Gemini 与 OpenAI 没有这个标记 —— 那两家忽略它，
+  /// 行为与从前一致。
+  ///
+  /// 默认 false，且非 tool 消息上恒为 false：普通消息的编码结果
+  /// 与加这个字段之前逐字节一致。
+  final bool toolError;
+
   const ChatMessage({
     required this.role,
     required this.content,
     this.toolCalls = const [],
     this.toolCallId,
+    this.toolError = false,
   });
 
   const ChatMessage.user(this.content)
       : role = ChatRole.user,
         toolCalls = const [],
-        toolCallId = null;
+        toolCallId = null,
+        toolError = false;
 
   const ChatMessage.assistant(this.content, {this.toolCalls = const []})
       : role = ChatRole.assistant,
-        toolCallId = null;
+        toolCallId = null,
+        toolError = false;
 
   /// 一条工具执行结果。
   const ChatMessage.tool({
     required this.toolCallId,
     required this.content,
+    this.toolError = false,
   })  : role = ChatRole.tool,
         toolCalls = const [];
 
@@ -567,6 +582,33 @@ class ToolSpec {
           'description': description,
           'parameters': parameters,
         },
+      };
+
+  /// 编码成 Anthropic 的 tools 数组元素。
+  ///
+  /// 与 OpenAI 的差别在两处：没有外层的 `type: 'function'` 包装；
+  /// 参数 schema 的键叫 `input_schema` 而不是 `parameters`。
+  /// 键名写错不会 400 —— Anthropic 会把不认识的工具当成没有声明，
+  /// 模型于是开始编参数。那是"看起来在工作"的失败，最难查。
+  Map<String, dynamic> toAnthropicJson() => {
+        'name': name,
+        'description': description,
+        'input_schema': parameters,
+      };
+
+  /// 编码成 Gemini 的 functionDeclarations 元素。
+  ///
+  /// ## Gemini 的参数 schema 是 OpenAPI 子集
+  ///
+  /// 它不认 `additionalProperties`、`$schema` 这类键 —— 好在
+  /// `chat_tools.dart` 里的工具只用 type / properties / required /
+  /// description，都在它认得的范围内，所以这里直接透传。
+  /// ⚠️ 将来给某个工具加 schema 字段时，要回头检查这一层：
+  /// 传了不认识的键，Gemini 是**拒绝整个请求**（400），不是忽略该键。
+  Map<String, dynamic> toGeminiJson() => {
+        'name': name,
+        'description': description,
+        'parameters': parameters,
       };
 }
 
@@ -688,13 +730,13 @@ class ChatRequest {
   /// 于是既有的十来个纯文本调用点完全不受影响，也不会因为多传一个
   /// 服务商不认的字段而 400。
   ///
-  /// ## 只有 OpenAI 兼容协议能传
+  /// ## 三家的格式互不相同
   ///
-  /// Anthropic / Gemini 的工具格式与 OpenAI **完全不同**
-  /// （`tools` 的 schema 形状、工具结果的承载方式都不一样）。
-  /// 硬套 OpenAI 格式的结果是模型收不到工具却也不报错，
-  /// 于是它开始凭空编参数。所以 [_buildRequest] 里直接拦下来报错，
-  /// 而不是试着"通用化"。另两家留到 P4。
+  /// OpenAI 是 `tools` + `tool` 角色；Anthropic 是 `tools[].input_schema`
+  /// + user 消息里的 `tool_result` 块；Gemini 是 `functionDeclarations`
+  /// + `functionResponse` 部分。把 OpenAI 的形状原样发给另外两家，
+  /// 结果不是 400 而是模型收不到工具却仍被要求"根据工具结果回答" ——
+  /// 它会开始编。所以三家的编码各自实现，绝不通用化（P4 起）。
   final List<ToolSpec> tools;
 
   const ChatRequest({
@@ -920,25 +962,23 @@ class LlmClient {
 
   /// 当前服务商是否支持流式输出。
   ///
-  /// 暂时只有 OpenAI 兼容协议。Anthropic 与 Gemini 的 SSE 格式完全不同
-  /// （Anthropic 走 `content_block_delta` 事件流，Gemini 要 `alt=sse`
-  /// 且把文本埋在 `candidates[].content.parts[]` 里），
-  /// 是单独一期的事 —— 见 `docs/PROGRESS.md` 的对话助手分期。
-  ///
-  /// 调用方（对话页）应当先问这个，不支持时退回非流式的 [chat]，
-  /// 而不是走到 [chatStream] 里撞一个异常。
-  bool get supportsStreaming =>
-      config.spec?.protocol == LlmProtocol.openAiCompatible;
+  /// P4 起三家协议都实现了流式：OpenAI 兼容的 `delta` 帧、
+  /// Anthropic 的 `content_block_delta` 事件流、Gemini 的
+  /// `streamGenerateContent?alt=sse`。返回 false 只剩一种情形 ——
+  /// 服务商 id 不认识（spec 为 null），那时普通请求也发不出去。
+  bool get supportsStreaming => config.spec != null;
 
   /// 这个服务商能不能用工具（function calling）。
   ///
-  /// 与 [supportsStreaming] 是同一批（都只有 OpenAI 兼容协议）。
-  /// 分开两个 getter 而不是合成一个，是因为它们**将来会不同**：
-  /// P4 要给 Anthropic / Gemini 补的是"流式**与**工具"两件事，
-  /// 而补的过程中很可能出现"流式好了、工具还没好"的中间状态 ——
-  /// 那时界面该退回非流式对话，却仍不该把工具按钮点亮。
-  bool get supportsTools =>
-      config.spec?.protocol == LlmProtocol.openAiCompatible;
+  /// P4 起三家都能，但三家的形状互不相同：OpenAI 是 `tools` +
+  /// `tool` 角色；Anthropic 是 `tools[].input_schema` + user 消息里的
+  /// `tool_result` 块；Gemini 是 `functionDeclarations` +
+  /// `functionResponse` 部分。
+  ///
+  /// 与 [supportsStreaming] **仍然分开两个 getter** 而不是合成一个：
+  /// 将来若某家只实现了其中一样（比如流式好了、工具还没接），
+  /// 界面还要分别退 —— 合并了就退不干净。
+  bool get supportsTools => config.spec != null;
 
   /// 发送一次**流式**请求，逐段吐出模型新增的文本。
   ///
@@ -963,13 +1003,9 @@ class LlmClient {
   Stream<ChatStreamEvent> chatStream(ChatRequest request) async* {
     final spec = config.spec;
     if (spec == null) {
+      // 这里拦的是"服务商 id 不认识"，不是"该协议不支持流式" ——
+      // P4 起三家已知协议都有流式实现。
       throw const LlmException(LlmErrorKind.invalidKey, '未知的服务商');
-    }
-    if (!supportsStreaming) {
-      throw LlmException(
-        LlmErrorKind.badRequest,
-        '${spec.label} 走的 ${spec.protocol.name} 协议还不支持流式输出。',
-      );
     }
 
     Object? lastError;
@@ -1059,9 +1095,14 @@ class LlmClient {
 
       // 记账放在这里：与 [chat] 同理，内容不可用也一样计费 ——
       // 但"完全没有文本"那种我们刚抛了错，那一笔在服务商侧通常也不计费。
+      // ⚠️ 两项都是 0 时按"没拿到用量"处理（const LlmUsage，cost 为
+      // null，界面显示"未知"），不能算成"花了 0 元" —— 那是假账。
+      final usage = (acc.usageIn == 0 && acc.usageOut == 0)
+          ? const LlmUsage()
+          : _usage(acc.usageIn, acc.usageOut);
       if (onUsage != null) {
         try {
-          onUsage!(acc.usage);
+          onUsage!(usage);
         } catch (_) {
           // 记账是旁路，绝不能影响对话本身的成败
         }
@@ -1069,7 +1110,7 @@ class LlmClient {
 
       yield ChatDone(ChatResponse(
         text: acc.text.toString(),
-        usage: acc.usage,
+        usage: usage,
         providerId: config.providerId,
         attempts: attempt,
         finishReason: acc.finishReason.isEmpty ? null : acc.finishReason,
@@ -1088,6 +1129,11 @@ class LlmClient {
   ///
   /// 返回 null 表示这帧没有文本可吐 —— 心跳、只有 usage 的收尾帧、
   /// `[DONE]` 都属于此类。**它们不是错误**，只是没什么可说的。
+  ///
+  /// 分帧逻辑按协议分派：三家的"一帧长什么样"完全不同
+  /// （见 [_consumeOpenAiFrame] / [_consumeAnthropicFrame] /
+  /// [_consumeGeminiFrame]），但缓冲、重试、记账的骨架是同一个
+  /// [chatStream] —— 只有这一层该知道三家的区别。
   String? _consumeFrame(String payload, _StreamAcc acc) {
     if (payload == '[DONE]') {
       acc.sawDone = true;
@@ -1103,27 +1149,204 @@ class LlmClient {
     final decoded = _tryJsonMap(payload);
     if (decoded == null) return null;
 
+    return switch (config.spec?.protocol) {
+      LlmProtocol.anthropic => _consumeAnthropicFrame(decoded, acc),
+      LlmProtocol.gemini => _consumeGeminiFrame(decoded, acc),
+      _ => _consumeOpenAiFrame(decoded, acc),
+    };
+  }
+
+  /// OpenAI 兼容协议的一帧（覆盖 DeepSeek / 通义 / 智谱等）。
+  String? _consumeOpenAiFrame(Map<dynamic, dynamic> j, _StreamAcc acc) {
     // 停止原因与用量可能出现在任意一帧（多数服务商放在最后一帧）。
     // ⚠️ 它们必须在 delta 分支**之外**判断：OpenAI 会先发一帧
     // `choices: []` 而只有 usage 的收尾帧，那种帧的 delta 是 null，
     // 挂在 delta 里就会把用量整个漏掉。
-    final fr = _extractFinishReason(decoded, LlmProtocol.openAiCompatible);
+    final fr = _extractFinishReason(j, LlmProtocol.openAiCompatible);
     if (fr != null && fr.isNotEmpty) acc.finishReason = fr;
-    final u = _extractUsage(decoded);
-    if (u.totalTokens > 0) acc.usage = u;
+    final u = _extractUsage(j);
+    acc.absorbUsage(u.inputTokens, u.outputTokens);
 
     // 工具调用分片。要在取文本**之前**处理：两者互斥
     // （同一帧不会既有正文又有工具分片），但工具分片会横跨很多帧，
     // 少过一帧就少一段参数 JSON，而那种残缺是**静默**的 ——
     // 参数解析失败的报错长得很像"模型乱填参数"。
-    _mergeToolDeltas(decoded, acc);
+    _mergeToolDeltas(j, acc);
 
-    final delta = _openAiDelta(decoded);
+    final delta = _openAiDelta(j);
     if (delta == null || delta.isEmpty) return null;
 
     acc.gotText = true;
     acc.text.write(delta);
     return delta;
+  }
+
+  /// Anthropic Messages 事件流的一帧。
+  ///
+  /// Anthropic 的流不是"一帧一个 delta"，而是**带类型的分幕**：
+  /// 每个内容块先 `content_block_start`（拿到块类型；工具调用在这里
+  /// 给出 id 与名字），再若干次 `content_block_delta`（文本或参数
+  /// JSON 分片），最后 `content_block_stop`。工具分片按**内容块
+  /// 序号**（`index`）归位 —— 与 OpenAI 的 `tool_calls[].index`
+  /// 是同一个思路，只是键的位置不同。
+  String? _consumeAnthropicFrame(Map<dynamic, dynamic> j, _StreamAcc acc) {
+    final type = j['type']?.toString();
+
+    // ⚠️ Anthropic 会在流**中途**发 error 事件（overloaded / api_error）。
+    // 忽略它的话，上层只会看到"流结束了但没内容"，报错变成
+    // "响应里没有文本内容" —— 真正的原因（服务过载）被吞掉。
+    if (type == 'error') {
+      final err = j['error'];
+      final msg = err is Map
+          ? (err['message']?.toString() ?? err['type']?.toString() ?? '')
+          : '';
+      throw LlmException(
+        LlmErrorKind.badResponse,
+        '流式响应中途报错：${msg.isEmpty ? '未知错误' : msg}',
+        rawBody: _truncate(acc.lastPayload),
+      );
+    }
+
+    switch (type) {
+      case 'message_start':
+        // 输入 token 在这里给（此刻输出还是占位的 1）
+        final message = j['message'];
+        if (message is Map) {
+          final u = message['usage'];
+          if (u is Map) {
+            acc.absorbUsage(
+              (u['input_tokens'] as num?)?.toInt() ?? 0,
+              (u['output_tokens'] as num?)?.toInt() ?? 0,
+            );
+          }
+        }
+        return null;
+      case 'content_block_start':
+        final block = j['content_block'];
+        if (block is Map && block['type'] == 'tool_use') {
+          final slot = acc.toolCalls.putIfAbsent(
+            (j['index'] as num?)?.toInt() ?? acc.toolCalls.length,
+            _ToolCallAcc.new,
+          );
+          final id = block['id'];
+          if (id is String && id.isNotEmpty) slot.id = id;
+          final name = block['name'];
+          if (name is String && name.isNotEmpty) slot.name = name;
+        }
+        return null;
+      case 'content_block_delta':
+        final delta = j['delta'];
+        if (delta is! Map) return null;
+        switch (delta['type']) {
+          case 'text_delta':
+            final text = delta['text']?.toString() ?? '';
+            if (text.isEmpty) return null;
+            acc.gotText = true;
+            acc.text.write(text);
+            return text;
+          case 'input_json_delta':
+            // 参数 JSON 分片，按内容块序号拼接 —— 拼不完整就不是合法
+            // JSON，所以 [ToolCall] 照旧在整条流结束后才构造。
+            final slot = acc.toolCalls.putIfAbsent(
+              (j['index'] as num?)?.toInt() ?? acc.toolCalls.length,
+              _ToolCallAcc.new,
+            );
+            final piece = delta['partial_json'];
+            if (piece is String) slot.arguments.write(piece);
+            return null;
+          default:
+            // thinking_delta / signature_delta 等：不是正文，忽略。
+            // 若把 thinking 当正文吐出去，用户会看到模型的内心独白。
+            return null;
+        }
+      case 'message_delta':
+        final delta = j['delta'];
+        if (delta is Map) {
+          final stop = delta['stop_reason']?.toString();
+          if (stop != null && stop.isNotEmpty) acc.finishReason = stop;
+        }
+        // 输出 token 在这里给（累计值）
+        final u = j['usage'];
+        if (u is Map) {
+          acc.absorbUsage(
+            (u['input_tokens'] as num?)?.toInt() ?? 0,
+            (u['output_tokens'] as num?)?.toInt() ?? 0,
+          );
+        }
+        return null;
+      default:
+        // ping / content_block_stop / message_stop：没有增量
+        return null;
+    }
+  }
+
+  /// Gemini SSE 的一帧（`alt=sse` 下每个 `data:` 是一个完整响应对象）。
+  ///
+  /// 与 OpenAI 不同，Gemini **没有 delta 包装**：每帧的
+  /// `candidates[].content.parts[]` 里放的就是这段新增的内容。
+  /// 文本在 `parts[].text`；工具调用在 `parts[].functionCall`。
+  ///
+  /// ## 为什么 Gemini 的工具调用不需要"拼接"
+  ///
+  /// 每帧都必须是完整合法的 JSON，所以 `args`（结构化对象）不可能被
+  /// 切在半截 —— 一个 functionCall 就是一帧内拿完的。因此这里直接
+  /// `jsonEncode` 成参数串，不需要 OpenAI 那种跨帧拼接。
+  /// ⚠️ 若将来真遇到"一个大 args 分两帧"的服务商行为（未观察到），
+  /// 这里会变成两个同名调用 —— 那时要改成按名字拼接，先拿到真实
+  /// 样本再动手，不猜。
+  String? _consumeGeminiFrame(Map<dynamic, dynamic> j, _StreamAcc acc) {
+    // 流中途的业务错误（Key 错、参数不合法、被安全策略拦下）
+    final err = j['error'];
+    if (err is Map) {
+      final msg = err['message']?.toString() ?? '';
+      throw LlmException(
+        LlmErrorKind.badResponse,
+        '流式响应中途报错：${msg.isEmpty ? '未知错误' : msg}',
+        rawBody: _truncate(acc.lastPayload),
+      );
+    }
+
+    final fr = _extractFinishReason(j, LlmProtocol.gemini);
+    if (fr != null && fr.isNotEmpty) acc.finishReason = fr;
+    final u = _extractUsage(j);
+    acc.absorbUsage(u.inputTokens, u.outputTokens);
+
+    final candidates = j['candidates'];
+    if (candidates is! List || candidates.isEmpty) return null;
+    final first = candidates.first;
+    if (first is! Map) return null;
+    final content = first['content'];
+    if (content is! Map) return null;
+    final parts = content['parts'];
+    if (parts is! List) return null;
+
+    var textOut = '';
+    var nextSlot = acc.toolCalls.length;
+    for (final raw in parts) {
+      if (raw is! Map) continue;
+      final call = raw['functionCall'];
+      if (call is Map) {
+        // 一帧内的多个调用各占一个槽位；Gemini 不给调用 id 时
+        // buildToolCalls 会按槽位序合成占位 id。
+        final slot = acc.toolCalls.putIfAbsent(nextSlot++, _ToolCallAcc.new);
+        final id = call['id'];
+        if (id is String && id.isNotEmpty) slot.id = id;
+        final name = call['name'];
+        if (name is String && name.isNotEmpty) slot.name = name;
+        final args = call['args'];
+        if (args != null) slot.arguments.write(jsonEncode(args));
+        continue;
+      }
+      final piece = raw['text'];
+      if (piece is String && piece.isNotEmpty) {
+        textOut += piece;
+      }
+    }
+
+    if (textOut.isEmpty) return null;
+    acc.gotText = true;
+    acc.text.write(textOut);
+    return textOut;
   }
 
   /// 把一帧里的 `delta.tool_calls` 并进累积器。
@@ -1225,36 +1448,18 @@ class LlmClient {
       throw const LlmException(LlmErrorKind.invalidKey, '未知的服务商');
     }
 
-    // ⚠️ 工具调用的**唯一**拦截点。
+    // ⚠️ `history` 路径上若夹着工具消息，非 OpenAI 协议依然要拦。
     //
-    // 拦在编码之前而不是让三家编码各自处理，理由是三家的工具格式
-    // 差异太大：OpenAI 是 `tools` + `tool` 角色，Anthropic 是
-    // `tools` + user 消息里的 `tool_result` 块，Gemini 是
-    // `functionDeclarations` + `functionResponse`。任何"通用化"的尝试
-    // 都会变成三个半成品。
-    //
-    // 更要紧的是**失败方式**：如果只是把 OpenAI 格式原样发给 Anthropic，
-    // 它多半会忽略不认识的字段并照常回答 —— 于是模型收不到工具、
-    // 却仍然被要求"根据工具结果回答"。它会开始编。这属于
-    // "看起来在工作"的问题，比直接报错难查得多。
-    if (req.hasTools && spec.protocol != LlmProtocol.openAiCompatible) {
-      throw LlmException(
-        LlmErrorKind.badRequest,
-        '${spec.label} 走的 ${spec.protocol.name} 协议还不支持工具调用。'
-        '要让它读你的题库，请先在「设置」里换成 OpenAI 兼容的服务商'
-        '（DeepSeek / 通义 / 智谱 / OpenAI 等）。',
-      );
-    }
-
-    // 历史里若夹着工具消息（上一轮工具往返的回灌），同理不能送错协议。
-    // 这类消息比 `tools` 字段更危险：它是**已经在对话里**的内容，
-    // 漏掉它会让模型看不到自己刚要过什么，从而重复调用或凭空作答。
+    // P4 起显式消息列表（工具往返走的路）在三家协议上都有真正的编码；
+    // 但 history 这条路是给批量导入 / 标注 / 组题等**纯文本**调用点的，
+    // 那些调用点本来就不会有工具消息 —— 真出现了说明消息链被写坏了，
+    // 拦下来比让编码器猜要好。
     if (spec.protocol != LlmProtocol.openAiCompatible &&
         req.history.any((m) => m.role == ChatRole.tool || m.hasToolCalls)) {
       throw LlmException(
         LlmErrorKind.badRequest,
-        '这段对话里包含工具调用记录，而 ${spec.label} 的协议还不支持回灌它们。'
-        '请换成 OpenAI 兼容的服务商，或新开一段对话。',
+        '这段对话的历史里包含工具调用记录，而 ${spec.label} 的历史消息'
+        '编码不支持回灌它们。请换成 OpenAI 兼容的服务商，或新开一段对话。',
       );
     }
 
@@ -1270,10 +1475,8 @@ class LlmClient {
 
     return switch (spec.protocol) {
       LlmProtocol.openAiCompatible => _buildOpenAi(req, spec, stream: stream),
-      // Anthropic / Gemini 目前只有非流式。[LlmClient.chatStream] 在入口
-      // 就按 `supportsStreaming` 挡掉了，所以走不到这里。
-      LlmProtocol.anthropic => _buildAnthropic(req),
-      LlmProtocol.gemini => _buildGemini(req),
+      LlmProtocol.anthropic => _buildAnthropic(req, stream: stream),
+      LlmProtocol.gemini => _buildGemini(req, stream: stream),
     };
   }
 
@@ -1426,30 +1629,124 @@ class LlmClient {
   }
 
   /// Anthropic Messages API。
-  HttpRequest _buildAnthropic(ChatRequest req) {    // Anthropic 把 system 放在顶层字段而非 messages 里
+  ///
+  /// ## P4 起支持工具往返
+  ///
+  /// Anthropic 的消息不是"一条字符串"，而是**内容块数组**：
+  /// 助手的话是 `text` 块，它要调的工具是 `tool_use` 块；工具结果
+  /// 不是独立角色，而是**下一条 user 消息里的 `tool_result` 块**。
+  /// 连续多条工具结果必须合并进**同一条** user 消息（多个
+  /// `tool_result` 块）—— Anthropic 要求 user / assistant 交替，
+  /// 拆成两条相邻的 user 会 400。
+  HttpRequest _buildAnthropic(ChatRequest req, {bool stream = false}) {
+    // Anthropic 把 system 放在顶层字段而非 messages 里（放进去会 400）。
     final body = <String, dynamic>{
       'model': config.model,
       'system': req.system,
-      'messages': [
-        // 工具在这条协议上被 [_buildRequest] 挡住了，所以这里不会出现
-        // tool 角色或 tool_calls —— 只需按普通消息展开。
-        if (req.hasExplicitMessages)
-          for (final m in req.messages)
-            {'role': m.role.name, 'content': m.content}
-        else ...[
-          for (final m in req.history)
-            {'role': m.role.name, 'content': m.content},
-          {'role': 'user', 'content': _anthropicUserContent(req)},
-        ],
-      ],
+      'messages': _anthropicMessages(req),
       'temperature': req.temperature,
+      // max_tokens 在这条协议上是**必填**（没有"不限"的写法），
+      // 请求没给时给保守默认，而不是指望服务商兜底。
       'max_tokens': _clampMaxTokens(req.maxTokens ?? 4096),
+      if (stream) 'stream': true,
+      // 工具。为空时这个键不出现 —— 与 OpenAI 同一策略。
+      if (req.hasTools)
+        'tools': [for (final t in req.tools) t.toAnthropicJson()],
     };
     return HttpRequest(
       url: '${config.baseUrl}/messages',
       headers: config.headers(),
       body: jsonEncode(body),
     );
+  }
+
+  /// 把请求里的消息展开成 Anthropic 的 messages 数组。
+  ///
+  /// ## 两条路，工具结果的去处不同
+  ///
+  /// - **显式消息列表**（工具往返）：tool 消息累积成 `tool_result` 块，
+  ///   在下一条非 tool 消息出现前 flush 成一条 user 消息。
+  /// - **history**（纯文本调用点：批量导入 / 标注 / 组题）：按普通文本
+  ///   展开，输出与引入工具之前**逐字节一致** —— 历史里夹工具消息
+  ///   已被 [_buildRequest] 拦住，这里不会遇到 tool 角色。
+  List<Map<String, dynamic>> _anthropicMessages(ChatRequest req) {
+    final out = <Map<String, dynamic>>[];
+    final results = <Map<String, dynamic>>[];
+
+    void flushResults() {
+      if (results.isEmpty) return;
+      out.add({
+        'role': 'user',
+        'content': List<Map<String, dynamic>>.of(results),
+      });
+      results.clear();
+    }
+
+    if (req.hasExplicitMessages) {
+      for (final m in req.messages) {
+        if (m.role == ChatRole.tool) {
+          results.add(_anthropicToolResult(m));
+          continue;
+        }
+        flushResults();
+        final blocks = _anthropicBlocks(m);
+        // 空消息没有可说的，跳过比发一个空 content 好
+        if (blocks.isNotEmpty) {
+          out.add({'role': m.role.name, 'content': blocks});
+        }
+      }
+      flushResults();
+      return out;
+    }
+
+    for (final m in req.history) {
+      if (m.role == ChatRole.tool) {
+        results.add(_anthropicToolResult(m));
+        continue;
+      }
+      flushResults();
+      out.add({'role': m.role.name, 'content': m.content});
+    }
+    flushResults();
+    out.add({'role': 'user', 'content': _anthropicUserContent(req)});
+    return out;
+  }
+
+  /// 一条非 tool 消息 → Anthropic 的内容块数组。
+  List<Map<String, dynamic>> _anthropicBlocks(ChatMessage m) {
+    final blocks = <Map<String, dynamic>>[];
+    // ⚠️ 空文本块会被 Anthropic 整条拒绝（"text content blocks must be
+    // non-empty"）。决定调工具的那一轮通常一个字都没有 —— 只有真有话
+    // 时才放 text 块，不能图省事发个空串。
+    if (m.content.isNotEmpty) {
+      blocks.add({'type': 'text', 'text': m.content});
+    }
+    for (final c in m.toolCalls) {
+      blocks.add({
+        'type': 'tool_use',
+        'id': c.id,
+        'name': c.name,
+        // input 必须是 JSON 对象。参数解析失败时给空对象，让模型从
+        // "工具说缺参数"里得知，而不是整个请求 400。
+        'input': c.parsed ?? const <String, dynamic>{},
+      });
+    }
+    return blocks;
+  }
+
+  /// 一条工具结果 → Anthropic 的 `tool_result` 块。
+  Map<String, dynamic> _anthropicToolResult(ChatMessage m) {
+    return {
+      'type': 'tool_result',
+      // 空 id 也要给键：缺键 400，空串至少能让报错定位到"少了 id"
+      'tool_use_id': m.toolCallId ?? '',
+      // 空结果给一句明确的占位：空块可能被拒，而且"空"与"没拿到"
+      // 对模型是两回事 —— 写清楚它就不会自己编一个结果出来。
+      'content': m.content.isEmpty ? '（工具没有返回内容）' : m.content,
+      // 失败要标记出来：模型看到 is_error 会解释失败、换个方式再试，
+      // 而不是把报错文本当成查询结果继续往下编。
+      if (m.toolError) 'is_error': true,
+    };
   }
 
   Object _anthropicUserContent(ChatRequest req) {
@@ -1472,59 +1769,166 @@ class LlmClient {
     return blocks;
   }
 
-  /// Google Gemini generateContent。
-  HttpRequest _buildGemini(ChatRequest req) {
+  /// Google Gemini generateContent / streamGenerateContent。
+  ///
+  /// ## P4 起支持工具往返
+  ///
+  /// 工具声明包在 `tools[0].functionDeclarations` 里；模型要调工具时
+  /// 在 `parts` 里回 `functionCall`，结果用 `functionResponse` 送回。
+  /// 请求体的其余部分（systemInstruction / generationConfig /
+  /// contents 的形状）与工具无关 —— 为空时与从前逐字节一致。
+  HttpRequest _buildGemini(ChatRequest req, {bool stream = false}) {
     final body = <String, dynamic>{
       'systemInstruction': {
         'parts': [
           {'text': req.system},
         ],
       },
-      'contents': [
-        // 显式消息列表优先（工具往返走的这条）。Gemini 上工具被拦掉了，
-        // 所以这里不会有 tool 角色 —— 走到 `geminiName` 的 tool 分支
-        // 说明拦截失效了，那正是它抛异常要提示的事。
-        if (req.hasExplicitMessages)
-          for (final m in req.messages)
-            {
-              'role': m.role.geminiName,
-              'parts': [
-                {'text': m.content},
-              ],
-            }
-        else ...[
-          // ⚠️ Gemini 的助手角色是 `model` 而不是 `assistant` ——
-          // 写成 assistant 不会报参数错，而是被当成未知角色处理，
-          // 表现为"模型完全不记得上一轮说过什么"。
-          for (final m in req.history)
-            {
-              'role': m.role.geminiName,
-              'parts': [
-                {'text': m.content},
-              ],
-            },
-          {
-            'role': 'user',
-            'parts': _geminiParts(req),
-          },
-        ],
-      ],
+      'contents': _geminiContents(req),
       'generationConfig': {
         'temperature': req.temperature,
         if (req.maxTokens != null)
           'maxOutputTokens': _clampMaxTokens(req.maxTokens!),
         if (req.jsonMode) 'responseMimeType': 'application/json',
       },
+      // Gemini 的工具声明要包一层 Tool 对象（functionDeclarations 是
+      // 它的字段），不像 OpenAI / Anthropic 那样直接是声明数组。
+      if (req.hasTools)
+        'tools': [
+          {
+            'functionDeclarations': [
+              for (final t in req.tools) t.toGeminiJson(),
+            ],
+          },
+        ],
     };
 
-    // Gemini 的 Key 走 query 参数
+    // Key 走 query 参数。流式必须显式要 `alt=sse` —— 不加的话返回的
+    // 是一个一次性给完的 JSON 数组，不是 SSE，SseParser 一行都切不出来。
     final sep = config.baseUrl.contains('?') ? '&' : '?';
+    final method =
+        stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
     return HttpRequest(
-      url: '${config.baseUrl}/models/${config.model}:generateContent'
+      url: '${config.baseUrl}/models/${config.model}:$method'
           '${sep}key=${Uri.encodeQueryComponent(config.apiKey)}',
       headers: config.headers(),
       body: jsonEncode(body),
     );
+  }
+
+  /// 把请求里的消息展开成 Gemini 的 contents 数组。
+  ///
+  /// ## 工具结果在 Gemini 里是 `functionResponse`，不是角色
+  ///
+  /// 官方 REST / JS 示例把 functionResponse 放在 **role: user** 的
+  /// content 里（`role: "function"` 是旧 SDK 的写法，REST 不认）。
+  /// 连续多条工具结果合并进同一条 user 消息的多个 parts —— 与
+  /// Anthropic 同理，Gemini 也要求 user / model 交替。
+  ///
+  /// ## `response` 必须是 JSON **对象**
+  ///
+  /// functionResponse 的 `response` 字段只收对象，而我们的工具返回的是
+  /// JSON **字符串** —— 直接塞进去会 400。所以这里解一层：能解析成
+  /// 对象就原样给；是数组或根本不是 JSON，就包一层 `{'result': ...}`，
+  /// 让模型至少还能读到原文。
+  List<Map<String, dynamic>> _geminiContents(ChatRequest req) {
+    final out = <Map<String, dynamic>>[];
+    final results = <Map<String, dynamic>>[];
+
+    void flushResults() {
+      if (results.isEmpty) return;
+      out.add({'role': 'user', 'parts': List.of(results)});
+      results.clear();
+    }
+
+    // functionResponse 必须给**函数名**，而 tool 消息上只有调用 id。
+    // 名字就在它前面那条 assistant 消息的 functionCall 里 —— 边走边记。
+    final nameOf = <String, String>{};
+
+    void addMessage(ChatMessage m) {
+      if (m.role == ChatRole.tool) {
+        final id = m.toolCallId ?? '';
+        final name = nameOf[id];
+        if (name == null) {
+          // 走到这里说明消息链断了（tool 结果前面没有声明这次调用的
+          // assistant 消息）。是我们自己的 bug，要炸得说清楚，
+          // 不能让 Gemini 用一句"function not found"来转述。
+          throw LlmException(
+            LlmErrorKind.badRequest,
+            '工具调用链断裂：找不到 $id 对应的函数名，无法编码成 functionResponse。',
+          );
+        }
+        results.add({
+          'functionResponse': {
+            'name': name,
+            'response': _geminiResponseObject(m.content),
+          },
+        });
+        return;
+      }
+      flushResults();
+      final parts = <Map<String, dynamic>>[
+        if (m.content.isNotEmpty) {'text': m.content},
+        for (final c in m.toolCalls) ...[
+          {
+            'functionCall': {
+              'name': c.name,
+              // args 必须是对象；解析失败给空对象，理由同 Anthropic 的 input
+              'args': c.parsed ?? const <String, dynamic>{},
+            },
+          },
+        ],
+      ];
+      for (final c in m.toolCalls) {
+        nameOf[c.id] = c.name;
+      }
+      // 空消息没有可说的，跳过
+      if (parts.isNotEmpty) {
+        out.add({'role': m.role.geminiName, 'parts': parts});
+      }
+    }
+
+    if (req.hasExplicitMessages) {
+      for (final m in req.messages) {
+        addMessage(m);
+      }
+      flushResults();
+      return out;
+    }
+
+    for (final m in req.history) {
+      // history 路径上不该出现工具消息（见 _buildRequest 的拦截）；
+      // 真出现时走同一条编码，比静默丢掉工具记录好。
+      if (m.role == ChatRole.tool || m.hasToolCalls) {
+        addMessage(m);
+        continue;
+      }
+      out.add({
+        'role': m.role.geminiName,
+        'parts': [
+          {'text': m.content},
+        ],
+      });
+    }
+    out.add({'role': 'user', 'parts': _geminiParts(req)});
+    return out;
+  }
+
+  /// 工具返回文本 → Gemini `functionResponse.response` 要求的对象。
+  ///
+  /// 是 JSON 对象就**原样给**（模型少剥一层包装）；是数组、数字等
+  /// 其他合法 JSON，或根本不是 JSON（报错文本），就包一层
+  /// `{'result': ...}` —— 别丢原文，也别让 Gemini 因为类型不对 400。
+  static Map<String, dynamic> _geminiResponseObject(String content) {
+    final t = content.trim();
+    if (t.isEmpty) return {'result': '（工具没有返回内容）'};
+    try {
+      final v = jsonDecode(t);
+      if (v is Map) return v.cast<String, dynamic>();
+      return {'result': v};
+    } catch (_) {
+      return {'result': t};
+    }
   }
 
   /// Gemini 的 parts：图片与 PDF 都走 `inline_data`，只差 MIME。
@@ -1584,11 +1988,13 @@ class LlmClient {
       _ => _extractOpenAiText(decoded),
     };
 
-    // 非流式也要认工具调用，否则 `chat()` 在"模型决定查题库的那一轮"
-    // 会以"响应里没有文本内容"报错 —— 与流式下那个坑是同一个。
-    final toolCalls = spec?.protocol == LlmProtocol.openAiCompatible
-        ? _extractOpenAiToolCalls(decoded)
-        : const <ToolCall>[];
+    // 非流式也要认工具调用，否则"模型决定查题库的那一轮"会以
+    // "响应里没有文本内容"报错 —— 与流式下那个坑是同一个。
+    final toolCalls = switch (spec?.protocol) {
+      LlmProtocol.anthropic => _extractAnthropicToolCalls(decoded),
+      LlmProtocol.gemini => _extractGeminiToolCalls(decoded),
+      _ => _extractOpenAiToolCalls(decoded),
+    };
 
     if ((text == null || text.trim().isEmpty) && toolCalls.isEmpty) {
       throw LlmException(
@@ -1686,6 +2092,61 @@ class LlmClient {
         id: raw['id']?.toString() ?? '',
         name: name,
         arguments: fn['arguments']?.toString() ?? '',
+      ));
+    }
+    return out;
+  }
+
+  /// Anthropic 非流式响应里的工具调用（content 里的 `tool_use` 块）。
+  ///
+  /// `input` 在协议里是**结构化对象**（不是 OpenAI 那种 JSON 字符串），
+  /// 这里 `jsonEncode` 回字符串，让 [ToolCall] 的口径三家一致。
+  List<ToolCall> _extractAnthropicToolCalls(Map<dynamic, dynamic> j) {
+    final content = j['content'];
+    if (content is! List) return const [];
+    final out = <ToolCall>[];
+    for (final raw in content) {
+      if (raw is! Map) continue;
+      if (raw['type'] != 'tool_use') continue;
+      final name = raw['name']?.toString() ?? '';
+      if (name.isEmpty) continue;
+      final input = raw['input'];
+      out.add(ToolCall(
+        id: raw['id']?.toString() ?? '',
+        name: name,
+        arguments: input is Map ? jsonEncode(input) : '',
+      ));
+    }
+    return out;
+  }
+
+  /// Gemini 非流式响应里的工具调用（parts 里的 `functionCall`）。
+  ///
+  /// Gemini 不给调用 id —— 按出现顺序合成 `call_0`、`call_1`…
+  /// 回灌时我们在 contents 里按同样的顺序放 functionResponse，
+  /// 配对就能对上（Gemini 端本来就按"名字 + 顺序"配对）。
+  List<ToolCall> _extractGeminiToolCalls(Map<dynamic, dynamic> j) {
+    final candidates = j['candidates'];
+    if (candidates is! List || candidates.isEmpty) return const [];
+    final first = candidates.first;
+    if (first is! Map) return const [];
+    final content = first['content'];
+    if (content is! Map) return const [];
+    final parts = content['parts'];
+    if (parts is! List) return const [];
+
+    final out = <ToolCall>[];
+    for (final raw in parts) {
+      if (raw is! Map) continue;
+      final call = raw['functionCall'];
+      if (call is! Map) continue;
+      final name = call['name']?.toString() ?? '';
+      if (name.isEmpty) continue;
+      final args = call['args'];
+      out.add(ToolCall(
+        id: call['id']?.toString() ?? 'call_${out.length}',
+        name: name,
+        arguments: args is Map ? jsonEncode(args) : '',
       ));
     }
     return out;
@@ -1887,9 +2348,25 @@ class _StreamAcc {
 
   String finishReason = '';
 
-  /// 拿到的最新用量。**可能一直是零** —— 见 [LlmClient.chatStream]
-  /// 方法头注释第二条（部分服务商的流式响应根本不带 usage）。
-  LlmUsage usage = const LlmUsage();
+  /// 已观察到的输入 / 输出 token。见 [absorbUsage]。
+  int usageIn = 0;
+  int usageOut = 0;
+
+  /// 记一次用量观察值。
+  ///
+  /// ## 为什么各字段取 max，而不是整条覆盖
+  ///
+  /// Anthropic 把输入 token 放在 `message_start`、输出 token 放在
+  /// `message_delta`，两帧各给**一半** —— 后到的帧覆盖前者，输入
+  /// 就丢了。Gemini 与 OpenAI 给的是**累计值**，取 max 与覆盖等价。
+  /// 所以"各字段取最大"对三家都成立。
+  ///
+  /// 两项都是 0（比如 OpenAI 兼容端没开 include_usage）时保持 0，
+  /// 收尾时按"没拿到用量"处理，不会编出一个 0 元的账。
+  void absorbUsage(int inputTokens, int outputTokens) {
+    if (inputTokens > usageIn) usageIn = inputTokens;
+    if (outputTokens > usageOut) usageOut = outputTokens;
+  }
 
   /// 最后见过的原始载荷，仅用于出错时的诊断。
   String lastPayload = '';

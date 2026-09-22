@@ -602,9 +602,9 @@ final chatAgentProvider = FutureProvider<ChatAgent?>((ref) async {
   if (client == null) return null;
 
   final registry = await ref.watch(chatToolsProvider.future);
-  // 只有 OpenAI 兼容协议能传工具（见 `LlmClient._buildRequest`）。
-  // 在这里清空而不是让请求层抛异常：换个服务商就整轮对话用不了，
-  // 那是很差的体验 —— 它至少还能聊天。
+  // P4 起三家协议都能传工具；supportsTools 为假只剩"服务商 id 不认识"
+  // 一种情形。在这里清空而不是让请求层抛异常：配置残缺时对话
+  // 至少还能聊天，不至于整页不可用。
   final withTools = client.supportsTools;
   return ChatAgent(
     client: client,
