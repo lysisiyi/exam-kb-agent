@@ -134,16 +134,12 @@ void main() {
       expect(second.intervalDays, 0, reason: 'lapse 后当天要重练');
     });
 
-    test('遗忘后稳定性保持有限且为正，不产生非法值', () {
-      // ⚠️ 这里**不能**断言"遗忘必然降低稳定性" —— 那是错的。
-      //
-      // 实测（w 默认值）：Rating.easy 后初始难度 D₀(easy)=1.0，而
-      // stabilityAfterForget 中含有 exp((1−R)·w[14]) 项。难度为 1.0 时
-      // 该项会压过其余衰减，使遗忘后的稳定性**高于**原值（8.30 → 8.47）。
-      //
-      // 这是 FSRS 的真实性质而非缺陷：难度低说明这张卡本来就"容易"，
-      // 一次遗忘不足以摧毁已建立的记忆。要断言"下降"必须构造高难度卡片
-      // （连续 forgot 抬高 D），见下一个用例。
+    test('遗忘后稳定性受上限封顶，必然低于遗忘前', () {
+      // py-fsrs 的 post-lapse 语义是 min(长程项, S/e^(w17·w18))：遗忘后的
+      // 新稳定性不得超过原稳定性的 95%（1/1.0507）。历史实现曾把这个上限
+      // 当乘数乘进长程项，导致成熟卡片点「忘了」反而被排到更远（S=10 时
+      // 约 10 倍）——彼时旧注释据此声称"遗忘后稳定性可能高于原值"，那是
+      // bug 的产物，不是 FSRS 的性质。数值对拍见 fsrs_pyfsrs_parity_test.dart。
       final s = FsrsScheduler(random: _NoJitter());
       final first = s.review(FsrsCard.newCard(), Rating.easy, t0);
       final lapsed = s.review(
@@ -155,6 +151,11 @@ void main() {
       expect(lapsed.card.stability, isNotNull);
       expect(lapsed.card.stability, greaterThan(0));
       expect(lapsed.card.stability, lessThan(36500));
+      expect(
+        lapsed.card.stability,
+        lessThan(first.card.stability!),
+        reason: '遗忘后稳定性必须低于遗忘前（封顶语义的必然结果）',
+      );
       expect(lapsed.card.difficulty, inInclusiveRange(1.0, 10.0));
       expect(lapsed.card.lapses, 1);
       expect(lapsed.card.state, CardState.relearning);

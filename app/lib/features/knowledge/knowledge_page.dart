@@ -126,7 +126,8 @@ class _LoadedView extends StatelessWidget {
           child: switch (mode) {
             KnowledgeViewMode.graph =>
               KnowledgeGraphView(kb: kb, masteryByKpId: masteryByKpId),
-            KnowledgeViewMode.outline => KnowledgeOutlineView(kb: kb),
+            KnowledgeViewMode.outline =>
+              KnowledgeOutlineView(kb: kb, masteryByKpId: masteryByKpId),
           },
         ),
       ],

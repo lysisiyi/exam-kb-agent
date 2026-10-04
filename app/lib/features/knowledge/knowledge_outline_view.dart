@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/knowledge/knowledge_point.dart';
+import '../../services/profile/mastery_service.dart';
 import 'knowledge_graph_layout.dart' show graphKindOf;
 import 'knowledge_leaf_detail.dart';
 import 'knowledge_node_style.dart';
@@ -24,7 +25,16 @@ import 'knowledge_sizes.dart';
 /// 大纲视图。
 class KnowledgeOutlineView extends StatefulWidget {
   final KnowledgeBase kb;
-  const KnowledgeOutlineView({super.key, required this.kb});
+
+  /// 错题数（kpId → KpMastery）。叶子行用它的 problemCount 显示"N 题"
+  /// 徽标；报告没就绪时传空表，徽标整体不出现（与图谱同一口径）。
+  final Map<String, KpMastery> masteryByKpId;
+
+  const KnowledgeOutlineView({
+    super.key,
+    required this.kb,
+    this.masteryByKpId = const {},
+  });
 
   @override
   State<KnowledgeOutlineView> createState() => _KnowledgeOutlineViewState();
@@ -119,6 +129,8 @@ class _KnowledgeOutlineViewState extends State<KnowledgeOutlineView> {
                     row: r,
                     expanded: _expanded.contains(r.node.id),
                     open: _openLeaf == r.node.id,
+                    problemCount:
+                        widget.masteryByKpId[r.node.id]?.problemCount ?? 0,
                     onTap: () {
                       if (r.node.isLeaf) {
                         setState(() => _openLeaf =
@@ -214,11 +226,15 @@ class _OutlineRowTile extends StatelessWidget {
   final bool open;
   final VoidCallback onTap;
 
+    /// 该考点的错题数（0 = 没有题，徽标不显示）。
+  final int problemCount;
+
   const _OutlineRowTile({
     super.key,
     required this.row,
     required this.expanded,
     required this.open,
+    required this.problemCount,
     required this.onTap,
   });
 
@@ -301,9 +317,10 @@ class _OutlineRowTile extends StatelessWidget {
                   )
                 else
                   Text(
-                    node.examYears.isEmpty
-                        ? '暂无考频'
-                        : '考过 ${node.examYears.length} 次',
+                    // 错题数与考频并列：一个说"这个考点多重要"，
+                    // 一个说"你在这里攒了多少题"。没有题时不显示 ——
+                    // "0 题"和"还没录过"是两个意思（与画像的空槽同一口径）。
+                    _leafMetaText(node, problemCount),
                     style: const TextStyle(
                         fontSize: KnowledgeSizes.secondary,
                         color: kSecondaryInk),
@@ -441,4 +458,13 @@ class _WeightChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 叶子行的元信息文本：考频次数 + 错题数，都没有时如实说"暂无考频"。
+String _leafMetaText(KnowledgePoint node, int problemCount) {
+  final parts = <String>[
+    if (node.examYears.isNotEmpty) '考过 ${node.examYears.length} 次',
+    if (problemCount > 0) '$problemCount 题',
+  ];
+  return parts.isEmpty ? '暂无考频' : parts.join(' · ');
 }

@@ -23,6 +23,7 @@ import '../../data/db/database.dart';
 import '../../data/index/index_builder.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../data/markdown/problem_store.dart';
+import '../../data/problem_file.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import '../../domain/problem_draft.dart';
 
@@ -164,11 +165,19 @@ class ProblemService {
         : draft.id;
 
     final problem = draft.build(knowledge: knowledge, idOverride: targetId);
-    final file = store.fileFor(problem.id);
+    // 编辑 / 按指纹覆盖时题目已入库 —— 以索引里的真实路径为准（外部题库
+    // 允许 id ≠ 文件名，按 id 推导会把编辑结果写成一个错误的新文件，
+    // 旧文件留在盘上变成两道"同一道题"）。新建题索引里没有行，解析器
+    // 自会退回按 id 推导（新题 id 即文件名，行为不变）。
+    final file = await resolveProblemFile(
+      db: db,
+      store: store,
+      problemId: problem.id,
+    );
     final alreadyThisId = file.existsSync();
 
     try {
-      await store.save(problem);
+      await store.saveTo(problem, file);
     } on FileSystemException catch (e) {
       return SaveOutcome.failure('写入失败：${e.message}');
     } catch (e) {
@@ -230,7 +239,15 @@ class ProblemService {
   ///
   /// 返回文件是否也删掉了（索引删除失败会抛异常，不吞）。
   Future<bool> delete(String problemId) async {
-    final file = store.fileFor(problemId);
+    // ⚠️ 必须在删库**之前**解析文件路径 —— 索引行没了就再也查不到
+    // 真实路径了。同样以索引路径为准：外部题库允许 id ≠ 文件名，
+    // 按推导路径删除会漏掉真正的 .md，下次启动索引重建把题目
+    // "复活"且复习进度归零。
+    final file = await resolveProblemFile(
+      db: db,
+      store: store,
+      problemId: problemId,
+    );
 
     await db.transaction(() async {
       await (db.delete(db.userProblemState)

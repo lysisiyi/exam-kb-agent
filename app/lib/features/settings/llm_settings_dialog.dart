@@ -15,10 +15,10 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/providers.dart';
-import '../../../services/llm/llm_settings.dart';
-import '../../../services/llm/provider_registry.dart';
-import '../../../services/tagger/tag_cache_store.dart';
+import '../../core/providers.dart';
+import '../../services/llm/llm_settings.dart';
+import '../../services/llm/provider_registry.dart';
+import '../../services/tagger/tag_cache_store.dart';
 
 /// 打开配置对话框。返回保存后的设置；取消返回 null。
 Future<LlmSettings?> showLlmSettingsDialog(
@@ -33,16 +33,16 @@ Future<LlmSettings?> showLlmSettingsDialog(
   );
 }
 
-class _LlmSettingsDialog extends StatefulWidget {
+class _LlmSettingsDialog extends ConsumerStatefulWidget {
   final LlmSettings initial;
 
   const _LlmSettingsDialog({required this.initial});
 
   @override
-  State<_LlmSettingsDialog> createState() => _LlmSettingsDialogState();
+  ConsumerState<_LlmSettingsDialog> createState() => _LlmSettingsDialogState();
 }
 
-class _LlmSettingsDialogState extends State<_LlmSettingsDialog> {
+class _LlmSettingsDialogState extends ConsumerState<_LlmSettingsDialog> {
   late String _providerId = widget.initial.providerId.isEmpty
       ? LlmProviders.all.first.id
       : widget.initial.providerId;
@@ -90,6 +90,12 @@ class _LlmSettingsDialogState extends State<_LlmSettingsDialog> {
     });
     try {
       await const LlmSettingsStore().save(settings);
+      // ⚠️ 必须失效全局 provider：llmConfigProvider / ingestClientProvider /
+      // chatAgentProvider 全都建立在 llmSettingsProvider 之上，而它是只算
+      // 一次的 FutureProvider。不失效的话，用户第一次配好 Key 后对话页与
+      // 批量导入页仍显示"未配置"，要重启应用才恢复（全 lib 曾无一处
+      // invalidate，P0-5 修复）。
+      ref.invalidate(llmSettingsProvider);
       if (mounted) Navigator.of(context).pop(settings);
     } catch (e) {
       if (mounted) {
@@ -239,6 +245,8 @@ class _LlmSettingsDialogState extends State<_LlmSettingsDialog> {
               ? null
               : () async {
                   await const LlmSettingsStore().clear();
+                  // 与保存同理：清掉之后全局配置 provider 也必须回到"未配置"
+                  ref.invalidate(llmSettingsProvider);
                   if (context.mounted) {
                     Navigator.of(context).pop(LlmSettings.none);
                   }

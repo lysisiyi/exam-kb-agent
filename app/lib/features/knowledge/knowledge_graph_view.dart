@@ -117,6 +117,12 @@ class _KnowledgeGraphViewState extends State<KnowledgeGraphView> {
       widget.kb,
       measure: _measure,
       style: _style,
+      // 错题数徽标的宽度必须在布局里量（见 buildKnowledgeGraph 的参数说明）。
+      // 掌握度报告没就绪时是空表 —— 徽标整体不出现，布局随之窄一点，无害。
+      problemCountByKpId: {
+        for (final m in widget.masteryByKpId.values)
+          if (m.problemCount > 0) m.kpId: m.problemCount,
+      },
     );
     _graph = g;
     _graphFor = widget.kb;
@@ -617,6 +623,19 @@ class _GraphNodeCard extends StatelessWidget {
                       style: style.textStyleOf(kind).copyWith(color: ink),
                     ),
                   ),
+                  // 错题数徽标（"N 题"）：一眼看到哪个考点错得多。
+                  // 与考频徽标同一条占宽纪律 —— 宽度已在 buildKnowledgeGraph
+                  // 里量过，这里不能再改字号/字重，否则量的和排的又不是一个东西。
+                  if (kind == GraphNodeKind.leaf && (mastery?.problemCount ?? 0) > 0) ...[
+                    SizedBox(width: style.weightGap),
+                    Text(
+                      '${mastery!.problemCount} 题',
+                      style: style.weightStyle.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.danger,
+                      ),
+                    ),
+                  ],
                   if (kind == GraphNodeKind.leaf && w != null) ...[
                     // 这个徽标也占宽度，已经在 buildKnowledgeGraph 里算进列宽了
                     SizedBox(width: style.weightGap),

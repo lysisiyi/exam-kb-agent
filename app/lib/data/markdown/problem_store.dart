@@ -86,9 +86,13 @@ class ProblemStore {
     await tmp.rename(target.path);
   }
 
-  /// 保存一道题。
-  Future<File> save(Problem problem) async {
-    final file = fileFor(problem.id);
+  /// 保存一道题（按 id 推导路径）。适合**新建**：新题的 id 即文件名。
+  /// 编辑/覆盖已入库的题请用 [saveTo]，路径由调用方按索引解析
+  /// （见 `problem_file.dart` —— id 与文件名可能解耦）。
+  Future<File> save(Problem problem) => saveTo(problem, fileFor(problem.id));
+
+  /// 保存一道题到**指定**文件。
+  Future<File> saveTo(Problem problem, File file) async {
     final text = ProblemMarkdownSerializer.serialize(problem);
     await atomicWriteString(file, text);
     return file;
@@ -147,11 +151,18 @@ class ProblemStore {
     }
   }
 
-  /// 列出全部 Markdown 文件（不解析）。
+  /// 列出全部 Markdown 文件（不解析，**递归子目录**）。
+  ///
+  /// ⚠️ 必须递归：索引的相对路径键本来就支持 `problems/子目录/x.md`
+  /// （`IndexBuilder._relativePath`），Git 拉取的题库、按章节分的文件夹
+  /// 都长这样。单层 list() 会让子目录里的题**静默失联** —— 不进索引、
+  /// 无失败记录；更糟的是 rebuild 的清理逻辑会把它们当"已删除"从索引里
+  /// 抹掉。
   Future<List<File>> listFiles() async {
     if (!problemsDir.existsSync()) return const [];
     final out = <File>[];
-    await for (final entity in problemsDir.list(followLinks: false)) {
+    await for (final entity
+        in problemsDir.list(recursive: true, followLinks: false)) {
       if (entity is File && entity.path.toLowerCase().endsWith('.md')) {
         out.add(entity);
       }

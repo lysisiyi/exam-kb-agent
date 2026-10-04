@@ -495,6 +495,17 @@ knowledge: [math1.calc.limit.seq, math1.calc.limit.func]
       );
     });
 
+    test('不等号方向不同 → 指纹必须不同（< > 不是可删标点）', () {
+      // 历史实现把 < > 当标点删掉，"设 x < 1" 与 "设 x > 1" 指纹相同，
+      // 叠加保存的覆盖路径就成了"第二道题覆盖第一道题"。
+      const a = r'设 $x < 1$，求 $f(x)$ 的最大值。';
+      const b = r'设 $x > 1$，求 $f(x)$ 的最大值。';
+      expect(
+        ProblemFingerprint.compute(a),
+        isNot(ProblemFingerprint.compute(b)),
+      );
+    });
+
     test('空输入返回空串，不抛异常', () {
       expect(ProblemFingerprint.compute(''), '');
       expect(ProblemFingerprint.compute('   '), '');

@@ -181,8 +181,11 @@ void main() {
       final kp = report.weakest.single;
 
       expect(kp.mastery, isNotNull);
-      expect(kp.mastery, lessThan(0.5),
-          reason: '稳定度 2 天、40 天没复习，真实掌握度必然很低');
+      // FSRS-6 曲线（decay = -w20）下，稳定度 2 天、逾期 40 天（20 倍）
+      // 的保持率 ≈ 0.63；旧 FSRS-5 曲线（decay=-0.5，已修）下才是 0.42。
+      // 阈值随正确曲线校准 —— "远低于快照"的断言意图不变。
+      expect(kp.mastery, lessThan(0.7),
+          reason: '稳定度 2 天、40 天没复习，真实掌握度必然远低于快照');
       expect(kp.mastery, isNot(closeTo(0.95, 0.01)),
           reason: '绝不能读那个快照列 —— 那正是 T37');
     });

@@ -24,9 +24,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/core/math/katex_renderer.dart';
 import 'package:kaoyan_math_agent/core/math/math_renderer.dart';
+import 'package:kaoyan_math_agent/core/providers.dart';
 import 'package:kaoyan_math_agent/core/theme/app_theme.dart';
 import 'package:kaoyan_math_agent/domain/knowledge/knowledge_point.dart';
 import 'package:kaoyan_math_agent/features/knowledge/knowledge_formula_row.dart';
@@ -35,6 +37,7 @@ import 'package:kaoyan_math_agent/features/knowledge/knowledge_graph_view.dart';
 import 'package:kaoyan_math_agent/features/knowledge/knowledge_leaf_detail.dart';
 import 'package:kaoyan_math_agent/features/knowledge/knowledge_sizes.dart';
 
+import 'package:kaoyan_math_agent/services/profile/mastery_service.dart';
 import 'support/knowledge_fixture.dart';
 
 /// 确定性测量：中文算 1em、其余算 0.58em，按 [TextStyle.fontSize] 缩放。
@@ -58,6 +61,18 @@ KnowledgeBase? loadRealKb(String subject) {
     (jsonDecode(f.readAsStringSync()) as Map).cast<String, dynamic>(),
   );
 }
+
+
+/// KnowledgeLeafDetail 自 P1-1 起内嵌「你的题目」节（ConsumerWidget）。
+/// 这些排版测试只关心公式渲染，题目清单用空数据顶住 ——
+/// 不碰真实数据库（widget 测试的假时钟下真实 IO 不是失败而是挂住）。
+Widget withKpOverrides(Widget child) => ProviderScope(
+      overrides: [
+        kpProblemsProvider.overrideWith(
+            (ref, id) async => const KpProblems(primary: [], secondary: [])),
+      ],
+      child: child,
+    );
 
 void main() {
   // ── 1. 刻度本身 ────────────────────────────────────────────────────────
@@ -326,11 +341,11 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(MaterialApp(
+      await tester.pumpWidget(withKpOverrides(MaterialApp(
         home: Scaffold(
           body: SingleChildScrollView(child: KnowledgeLeafDetail(leaf: leaf)),
         ),
-      ));
+      )));
       await tester.pumpAndSettle();
 
       final rows = find

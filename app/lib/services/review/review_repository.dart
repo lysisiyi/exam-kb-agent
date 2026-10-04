@@ -32,6 +32,7 @@ import '../../data/db/database.dart';
 import '../../data/error_causes.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../data/markdown/problem_store.dart';
+import '../../data/problem_file.dart';
 import '../../domain/fsrs/fsrs_scheduler.dart';
 
 /// 复习队列里的一张卡。
@@ -300,9 +301,17 @@ class ReviewRepository {
       return byDue != 0 ? byDue : a.$1.problemId.compareTo(b.$1.problemId);
     });
 
+    // id → 索引里记录的真实路径（**一次**批量查询）。frontmatter 的 id
+    // 与文件名可能解耦（外部题库 / Git 拉取），按 id 推导路径会读错文件。
+    final pathById = await resolveProblemFiles(
+      db: db,
+      store: store,
+      problemIds: due.take(limit).map((e) => e.$1.problemId),
+    );
+
     final out = <DueCard>[];
     for (final (state, card) in due.take(limit)) {
-      final read = await store.read(state.problemId);
+      final read = await store.readFile(pathById[state.problemId]!);
       out.add(DueCard(
         problemId: state.problemId,
         state: state,
@@ -395,6 +404,9 @@ class ReviewRepository {
   ///
   /// 只支持三个评分（忘了 / 吃力 / 轻松）—— 见 `Rating` 的说明：
   /// 四档反馈在真实使用中用户分不清 Good 与 Easy，反而让调度变差。
+  ///
+  /// 状态行与日志写在**同一个事务**里：中间崩溃要么都落、要么都不落。
+  /// 日志是将来跑优化器的训练数据，缺一条就永远补不回来。
   Future<GradeResult> grade({
     required String problemId,
     required Rating rating,
@@ -402,62 +414,86 @@ class ReviewRepository {
     DateTime? now,
   }) async {
     final ts = now ?? DateTime.now();
-    final existing = await _stateOf(problemId);
 
-    final card = existing == null ? null : _cardOf(existing);
-    final outcome = scheduler.review(
-      card ?? const FsrsCard(),
-      rating,
-      ts,
-    );
+    return db.transaction(() async {
+      final existing = await _stateOf(problemId);
 
-    final mastery = scheduler.retrievability(outcome.card, ts);
+      final card = existing == null ? null : _cardOf(existing);
+      // 快照语义：打分**那一刻**的可提取性 = 用户作答前还记得多少，
+      // 必须在 review 之前算。评分后再算（旧实现）lastReview == now，
+      // R 恒等于 1 —— 这列曾被写成永久的 100%，导出的 my_mastery 全错。
+      final mastery = card == null ? 0.0 : scheduler.retrievability(card, ts);
 
-    // 只有"忘了"才算又错一次。
-    // rating 为 吃力/轻松 说明用户做出来了 —— 那是进展，不该计错。
-    final wrongCount =
-        (existing?.wrongCount ?? 0) + (rating == Rating.forgot ? 1 : 0);
+      final outcome = scheduler.review(
+        card ?? const FsrsCard(),
+        rating,
+        ts,
+      );
+      final stateJson = jsonEncode(outcome.card.toJson());
 
-    // ⚠️ 用 insertOnConflictUpdate 而不是"先查再写"：
-    // 后者在双击评分按钮时会写出两条状态行（`user_problem_state` 的主键
-    // 就是为这件事补的，见 tables.dart）。
-    await db.into(db.userProblemState).insertOnConflictUpdate(
-          UserProblemStateCompanion.insert(
-            problemId: problemId,
-            wrongCount: Value(wrongCount),
-            firstSeen: Value(existing?.firstSeen ?? ts),
-            lastWrong: Value(rating == Rating.forgot ? ts : existing?.lastWrong),
-            fsrsState: Value(jsonEncode(outcome.card.toJson())),
+      if (existing == null) {
+        await db.into(db.userProblemState).insert(
+              UserProblemStateCompanion.insert(
+                problemId: problemId,
+                wrongCount: Value(rating == Rating.forgot ? 1 : 0),
+                firstSeen: Value(ts),
+                lastWrong: Value(rating == Rating.forgot ? ts : null),
+                fsrsState: Value(stateJson),
+                mastery: Value(mastery),
+              ),
+            );
+      } else {
+        // 状态列按列更新，未提及的列（error_causes / note / starred /
+        // first_seen）原样保留 —— insertOnConflictUpdate 会整行覆盖。
+        await (db.update(db.userProblemState)
+              ..where((t) => t.problemId.equals(problemId)))
+            .write(
+          UserProblemStateCompanion(
+            fsrsState: Value(stateJson),
             mastery: Value(mastery),
-            errorCauses: Value(existing?.errorCauses ?? '[]'),
-            note: Value(existing?.note),
-            starred: Value(existing?.starred ?? false),
+            lastWrong:
+                Value(rating == Rating.forgot ? ts : existing.lastWrong),
           ),
         );
-
-    await db.into(db.reviewLogs).insert(
-          ReviewLogsCompanion.insert(
-            problemId: problemId,
-            rating: rating.value,
-            elapsedMs: Value(elapsedMs),
-            elapsedDays: Value(outcome.card.elapsedDays),
-            scheduledDays: Value(outcome.intervalDays),
-            stabilityAfter: Value(outcome.card.stability),
-            difficultyAfter: Value(outcome.card.difficulty),
-            reviewedAt: Value(ts),
-          ),
+        // ⚠️ wrong_count 用 SQL 自增（与 recordWrong 同一纪律）：
+        // "读出来 +1 再写回"是非原子的读-改-写，连点两次会静默少记。
+        // 事务本身也能挡这个竞态，但让数据库自己加不依赖调用方的细心。
+        await db.customUpdate(
+          'UPDATE user_problem_state '
+          'SET wrong_count = wrong_count + ? WHERE problem_id = ?',
+          variables: [
+            Variable.withInt(rating == Rating.forgot ? 1 : 0),
+            Variable.withString(problemId),
+          ],
+          updates: {db.userProblemState},
         );
+      }
 
-    return GradeResult(
-      problemId: problemId,
-      rating: rating,
-      nextDue: outcome.card.due ?? ts,
-      intervalDays: outcome.intervalDays,
-      stability: outcome.card.stability ?? 0,
-      difficulty: outcome.card.difficulty ?? 0,
-      mastery: mastery,
-      wrongCount: wrongCount,
-    );
+      await db.into(db.reviewLogs).insert(
+            ReviewLogsCompanion.insert(
+              problemId: problemId,
+              rating: rating.value,
+              elapsedMs: Value(elapsedMs),
+              elapsedDays: Value(outcome.card.elapsedDays),
+              scheduledDays: Value(outcome.intervalDays),
+              stabilityAfter: Value(outcome.card.stability),
+              difficultyAfter: Value(outcome.card.difficulty),
+              reviewedAt: Value(ts),
+            ),
+          );
+
+      return GradeResult(
+        problemId: problemId,
+        rating: rating,
+        nextDue: outcome.card.due ?? ts,
+        intervalDays: outcome.intervalDays,
+        stability: outcome.card.stability ?? 0,
+        difficulty: outcome.card.difficulty ?? 0,
+        mastery: mastery,
+        wrongCount: (existing?.wrongCount ?? 0) +
+            (rating == Rating.forgot ? 1 : 0),
+      );
+    });
   }
 
   // ───────────────────────────────────────────────────────────────────────

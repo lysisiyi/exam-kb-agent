@@ -20,6 +20,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
@@ -55,6 +56,14 @@ class IndexReport {
   /// 解析成功但需要人工复核的题目数（needsReview）。
   final int needsReview;
 
+  /// **两个文件声明同一个 id** 的冲突（id → 另一个仍存在的文件路径）。
+  ///
+  /// 曾有的行为是后者静默覆盖前者：每次重建都按扫描顺序翻一次烧饼，
+  /// 谁排后面谁赢，且 failures 为空 —— 完全不可见。手动改 id、
+  /// 合并题库、AI 生成 id 撞车都可能触发。这里只报告不裁决，
+  /// 处理方式（改 id / 删文件）由用户决定。
+  final Map<String, String> idConflicts;
+
   const IndexReport({
     required this.scannedFiles,
     required this.added,
@@ -64,6 +73,7 @@ class IndexReport {
     required this.removed,
     required this.failures,
     required this.needsReview,
+    this.idConflicts = const {},
   });
 
   bool get isClean => failed == 0;
@@ -78,6 +88,7 @@ class IndexReport {
       if (removed > 0) '清理 $removed',
       if (failed > 0) '失败 $failed',
       if (needsReview > 0) '待复核 $needsReview',
+      if (idConflicts.isNotEmpty) '${idConflicts.length} 个 id 冲突',
     ];
     return parts.join(' · ');
   }
@@ -112,6 +123,7 @@ class IndexBuilder {
     var failed = 0;
     var needsReview = 0;
     final failures = <String, String>{};
+    final idConflicts = <String, String>{};
 
     // 现有索引：文件路径 → (id, mtime)
     final existing = <String, ({String id, DateTime? mtime})>{};
@@ -149,7 +161,12 @@ class IndexBuilder {
       if (problem.needsReview) needsReview++;
 
       try {
-        await _upsert(problem, relPath, mtime);
+        final displaced = await _upsert(problem, relPath, mtime);
+        if (displaced != null) {
+          // 同一个 id 之前挂在**另一个文件**上，而且那个文件还在盘上 ——
+          // 两个文件在抢这个 id，后续每次重建都会互相覆盖。
+          idConflicts[problem.id] = displaced;
+        }
         if (prev == null) {
           added++;
         } else {
@@ -184,6 +201,7 @@ class IndexBuilder {
       removed: removed,
       failures: failures,
       needsReview: needsReview,
+      idConflicts: idConflicts,
     );
   }
 
@@ -197,10 +215,12 @@ class IndexBuilder {
   // 写入
   // ───────────────────────────────────────────────────────────────────────
 
-  Future<void> _upsert(Problem problem, String relPath, DateTime mtime) async {
-    await db.transaction(() async {
+  /// 返回被本次写入顶掉的原路径 —— 仅当**那个文件还在盘上**（同一 id 被
+  /// 两个文件同时声明）；正常的改名场景旧文件已不存在，返回 null。
+  Future<String?> _upsert(Problem problem, String relPath, DateTime mtime) async {
+    return db.transaction(() async {
       // 先按业务 id 清理旧行（可能路径变了：同一题改了文件名）
-      await _removeById(problem.id);
+      final displaced = await _removeById(problem.id);
       // 也按路径清理（可能 id 变了：同一文件改了 id）
       await _removeByPath(relPath);
 
@@ -261,15 +281,26 @@ class IndexBuilder {
               ),
             );
       }
+
+      if (displaced != null && displaced != relPath) {
+        final oldFile = File(p.join(store.problemsDir.parent.path, displaced));
+        if (oldFile.existsSync()) return displaced;
+      }
+      return null;
     });
   }
 
-  /// 删除索引行。**不动用户状态。**
-  Future<void> _removeById(String id) async {
+  /// 删除索引行。**不动用户状态。** 返回被删行的原路径（无则 null）。
+  Future<String?> _removeById(String id) async {
+    final old = await (db.select(db.problemsIndex)
+          ..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
+    if (old == null) return null;
     await (db.delete(db.problemKnowledge)
           ..where((t) => t.problemId.equals(id)))
         .go();
     await (db.delete(db.problemsIndex)..where((t) => t.id.equals(id))).go();
+    return old.filePath;
   }
 
   Future<void> _removeByPath(String relPath) async {

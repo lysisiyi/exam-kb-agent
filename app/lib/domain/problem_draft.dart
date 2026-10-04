@@ -113,6 +113,11 @@ class ProblemDraft {
   /// 配图是否为题目本体（扫描题）。同为透传字段，见 [images]。
   bool imagesPrimary;
 
+  /// 创建时间（透传字段：编辑已录入的题时必须原样带回去，
+  /// 否则 build() 会把 created_at 重置成编辑当天 —— 题目"看起来是新录的"，
+  /// recent 排序也随之失真）。新建时为 null，build 里落到当天。
+  DateTime? createdAt;
+
   /// 是否由 AI 标注过。
   bool aiTagged;
 
@@ -144,6 +149,7 @@ class ProblemDraft {
     List<String>? tags,
     List<String>? images,
     this.imagesPrimary = false,
+    this.createdAt,
     this.aiTagged = false,
     this.aiConfidence,
     this.needsReview = false,
@@ -183,6 +189,7 @@ class ProblemDraft {
       tags: [...p.tags],
       images: [...p.images],
       imagesPrimary: p.imagesPrimary,
+      createdAt: p.createdAt,
       aiTagged: p.aiTagged,
       aiConfidence: p.aiConfidence,
       needsReview: p.needsReview,
@@ -317,7 +324,7 @@ class ProblemDraft {
       answer: _nullIfBlank(answer),
       solution: _nullIfBlank(solution),
       note: _nullIfBlank(note),
-      createdAt: now ?? DateTime.now(),
+      createdAt: createdAt ?? now ?? DateTime.now(),
       aiTagged: aiTagged,
       aiConfidence: aiConfidence,
       // ⚠️ 「没选主考点」必须 OR 进来：那是"分类产品的地基还没打"，
@@ -351,6 +358,7 @@ class ProblemDraft {
   /// 深拷贝（用于撤销/重置表单）。
   ProblemDraft copy() => ProblemDraft(
         id: id,
+        createdAt: createdAt,
         subject: subject,
         qtype: qtype,
         difficulty: difficulty,

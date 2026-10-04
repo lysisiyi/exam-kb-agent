@@ -67,6 +67,27 @@ if not exist "app\assets\data\knowledge_points\math1.json" (
     exit /b 1
   )
 )
+rem --- Re-sync knowledge assets when data/ changed ----------------------------
+rem app\assets\data is a copy of data\, bundled INTO the exe at build time.
+rem Editing data\ alone changes nothing in the app: the sync block above only
+rem runs when the copy is missing entirely, never when it is merely outdated.
+rem So run --check first; a non-zero exit means out of date, re-sync now (the
+rem stale check below will then see app\assets newer than the exe and rebuild
+rem instead of silently launching yesterday's knowledge data).
+where python >nul 2>nul
+if errorlevel 1 goto :assets-ok
+python "tools\data\sync_assets.py" --check >nul 2>nul
+if errorlevel 1 (
+  echo Syncing updated knowledge assets from data\ ...
+  python "tools\data\sync_assets.py"
+  if errorlevel 1 (
+    echo.
+    echo ERROR: asset sync failed.
+    pause
+    exit /b 1
+  )
+)
+:assets-ok
 
 rem --- Stale build check -------------------------------------------------------
 rem Why this block exists: this script used to launch whatever exe it found,
@@ -81,7 +102,7 @@ set "CHECK_EXE=%EXE%"
 if not exist "%CHECK_EXE%" set "CHECK_EXE=%EXE_FALLBACK%"
 set "STALE="
 if exist "%CHECK_EXE%" (
-  for /f "usebackq" %%S in (`powershell -NoProfile -Command "$e=(Get-Item '%CHECK_EXE%').LastWriteTime; $n=(Get-ChildItem -Recurse -File -ErrorAction SilentlyContinue 'app\lib','app\assets','app\pubspec.yaml' | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime; if ($n -gt $e) { 'STALE' } else { 'FRESH' }" 2^>nul`) do set "STALE=%%S"
+  for /f "usebackq" %%S in (`powershell -NoProfile -Command "$e=(Get-Item '%CHECK_EXE%').LastWriteTime; $n=(Get-ChildItem -Recurse -File -ErrorAction SilentlyContinue 'app\lib','app\assets','app\pubspec.yaml','data' | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime; if ($n -gt $e) { 'STALE' } else { 'FRESH' }" 2^>nul`) do set "STALE=%%S"
 )
 if /i "%STALE%"=="STALE" echo [stale] sources are newer than %CHECK_EXE% -- will rebuild.
 

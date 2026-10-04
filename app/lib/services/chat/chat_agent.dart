@@ -192,7 +192,8 @@ class ChatAgent {
         break;
       }
 
-      total = total == null ? ended.usage : _sum(total, ended.usage);
+      // operator+ 的费用口径：任一次未知则总额未知（不会折算成 0）
+      total = total == null ? ended.usage : total + ended.usage;
 
       if (!ended.wantsTools) break;
 
@@ -273,22 +274,6 @@ class ChatAgent {
     );
   }
 
-  /// 累加两次调用的用量。
-  ///
-  /// ## 与 `LlmUsage.operator +` 的区别：**费用未知不退化 0**
-  ///
-  /// 那个 `+` 把 `null + null` 算成 0 —— 对单次调用无所谓，
-  /// 但一轮回答有 3 次调用、其中 2 次拿不到价目表时，累加会得到
-  /// "这次花了 0 元"。用户照着一个假数字做决定，比看到"未知"更糟。
-  /// 所以这里的口径是：**任何一次的费用未知，总额就是未知**。
-  static LlmUsage _sum(LlmUsage a, LlmUsage b) => LlmUsage(
-        inputTokens: a.inputTokens + b.inputTokens,
-        outputTokens: a.outputTokens + b.outputTokens,
-        model: b.model.isNotEmpty ? b.model : a.model,
-        costYuan: (a.costYuan == null || b.costYuan == null)
-            ? null
-            : a.costYuan! + b.costYuan!,
-      );
 
   /// 参数的紧凑预览，给界面看。
   ///

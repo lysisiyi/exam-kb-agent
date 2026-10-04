@@ -33,8 +33,12 @@ enum LlmAuthStyle {
   /// `x-api-key: <key>`
   xApiKey,
 
-  /// `?key=<key>` 查询参数
-  queryParam,
+  /// Gemini：`x-goog-api-key: <key>` 请求头。
+  ///
+  /// 曾实现为 `?key=<key>` 查询参数 —— key 会随完整 URI 进入异常文本、
+  /// 代理与日志；且流式路径的 `?alt=sse` 与 `?key=` 叠出两个 `?`，
+  /// query 本身就是非法的。官方支持 header 认证，此处已迁移。
+  googleHeader,
 
   /// 无需认证（本地 Ollama）
   none,
@@ -328,7 +332,7 @@ abstract final class LlmProviders {
       label: 'Google Gemini',
       baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
       protocol: LlmProtocol.gemini,
-      auth: LlmAuthStyle.queryParam,
+      auth: LlmAuthStyle.googleHeader,
       defaultModel: 'gemini-1.5-flash',
       suggestedModels: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'],
       note: '需要海外网络环境；有免费额度。**批量导入性价比高**（支持图片与 PDF）',
@@ -590,9 +594,12 @@ class LlmConfig {
         // Anthropic 要求显式声明 API 版本
         h['anthropic-version'] = '2023-06-01';
         break;
-      case LlmAuthStyle.queryParam:
+      case LlmAuthStyle.googleHeader:
+        // Gemini 官方的 header 认证方式；不再把 key 拼进 URL
+        if (apiKey.isNotEmpty) h['x-goog-api-key'] = apiKey;
+        break;
       case LlmAuthStyle.none:
-        break; // 走 query 参数或在 URL 里处理
+        break; // 无需认证（本地服务）
     }
     return h;
   }

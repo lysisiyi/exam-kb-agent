@@ -26,6 +26,9 @@ import '../../core/providers.dart';
 import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/library/library_exporter.dart';
+import '../../services/llm/llm_settings.dart';
+import '../../services/llm/provider_registry.dart';
+import 'llm_settings_dialog.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -72,6 +75,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
+  Future<void> _openAiConfig(LlmSettings current) async {
+    // 对话框内部在保存/清除后 invalidate(llmSettingsProvider)（P0-5），
+    // 本页 watch 了同一个 provider，配置一变这里自动刷新。
+    await showLlmSettingsDialog(context, initial: current);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -86,7 +95,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         32,
       ),
       children: [
-        Text('设置', style: Theme.of(context).textTheme.headlineSmall),        const SizedBox(height: 4),
+        Text('设置', style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 4),
         Text(
           '数据存在你自己的电脑上。这里可以把它整包带走。',
           style: TextStyle(
@@ -96,6 +106,50 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
         ),
         const SizedBox(height: 24),
+
+        // ── AI 服务商 ──────────────────────────────────────────────────
+        // 之前全应用唯一的配置入口藏在录入页的 AI 按钮里，而对话页/导入页
+        // 的文案都在说"到设置里填 Key"—— 用户跟着指引走会找不到入口。
+        _Section(
+          title: 'AI 服务商（BYOK）',
+          children: [
+            ref.watch(llmSettingsProvider).when(
+                  loading: () => const Text('正在读取…',
+                      style: TextStyle(fontSize: 12.5)),
+                  error: (e, _) => Text(
+                    '读取失败：$e',
+                    style: TextStyle(
+                        fontSize: 12.5, color: theme.colorScheme.error),
+                  ),
+                  data: (s) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        s.isConfigured
+                            ? '已配置：${LlmProviders.byId(s.providerId)?.label ?? s.providerId}'
+                                '　·　模型：${(s.modelOverride?.isNotEmpty ?? false) ? s.modelOverride : "服务商默认"}'
+                            : '未配置 —— AI 标注、对话助手、批量导入的图像识别'
+                                '都需要先填你自己的 API Key（只存本机，加密）。'
+                                '不配置也不影响录入、复习、组卷与导出。',
+                        style: const TextStyle(fontSize: 12.5, height: 1.7),
+                      ),
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _openAiConfig(s),
+                          icon: const Icon(Icons.key_outlined, size: 17),
+                          label:
+                              Text(s.isConfigured ? '修改配置' : '配置 AI 服务商'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+          ],
+        ),
+
+        const SizedBox(height: 20),
 
         // ── 导出 ──────────────────────────────────────────────────────
         _Section(

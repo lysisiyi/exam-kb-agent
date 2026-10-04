@@ -9,6 +9,12 @@
 #   本地实测是 3.47.4，但把版本号写进 CI 的风险是"写错就天天红"。
 #   `pubspec.yaml` 声明了下限（flutter >=3.29.0），stable 满足它。
 #   想要可复现的话，把 version 钉到与本地一致，并先手动跑一次确认。
+#
+# build-windows job（P0-12 新增）：
+#   Dart 测试跑在 VM 上，**从不编译 `app/windows/` 的原生层** —— CMake 配置、
+#   Runner.rc、C++ 代码改坏了，analyze + test 依旧全绿。对 Windows-only 项目
+#   这是最大的验证盲区。原生编译慢（十几分钟），所以只在 push 到 main 与
+#   手动触发时跑，PR 不跑（省额度）。
 name: CI
 
 on:
@@ -47,6 +53,15 @@ jobs:
       - name: 本体结构自检
         run: python tools/data/knowledge_tree.py
 
+      # 别名是生成物（alias_overrides.json → math*.json 的 aliases 字段）：
+      # 人工改了 overrides 忘了重新生成时，这里要红而不是让召回悄悄退化。
+      - name: 别名生成物自检
+        run: python tools/data/gen_aliases.py --check
+
+      # LaTeX 数据 lint：拦公式结构性错误（拦"知识点公式在渲染器里解析失败"）。
+      - name: 公式数据自检
+        run: python tools/data/check_formulas.py
+
       - name: 依赖
         working-directory: app
         run: flutter pub get
@@ -58,3 +73,32 @@ jobs:
       - name: 测试
         working-directory: app
         run: flutter test
+
+  build-windows:
+    # 只在 main 提交与手动触发时编译原生层（PR 上跑太贵）。
+    if: github.event_name != 'pull_request'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 同步知识资产（data/ → app/assets/data/）
+        run: python tools/data/sync_assets.py
+
+      - name: 依赖
+        working-directory: app
+        run: flutter pub get
+
+      # 原生层从未被 Dart 测试覆盖：这一步红了 = windows/runner 的 C++/CMake
+      # 或资源文件坏了 —— 正是 Dart 侧全绿也发现不了的故障。
+      - name: 编译 Windows 原生层
+        working-directory: app
+        run: flutter build windows --release

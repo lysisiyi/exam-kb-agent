@@ -35,13 +35,16 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/core/math/katex_renderer.dart';
 import 'package:kaoyan_math_agent/core/math/latex_text_split.dart';
 import 'package:kaoyan_math_agent/core/math/math_renderer.dart';
+import 'package:kaoyan_math_agent/core/providers.dart';
 import 'package:kaoyan_math_agent/domain/knowledge/knowledge_point.dart';
 import 'package:kaoyan_math_agent/features/knowledge/knowledge_formula_row.dart';
 import 'package:kaoyan_math_agent/features/knowledge/knowledge_leaf_detail.dart';
+import 'package:kaoyan_math_agent/services/profile/mastery_service.dart';
 
 KnowledgeBase? loadKb() {
   final f = File('../data/knowledge_points/math1.json');
@@ -64,17 +67,19 @@ Future<void> pumpCard(
   addTearDown(tester.view.reset);
 
   await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: Align(
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: width - 24,
-            child: SingleChildScrollView(
-              child: KnowledgeLeafDetail(
-                leaf: leaf,
-                sectionName: section,
-                chapterName: chapter,
+    withKpOverrides(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: width - 24,
+              child: SingleChildScrollView(
+                child: KnowledgeLeafDetail(
+                  leaf: leaf,
+                  sectionName: section,
+                  chapterName: chapter,
+                ),
               ),
             ),
           ),
@@ -107,6 +112,18 @@ List<String> scrolledFormulaTex(WidgetTester tester) {
   }
   return out;
 }
+
+
+/// KnowledgeLeafDetail 自 P1-1 起内嵌「你的题目」节（ConsumerWidget）。
+/// 这些排版测试只关心公式渲染，题目清单用空数据顶住 ——
+/// 不碰真实数据库（widget 测试的假时钟下真实 IO 不是失败而是挂住）。
+Widget withKpOverrides(Widget child) => ProviderScope(
+      overrides: [
+        kpProblemsProvider.overrideWith((ref, id) async =>
+            const KpProblems(primary: [], secondary: [])),
+      ],
+      child: child,
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -56,6 +56,7 @@ import '../../data/error_causes.dart';
 import '../../data/index/index_builder.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../data/markdown/problem_store.dart';
+import '../../data/problem_file.dart';
 import '../../domain/fsrs/fsrs_scheduler.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import '../../domain/paper/paper_models.dart';
@@ -1307,7 +1308,11 @@ class UpdateProblemTool extends ChatTool {
     }
 
     final service = await loadService();
-    final read = await service.store.read(id);
+    final read = await readIndexedProblem(
+      db: service.db,
+      store: service.store,
+      problemId: id,
+    );
     final existing = read.problem;
     if (existing == null) {
       return ToolOutcome(
@@ -1501,7 +1506,11 @@ class DeleteProblemTool extends ChatTool {
     }
 
     final service = await loadService();
-    final read = await service.store.read(id);
+    final read = await readIndexedProblem(
+      db: service.db,
+      store: service.store,
+      problemId: id,
+    );
     final existing = read.problem;
     if (existing == null) {
       return ToolOutcome(

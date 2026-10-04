@@ -37,6 +37,7 @@ import 'dart:convert';
 
 import '../../data/error_causes.dart';
 import '../../data/markdown/problem_markdown.dart';
+import '../../data/problem_file.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import '../../domain/paper/paper_models.dart';
 import '../../domain/problem_draft.dart';
@@ -387,7 +388,12 @@ class ChatWriteExecutor {
     }
 
     final service = await loadService();
-    final read = await service.store.read(id);
+    // 按索引真实路径读（外部题库 id 可能 ≠ 文件名）
+    final read = await readIndexedProblem(
+      db: service.db,
+      store: service.store,
+      problemId: id,
+    );
     final existing = read.problem;
     if (existing == null) {
       // 提案在盘上躺过一段时间，这道题可能已经被删了。
@@ -460,7 +466,11 @@ class ChatWriteExecutor {
     if (id.isEmpty) return WriteOutcome.failure('没给题目 id，没有删任何东西');
 
     final service = await loadService();
-    final read = await service.store.read(id);
+    final read = await readIndexedProblem(
+      db: service.db,
+      store: service.store,
+      problemId: id,
+    );
     if (read.problem == null) {
       return WriteOutcome.failure('这道题已经不在了，没有删任何东西');
     }

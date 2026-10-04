@@ -21,13 +21,28 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/core/math/katex_renderer.dart';
 import 'package:kaoyan_math_agent/core/math/math_renderer.dart';
+import 'package:kaoyan_math_agent/core/providers.dart';
 import 'package:kaoyan_math_agent/domain/knowledge/knowledge_point.dart';
 import 'package:kaoyan_math_agent/features/knowledge/knowledge_leaf_detail.dart';
+import 'package:kaoyan_math_agent/services/profile/mastery_service.dart';
 
 import 'support/test_fonts.dart';
+
+
+/// KnowledgeLeafDetail 自 P1-1 起内嵌「你的题目」节（ConsumerWidget）。
+/// 这些排版测试只关心公式渲染，题目清单用空数据顶住 ——
+/// 不碰真实数据库（widget 测试的假时钟下真实 IO 不是失败而是挂住）。
+Widget withKpOverrides(Widget child) => ProviderScope(
+      overrides: [
+        kpProblemsProvider.overrideWith(
+            (ref, id) async => const KpProblems(primary: [], secondary: [])),
+      ],
+      child: child,
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -89,11 +104,11 @@ void main() {
                       child: Builder(
                         builder: (ctx) {
                           final crumb = detailBreadcrumb(kb, leaf.id);
-                          return KnowledgeLeafDetail(
+                          return withKpOverrides(KnowledgeLeafDetail(
                             leaf: leaf,
                             sectionName: crumb.section,
                             chapterName: crumb.chapter,
-                          );
+                          ));
                         },
                       ),
                     ),

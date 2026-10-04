@@ -29,6 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/layout/breakpoints.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/problem_file.dart';
 import '../../domain/paper/paper_models.dart';
 import '../../domain/paper/paper_template.dart';
 import '../../services/paper/paper_composer.dart';
@@ -162,8 +163,12 @@ class _PaperPageState extends ConsumerState<PaperPage> {
     });
     try {
       final store = await ref.read(problemStoreProvider.future);
+      final db = await ref.read(databaseProvider.future);
       final exporter = PaperPdfExporter(
-        loadProblem: (id) async => (await store.read(id)).problem,
+        // 按索引真实路径读（外部题库 id 可能 ≠ 文件名）
+        loadProblem: (id) async =>
+            (await readIndexedProblem(db: db, store: store, problemId: id))
+                .problem,
       );
 
       final stamp = DateTime.now();

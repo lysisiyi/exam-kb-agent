@@ -388,7 +388,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 class _LazyPage extends StatefulWidget {
   final Widget Function() builder;
 
-  /// 是否至少被选中过一次。
+  /// 是否为**当前选中**的页（调用方传 `i == _index`，切走即变 false）。
   final bool active;
 
   const _LazyPage({required this.builder, required this.active});
@@ -399,11 +399,45 @@ class _LazyPage extends StatefulWidget {
 
 class _LazyPageState extends State<_LazyPage> {
   Widget? _child;
+  final FocusScopeNode _pageScope =
+      FocusScopeNode(debugLabel: 'lazy-page-scope');
+
+  @override
+  void dispose() {
+    _pageScope.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(_LazyPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active && _child != null) {
+      // 切回本页：把焦点请回来。ExcludeFocus 在切走时把焦点逐出了页面，
+      // 若不请回，键盘流程（复习页 1/2/3、对话 Enter 发送）要等用户
+      // 再点一下页面才活 —— 那是对键盘交互的退化。FocusScopeNode 记得
+      // 上次聚焦的子节点，requestFocus 会让它原位恢复。
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.active) _pageScope.requestFocus();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     if (widget.active) _child ??= widget.builder();
-    return _child ?? const SizedBox.shrink();
+    final child = _child ?? const SizedBox.shrink();
+    // ⚠️ 隐藏页必须挡掉焦点。IndexedStack 只是不绘制，primary focus 原封不动
+    // 地留在看不见的页面上：复习页切走后按空格/1/2/3，看不见的页面照常
+    // 揭晓、照常写库评分；对话输入框持有焦点时 Enter 会静默发出消息。
+    // ExcludeFocus 是响应式的 —— active 翻转时自动把焦点移出/允许进入；
+    // 外层的 FocusScope 负责在切回时接住焦点（见 didUpdateWidget）。
+    return FocusScope(
+      node: _pageScope,
+      child: ExcludeFocus(
+        excluding: !widget.active,
+        child: child,
+      ),
+    );
   }
 }
 

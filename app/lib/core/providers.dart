@@ -393,6 +393,19 @@ final masteryReportProvider = FutureProvider<MasteryReport>((ref) async {
   return svc.build(knowledge: kb);
 });
 
+/// 一个考点下挂的题目（知识库详情页「你的题目」节）。
+///
+/// autoDispose family：离开那个考点的详情就丢弃 —— 题目数据会因
+/// 录入/删除/复习评分而变，长缓存只会显示旧数字。复习打分后
+/// 复习页会 invalidate [reviewStatsProvider]，但**不会**知道哪些
+/// 考点的清单受影响；详情页在下一次进入时自然取到新值，这正是
+/// autoDispose 的意义。
+final kpProblemsProvider = FutureProvider.autoDispose
+    .family<KpProblems, String>((ref, kpId) async {
+  final svc = await ref.watch(masteryServiceProvider.future);
+  return svc.problemsForKp(kpId);
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // AI 配置（BYOK）
 // ─────────────────────────────────────────────────────────────────────────────

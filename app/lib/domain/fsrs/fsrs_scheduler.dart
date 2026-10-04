@@ -216,10 +216,14 @@ class FsrsScheduler {
 
   final math.Random _rand;
 
-  static const double _decay = -0.5;
+  /// 遗忘曲线的衰减指数。FSRS-6 里这是**自由参数** w[20]（py-fsrs：
+  /// `DECAY = -parameters[20]`），不再是 FSRS-4.5/5 时代的固定 -0.5。
+  /// 权重集按哪条曲线训练，保持率就必须按哪条曲线算——两者脱节时，
+  /// R 的偏差会顺着 `stabilityAfterRecall/Forget` 传导进稳定性。
+  double get _decay => -w[20];
 
   /// 使 `R(t, S) = 0.9` 成立时的因子，推导见 FSRS 论文。
-  static double get _factor => math.pow(0.9, 1 / _decay).toDouble() - 1;
+  double get _factor => math.pow(0.9, 1 / _decay).toDouble() - 1;
 
   // ── 记忆模型 ──────────────────────────────────────────────────────────────
 
@@ -251,7 +255,9 @@ class FsrsScheduler {
   double nextDifficulty(double difficulty, Rating rating) {
     final deltaD = -w[6] * (rating.value - 3);
     final damped = difficulty + deltaD * (10 - difficulty) / 9;
-    final target = initialDifficulty(Rating.easy); // 均值回归目标
+    // 均值回归目标取**未夹取**的 D₀(easy)（py-fsrs 传 clamp=False）——
+    // 它本来就是负数，回归正是要把难度往下拉，最后再统一夹进 [1, 10]。
+    final target = w[4] - math.exp(w[5] * (Rating.easy.value - 1)) + 1;
     return (w[7] * target + (1 - w[7]) * damped).clamp(1.0, 10.0);
   }
 
@@ -274,17 +280,39 @@ class FsrsScheduler {
   }
 
   /// 遗忘后的稳定性（lapse）。
+  ///
+  /// `S/e^(w17·w18)` 是**上限**（约 0.95·S），不是乘数——py-fsrs 取
+  /// `min(长程项, 上限)`：遗忘后的新稳定性不得超过原稳定性的 95%。
+  /// 若把它乘到长程项上（历史实现），成熟卡片（S 大、长程项 L 小于上限）
+  /// 会在点「忘了」后得到 L·0.95·S ≈ 0.95·S·L 的间隔，比遗忘前还远，
+  /// 且 S 越大偏得越离谱（S=10 时约 10 倍）。数值对拍见
+  /// `test/fsrs_pyfsrs_parity_test.dart`。
   double stabilityAfterForget(
     double difficulty,
     double stability,
     double retrievability,
   ) {
-    final sMin = math.max(stability / math.exp(w[17] * w[18]), 0.01);
-    return w[11] *
+    final longTerm = w[11] *
         math.pow(difficulty, -w[12]) *
         (math.pow(stability + 1, w[13]) - 1) *
-        math.exp((1 - retrievability) * w[14]) *
-        sMin;
+        math.exp((1 - retrievability) * w[14]);
+    final cap = stability / math.exp(w[17] * w[18]);
+    return math.min(longTerm, cap);
+  }
+
+  /// 同日复习（间隔不足 1 天）的短期稳定度。FSRS-6 新增路径，
+  /// py-fsrs 的 `_short_term_stability`：`S·e^(w17·(G−3+w18))·S^(−w19)`。
+  ///
+  /// 非 Again 档把增益**下限抬到 1**（同日做对至少不掉稳定性）；Again
+  /// 不抬——同日再忘就该掉。没有这条路径时，同日重练走长程公式：
+  /// elapsed=0 → R=1 → 增长项为 0，「10 分钟后重练」形同虚设。
+  double stabilityAfterShortTerm(double stability, Rating rating) {
+    var increase = math.exp(w[17] * (rating.value - 3 + w[18])) *
+        math.pow(stability, -w[19]).toDouble();
+    if (rating != Rating.forgot) {
+      increase = math.max(increase, 1.0);
+    }
+    return stability * increase;
   }
 
   /// 由稳定性反推间隔天数。
@@ -321,18 +349,34 @@ class FsrsScheduler {
     } else {
       final s = card.stability ?? initialStability(Rating.hard);
       final d = card.difficulty ?? initialDifficulty(Rating.hard);
-      final r = retrievabilityOf(s, elapsed);
 
-      difficulty = nextDifficulty(d, rating);
-
-      if (rating == Rating.forgot) {
-        stability = stabilityAfterForget(difficulty, s, r);
-        nextState = CardState.relearning;
-        intervalDays = 0; // 重学：当天再练
+      if (elapsed < 1) {
+        // 同日复习（间隔不足 1 天）走 FSRS-6 的短期稳定度路径，与 py-fsrs
+        // 一致（Learning/Review/Relearning 三个状态同样处理）。
+        // 注意：稳定性用**更新前**的难度算，难度随后独立更新（下同）——
+        // py-fsrs 先 _next_stability 后 _next_difficulty，历史移植把顺序
+        // 写反了，是数值对拍抓出来的第三处偏差。
+        stability = stabilityAfterShortTerm(s, rating);
+        difficulty = nextDifficulty(d, rating);
+        nextState =
+            rating == Rating.forgot ? CardState.relearning : CardState.review;
+        intervalDays = rating == Rating.forgot
+            ? 0 // 重学：当天再练
+            : intervalFromStability(stability);
       } else {
-        stability = stabilityAfterRecall(difficulty, s, r, rating);
-        nextState = CardState.review;
-        intervalDays = intervalFromStability(stability);
+        final r = retrievabilityOf(s, elapsed);
+
+        if (rating == Rating.forgot) {
+          stability = stabilityAfterForget(d, s, r);
+          difficulty = nextDifficulty(d, rating);
+          nextState = CardState.relearning;
+          intervalDays = 0; // 重学：当天再练
+        } else {
+          stability = stabilityAfterRecall(d, s, r, rating);
+          difficulty = nextDifficulty(d, rating);
+          nextState = CardState.review;
+          intervalDays = intervalFromStability(stability);
+        }
       }
     }
 

@@ -307,6 +307,12 @@ KnowledgeGraph buildKnowledgeGraph(
   KnowledgeBase kb, {
   required MeasureText measure,
   GraphStyle style = const GraphStyle(),
+
+  /// 错题数（kpId → 数量，只传 >0 的）。叶子节点右侧会挂一个"N 题"
+  /// 徽标 —— 徽标占宽度，**必须在这里量**：布局量宽与节点卡渲染用的
+  /// 不是同一份数据时，就会出现"名字 + 徽标"被硬塞进"名字宽"的框里、
+  /// 名字被省略号吃掉的老毛病（考频徽标踩过同一个坑，见下方 weight）。
+  Map<String, int> problemCountByKpId = const {},
 }) {
   // ── 1. 中序遍历，确定每个叶子的行号 ────────────────────────────────────
   final entries = <_Entry>[];
@@ -361,6 +367,13 @@ KnowledgeGraph buildKnowledgeGraph(
     if (kind == GraphNodeKind.leaf && weight != null) {
       w += style.weightGap +
           measure(weight.toStringAsFixed(2), style.weightStyle);
+    }
+
+    // 错题数徽标（"N 题"），与考频徽标同一条占宽纪律。
+    final count = problemCountByKpId[e.node.id] ?? 0;
+    if (kind == GraphNodeKind.leaf && count > 0) {
+      w += style.weightGap +
+          measure('$count 题', style.weightStyle.copyWith(fontWeight: FontWeight.w700));
     }
 
     final clamped = w.clamp(style.minNodeWidth, style.maxNodeWidth);

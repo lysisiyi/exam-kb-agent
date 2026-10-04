@@ -19,7 +19,6 @@ import '../../core/platform/secure_store_windows.dart' show SecureKeys;
 import '../../domain/knowledge/knowledge_point.dart';
 import '../tagger/knowledge_recall.dart';
 import '../tagger/knowledge_tagger.dart';
-import 'dio_http_adapter.dart';
 import 'llm_client.dart';
 import 'provider_registry.dart';
 
@@ -144,14 +143,17 @@ class LlmSettingsStore {
 
 /// 用当前配置装配标注引擎。未配置时返回 null。
 ///
-/// [http] 可注入，便于测试不真的发请求。
+/// [http] **必传**的底层适配器。它是可关闭资源（连接池），
+/// 不能藏在函数内部悄悄新建 —— 曾有的默认值 `DioHttpAdapter()` 让
+/// 录入页每次点"AI 标注"都漏一个没人引用、永远没人 close 的连接池。
+/// 调用方自己创建并在 finally 里 close（照抄 ingest_page 的写法）。
 /// [cache] 传 null 表示不缓存（每次都真的调 API，只在测试/排查时用）。
 /// [onUsage] 每次**真实**调用后回调一次，用于写用量台账。
 /// 命中缓存不会触发它 —— 那种情况没花钱。
 Future<KnowledgeTagger?> buildTagger({
   required KnowledgeBase knowledge,
   required LlmSettings settings,
-  HttpAdapter? http,
+  required HttpAdapter http,
   RecallConfig recallConfig = RecallConfig.defaults,
   TagCache? cache,
   void Function(LlmUsage)? onUsage,
@@ -167,7 +169,7 @@ Future<KnowledgeTagger?> buildTagger({
     // （见 LlmClient.chat 里对 config.baseUrl 的拼接），所以这里不传地址。
     client: LlmClient(
       config: config,
-      http: http ?? DioHttpAdapter(),
+      http: http,
       onUsage: onUsage,
     ),
     recallConfig: recallConfig,

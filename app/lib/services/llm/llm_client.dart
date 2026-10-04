@@ -157,11 +157,14 @@ enum LlmErrorKind {
   unknown;
 
   /// 是否值得重试。
+  ///
+  /// ⚠️ 超时**不**自动重试：非流式调用（打标、批量导入）的超时是
+  /// "整个生成时长"超限 —— 服务端多半已经完整生成并**计费**，
+  /// 自动重试等于同一道题白花两三次钱。让用户手动重试，钱花得明明白白。
   bool get isRetryable => switch (this) {
         LlmErrorKind.rateLimited ||
         LlmErrorKind.serverError ||
-        LlmErrorKind.network ||
-        LlmErrorKind.timeout =>
+        LlmErrorKind.network =>
           true,
         _ => false,
       };
@@ -175,7 +178,8 @@ enum LlmErrorKind {
         LlmErrorKind.badRequest => '请求格式有误（可能是软件缺陷，请反馈）',
         LlmErrorKind.serverError => '服务商暂时故障，稍后重试',
         LlmErrorKind.network => '无法连接该服务。国内使用 OpenAI / Claude / Gemini 通常需要代理',
-        LlmErrorKind.timeout => '请求超时，可能是网络慢或题目过长',
+        LlmErrorKind.timeout =>
+          '请求超时（可能是网络慢或题目过长）。为避免重复计费没有自动重试，请手动再试一次',
         // ⚠️ 不要说"已记入待人工确认" —— 这条路径上**什么都没记**。
         // 标注失败时 `KnowledgeTagger` 返回的是 failure，既没写 Markdown，
         // 也没往 `needs_review` 或任何队列里放东西。
@@ -241,13 +245,21 @@ class LlmUsage {
 
   int get totalTokens => inputTokens + outputTokens;
 
-  LlmUsage operator +(LlmUsage other) => LlmUsage(
-        inputTokens: inputTokens + other.inputTokens,
-        outputTokens: outputTokens + other.outputTokens,
-        model: other.model.isNotEmpty ? other.model : model,
-        costYuan: (costYuan ?? 0) + (other.costYuan ?? 0),
-        fromCache: false,
-      );
+  LlmUsage operator +(LlmUsage other) {
+    final a = costYuan;
+    final b = other.costYuan;
+    return LlmUsage(
+      inputTokens: inputTokens + other.inputTokens,
+      outputTokens: outputTokens + other.outputTokens,
+      model: other.model.isNotEmpty ? other.model : model,
+      // 费用未知**不能折算成 0**：模型不在价目表时单次 costYuan == null，
+      // 折成 0 会让多次累加显示"约 ¥0.00"—— 一笔假账。正确口径是
+      // 任何一次的费用未知，总额就是未知（与 ChatAgent 此前的 _sum 同一
+      // 语义，现已统一到这个运算符）。
+      costYuan: a == null || b == null ? null : a + b,
+      fromCache: false,
+    );
+  }
 
   /// 序列化。唯一的消费者是批量导入草稿（T49）——
   /// 中继续跑时要能把"这批已经花了多少"一起带回来，
@@ -1803,14 +1815,14 @@ class LlmClient {
         ],
     };
 
-    // Key 走 query 参数。流式必须显式要 `alt=sse` —— 不加的话返回的
-    // 是一个一次性给完的 JSON 数组，不是 SSE，SseParser 一行都切不出来。
-    final sep = config.baseUrl.contains('?') ? '&' : '?';
+    // Key 走 `x-goog-api-key` 请求头（见 LlmAuthStyle.googleHeader 的
+    // 说明 —— 不再把 key 拼进 URL）。流式仍必须显式要 `alt=sse`：
+    // 不加的话返回的是一个一次性给完的 JSON 数组，不是 SSE，
+    // SseParser 一行都切不出来。
     final method =
         stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
     return HttpRequest(
-      url: '${config.baseUrl}/models/${config.model}:$method'
-          '${sep}key=${Uri.encodeQueryComponent(config.apiKey)}',
+      url: '${config.baseUrl}/models/${config.model}:$method',
       headers: config.headers(),
       body: jsonEncode(body),
     );

@@ -163,6 +163,41 @@ class ChapterMastery {
 }
 
 /// 错因分布的一项。
+/// 「你的题目」清单：一个考点下挂的题。
+///
+/// 主考点命中的排 [primary]（清单主体）；仅以次考点关联的排 [secondary]
+/// （UI 折叠成"也关联 N 道"）—— 口径与画像聚合一致（都只把 primary
+/// 当作"这道题属于哪个考点"），折叠而不是丢弃则不漏信息。
+class KpProblems {
+  final List<KpProblemEntry> primary;
+  final List<KpProblemEntry> secondary;
+
+  const KpProblems({required this.primary, required this.secondary});
+
+  bool get isEmpty => primary.isEmpty && secondary.isEmpty;
+}
+
+class KpProblemEntry {
+  final String id;
+  final String stemPreview;
+  final List<String> errorCauses;
+  final int wrongCount;
+
+  /// 与画像/错题本同一口径现算（[masteryNowOf]）。null = 没复习过。
+  final double? mastery;
+
+  final bool needsReview;
+
+  const KpProblemEntry({
+    required this.id,
+    required this.stemPreview,
+    required this.errorCauses,
+    required this.wrongCount,
+    required this.mastery,
+    required this.needsReview,
+  });
+}
+
 class CauseStat {
   final String causeId;
   final String causeName;
@@ -488,6 +523,86 @@ class MasteryService {
   /// 转发到 [masteryNowOf] —— 画像与错题本列表共用同一份实现。
   double? masteryOf(UserProblemStateRow? state, DateTime now) =>
       masteryNowOf(state, scheduler, now);
+
+  /// 一个考点下挂的题目行（知识库详情页「你的题目」清单用）。
+  ///
+  /// [id] 题目 id；[stemPreview] 索引里的题干摘要（截到 200 字）；
+  /// [errorCauses] 受控词表 id（UI 经词表翻译成中文名）；
+  /// [wrongCount] 错次；[mastery] 与画像/错题本列表同一口径**现算**
+  /// （null = 没有可谈的掌握度，UI 显示"未复习"，不画 0%）；
+  /// [needsReview] 待人工复核标记。
+  Future<KpProblems> problemsForKp(String kpId, {DateTime? now}) async {
+    final ts = now ?? DateTime.now();
+    final links = await (db.select(db.problemKnowledge)
+          ..where((t) => t.kpId.equals(kpId)))
+        .get();
+
+    final primaryIds = <String>[];
+    final secondaryIds = <String>[];
+    for (final l in links) {
+      if (l.role == 'primary') {
+        primaryIds.add(l.problemId);
+      } else {
+        secondaryIds.add(l.problemId);
+      }
+    }
+    // 同一道题理论上不会同时把一个考点挂成主+次，但手改过 frontmatter 的
+    // 题库什么都有可能 —— 折叠区只放"主考点不是这里"的，避免重复出现。
+    final secondaryOnly =
+        secondaryIds.where((id) => !primaryIds.contains(id)).toList();
+
+    return KpProblems(
+      primary: await _loadKpProblemEntries(primaryIds, ts),
+      secondary: await _loadKpProblemEntries(secondaryOnly, ts),
+    );
+  }
+
+  Future<List<KpProblemEntry>> _loadKpProblemEntries(
+    List<String> ids,
+    DateTime ts,
+  ) async {
+    if (ids.isEmpty) return const [];
+
+    final rows = await (db.select(db.problemsIndex)
+          ..where((t) => t.id.isIn(ids)))
+        .get();
+    final states = await (db.select(db.userProblemState)
+          ..where((t) => t.problemId.isIn(ids)))
+        .get();
+    final rowById = {for (final r in rows) r.id: r};
+    final stateById = {for (final st in states) st.problemId: st};
+
+    final out = <KpProblemEntry>[];
+    for (final id in ids) {
+      // 索引行没了但关联还在（悬空关联，题目刚被删还没重建索引）：
+      // 跳过而不是让整张清单挂掉 —— 一次重建索引就会清掉这些行。
+      final r = rowById[id];
+      if (r == null) continue;
+      final st = stateById[id];
+      out.add(KpProblemEntry(
+        id: id,
+        stemPreview: r.stemText,
+        errorCauses: _decodeCauses(r.errorCauses ?? ''),
+        wrongCount: st?.wrongCount ?? 0,
+        mastery: masteryNowOf(st, scheduler, ts),
+        needsReview: r.needsReview,
+      ));
+    }
+
+    // 排序：错次多的在前（反复暴露问题），其次掌握度低的在前；
+    // 都相同按 id 稳定。null 掌握度（没复习过）排在有值的后面 ——
+    // "还不知道"不该被当成"掌握 100%"参与排序。
+    out.sort((a, b) {
+      final byWrong = b.wrongCount.compareTo(a.wrongCount);
+      if (byWrong != 0) return byWrong;
+      final ma = a.mastery ?? 1.0;
+      final mb = b.mastery ?? 1.0;
+      final byMastery = ma.compareTo(mb);
+      if (byMastery != 0) return byMastery;
+      return a.id.compareTo(b.id);
+    });
+    return out;
+  }
 
   /// 错因分布。
   List<CauseStat> _causeStats(

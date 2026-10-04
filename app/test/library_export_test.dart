@@ -19,6 +19,7 @@ import 'dart:io';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/data/db/database.dart';
+import 'package:kaoyan_math_agent/domain/fsrs/fsrs_scheduler.dart';
 import 'package:kaoyan_math_agent/services/library/library_exporter.dart';
 
 import 'support/test_env.dart';
@@ -135,13 +136,26 @@ void main() {
   group('用户状态合并进 frontmatter', () {
     test('my_ 前缀字段写进导出副本', () async {
       await seedProblems(env, [
-        const SeedProblem(id: 'p-1', stem: '一题', wrongCount: 5),
+        // 掌握度导出走 masteryNowOf **现算**（不读 mastery 快照列，
+        // 见 LibraryExporter._userStateOf 的说明），所以必须给一张真卡。
+        // lastReview = 现在 → elapsed=0 → R 恰为 1.0，断言确定。
+        SeedProblem(
+          id: 'p-1',
+          stem: '一题',
+          wrongCount: 5,
+          card: FsrsCard(
+            stability: 10,
+            difficulty: 5,
+            reps: 3,
+            state: CardState.review,
+            lastReview: DateTime.now(),
+          ),
+        ),
       ]);
-      // 补上复习状态
+      // 补上星标
       await (env.db.update(env.db.userProblemState)
             ..where((t) => t.problemId.equals('p-1')))
           .write(const UserProblemStateCompanion(
-        mastery: Value(0.42),
         starred: Value(true),
       ));
 
@@ -149,9 +163,21 @@ void main() {
       final text = File('${dir.path}/problems/p-1.md').readAsStringSync();
 
       expect(text, contains('my_wrong_count: 5'));
-      expect(text, contains('my_mastery: 0.42'));
+      expect(text, contains('my_mastery: 1.0'));
       expect(text, contains('my_starred: true'));
       expect(text, contains('my_first_seen:'));
+    });
+
+    test('无复习记录的题导出时没有 my_mastery 键（空缺不伪造）', () async {
+      await seedProblems(env, [
+        const SeedProblem(id: 'p-2', stem: '二题', wrongCount: 1),
+      ]);
+
+      final dir = await exportToTemp();
+      final text = File('${dir.path}/problems/p-2.md').readAsStringSync();
+
+      expect(text, contains('my_wrong_count: 1'));
+      expect(text, isNot(contains('my_mastery')));
     });
 
     test('导出**不**污染事实源文件（铁律：用户状态不进 Markdown）', () async {

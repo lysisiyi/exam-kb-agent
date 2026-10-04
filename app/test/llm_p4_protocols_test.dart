@@ -485,7 +485,12 @@ void main() {
 
       final url = http.requests.single.url;
       expect(url, contains(':generateContent'));
-      expect(url, contains('key='));
+      // key 已从 URL query 迁到 x-goog-api-key 请求头（key 不进 URI），
+      // 认证由 _FakeHttp 捕获的 headers 断言
+      expect(url.contains('key='), isFalse,
+          reason: 'key 不能出现在 URL 里（会随 URI 进异常与日志）');
+      expect(http.requests.single.headers['x-goog-api-key'], isNotEmpty,
+          reason: '认证头必须存在');
       expect(url.contains('alt=sse'), isFalse, reason: '非流式不要 alt=sse');
 
       final contents = _contentsOf(http.requests.single);

@@ -30,6 +30,8 @@ import 'package:path/path.dart' as p;
 
 import '../../data/db/database.dart';
 import '../../data/markdown/problem_store.dart';
+import '../../domain/fsrs/fsrs_scheduler.dart';
+import '../profile/mastery_service.dart';
 import '../review/review_repository.dart';
 
 /// 导出结果。
@@ -118,7 +120,13 @@ class LibraryExporter {
 
     for (final row in rows) {
       try {
-        final read = await store.read(row.id);
+        // 用索引里的真实路径，不从 id 推导 —— 外部题库允许 id ≠ 文件名，
+        // 推导出来的文件不存在时会把每道题都记成"读取失败"。
+        // ⚠️ filePath 相对题库根（见 IndexBuilder._relativePath）。
+        final file = row.filePath.isNotEmpty
+            ? File(p.join(store.problemsDir.parent.path, row.filePath))
+            : store.fileFor(row.id);
+        final read = await store.readFile(file);
         if (!read.isOk) {
           failures[row.id] = read.error ?? '读取失败';
           continue;
@@ -205,12 +213,20 @@ class LibraryExporter {
   /// 只放"用户在 Obsidian 里也想看到"的东西。刻意**不**导出
   /// `fsrs_state` 原文 —— 那是一坨 JSON，写进 Markdown 只会让文件难读，
   /// 而它真正的用途是复习调度，不需要人看。
+  ///
+  /// 掌握度与画像/错题本列表共用 [masteryNowOf] **现算**，不读
+  /// `mastery` 快照列：那列是打分瞬间的存档，会随时间衰减；且 2026-10
+  /// 之前 grade() 写进该列的恒是 1.0（评分后 R 恒为 1），读它等于
+  /// 给用户看"全部掌握 100%"。
   Map<String, dynamic>? _userStateOf(UserProblemStateRow? s) {
     if (s == null) return null;
     final due = dueOfState(s);
+    final mastery = masteryNowOf(s, FsrsScheduler(), DateTime.now());
     return {
       'wrong_count': s.wrongCount,
-      'mastery': double.parse(s.mastery.toStringAsFixed(3)),
+      // 新卡 / 无复习记录没有可谈的掌握度 —— 缺席这个键就是"没有数据"，
+      // 与画像页"空槽表示空缺"同一口径
+      if (mastery != null) 'mastery': double.parse(mastery.toStringAsFixed(3)),
       // `firstSeen` 在表定义里是非空列（带 currentDateAndTime 默认值），
       // 所以这里不需要判空
       'first_seen': _dateOnly(s.firstSeen),

@@ -550,7 +550,7 @@ void main() {
       expect(body['max_tokens'], isNotNull, reason: 'Anthropic 强制要求 max_tokens');
     });
 
-    test('Gemini：Key 走 query 参数', () async {
+    test('Gemini：Key 走 x-goog-api-key 请求头（不再进 URL）', () async {
       final http = FakeHttp([
         HttpResponse(
           statusCode: 200,
@@ -580,7 +580,10 @@ void main() {
       expect(r.text, 'gemini-out');
       expect(r.usage.inputTokens, 20);
       final req = http.requests.single;
-      expect(req.url, contains('key=sk-test-key'));
+      // key 曾拼在 URL query 里 —— 会随完整 URI 进异常文本与日志，
+      // 且流式路径 `?alt=sse` 与 `?key=` 叠出非法 query。已迁到 header。
+      expect(req.url.contains('key='), isFalse);
+      expect(req.headers['x-goog-api-key'], 'sk-test-key');
       expect(req.url, contains(':generateContent'));
     });
   });

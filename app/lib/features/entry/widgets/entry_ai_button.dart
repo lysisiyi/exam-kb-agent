@@ -23,10 +23,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers.dart';
 import '../../../domain/knowledge/knowledge_point.dart';
 import '../../../domain/problem_draft.dart';
+import '../../../services/llm/dio_http_adapter.dart';
 import '../../../services/llm/llm_settings.dart';
 import '../../../services/tagger/knowledge_tagger.dart';
 import '../../../services/tagger/tag_cache_store.dart';
-import 'llm_settings_dialog.dart';
+import '../../settings/llm_settings_dialog.dart';
 
 /// 标注结果，回填给录入页。
 class AiTagSuggestion {
@@ -136,14 +137,24 @@ class _EntryAiButtonState extends ConsumerState<EntryAiButton> {
         ledger = null;
       }
 
-      final tagger = await buildTagger(
-        knowledge: widget.knowledge,
-        settings: settings,
-        cache: cache,
-        onUsage: ledger == null
-            ? null
-            : (usage) => ledger!.record(provider: providerId, usage: usage),
-      );
+      // DioHttpAdapter 是可关闭资源（连接池）：声明在 try 之外，
+      // finally 里一定关得掉 —— 与 ingest_page 同一写法。曾让 buildTagger
+      // 默认自建，结果每次点"AI 标注"漏一个没人 close 的连接池。
+      final adapter = DioHttpAdapter();
+      KnowledgeTagger? tagger;
+      try {
+        tagger = await buildTagger(
+          knowledge: widget.knowledge,
+          settings: settings,
+          http: adapter,
+          cache: cache,
+          onUsage: ledger == null
+              ? null
+              : (usage) => ledger!.record(provider: providerId, usage: usage),
+        );
+      } finally {
+        adapter.close();
+      }
       if (tagger == null) {
         widget.onMessage('配置不完整，请检查服务商与 Key', error: true);
         return;
