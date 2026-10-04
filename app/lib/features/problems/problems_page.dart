@@ -427,6 +427,11 @@ class _ProblemTile extends StatelessWidget {
                     child: stem,
                   ),
                   const SizedBox(height: 6),
+                  // 行内标签刻意**只有**：考点（或待补）、待复核、错次。
+                  // 难度/来源/掌握度/下次复习都在详情抽屉里 —— 行是扫读
+                  // 场景，五个标签挤一行时哪个都看不出重点（用户反馈
+                  // "标签怪怪的"，减法才是解法）。掌握度与到期去复习页看，
+                  // 那里有更完整的上下文。
                   Wrap(
                     spacing: 6,
                     runSpacing: 4,
@@ -439,29 +444,10 @@ class _ProblemTile extends StatelessWidget {
                         )
                       else if (needsReview)
                         _Pill(text: '待补考点', color: theme.colorScheme.error),
+                      if (needsReview && primaryKpName != null)
+                        const _Pill(text: '待复核', color: AppColors.warningInk),
                       if (wrongCount > 0)
-                        _Pill(text: '错 $wrongCount 次', color: const Color(0xFFE03131)),
-                      if (due != null)
-                        _Pill(
-                          text: describeDue(due),
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      if (mastery > 0)
-                        _Pill(
-                          text: '掌握 ${(mastery * 100).round()}%',
-                          color: const Color(0xFF0CA678),
-                        ),
-                      _Pill(
-                        text: difficulty == 1
-                            ? '基础'
-                            : (difficulty == 2 ? '综合' : '拓展'),
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      if (source != null && source!.isNotEmpty)
-                        _Pill(
-                          text: source!,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                        _Pill(text: '错 $wrongCount 次', color: AppColors.danger),
                     ],
                   ),
                 ],

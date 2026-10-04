@@ -93,7 +93,7 @@ void main() {
       expect(find.textContaining('去「录入」页记下第一道题'), findsOneWidget);
     });
 
-    testWidgets('录过的题会出现在列表里，并带错误次数、难度、来源', (tester) async {
+    testWidgets('录过的题出现在列表里，行内只有考点与错次（V2 决策：标签做减法）', (tester) async {
       await seed(tester, [
         const SeedProblem(
           id: 'p-1',
@@ -107,10 +107,12 @@ void main() {
 
       expect(find.textContaining(r'\lim'), findsOneWidget);
       expect(find.text('错 3 次'), findsOneWidget);
-      expect(find.text('综合'), findsOneWidget);
-      expect(find.text('2023 年真题'), findsOneWidget);
-      // 题目 id 始终显示，方便用户对照文件
       expect(find.text('p-1'), findsOneWidget);
+      // 难度/来源/掌握度/下次复习**刻意不再上列表行**（2026-10-03 用户决策：
+      // 行是扫读场景，五个标签挤一行哪个都看不出重点）—— 它们都在
+      // 详情抽屉里，点开能看到。
+      expect(find.text('综合'), findsNothing);
+      expect(find.text('2023 年真题'), findsNothing);
     });
 
     testWidgets('「错题最多」按错误次数排序', (tester) async {
