@@ -281,6 +281,13 @@ class ReviewRepository {
       }
     }
 
+    // 错因档位**排序前**逐行算一次。曾写在比较器里：O(n log n) 次比较
+    // × 每次两个 JSON 解码 —— 与 providers.dart:314 修过的坑同款
+    // （几百张卡假期后同时到期时是十万次量级的解码）。
+    final remedyRanks = {
+      for (final e in due) e.$1.problemId: _remedyRank(e.$1),
+    };
+
     due.sort((a, b) {
       // 新卡排在有卡片的之后
       if (a.$2 == null && b.$2 != null) return 1;
@@ -297,8 +304,8 @@ class ReviewRepository {
       if (overdueA != overdueB) return overdueB.compareTo(overdueA);
 
       // ② 同一逾期档内：先做"重做本题真的有用"的那些
-      final rankA = _remedyRank(a.$1);
-      final rankB = _remedyRank(b.$1);
+      final rankA = remedyRanks[a.$1.problemId]!;
+      final rankB = remedyRanks[b.$1.problemId]!;
       if (rankA != rankB) return rankA.compareTo(rankB);
 
       // ③ 精确到期时间；再同则按 id 稳定

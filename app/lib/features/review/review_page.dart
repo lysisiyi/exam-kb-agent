@@ -25,6 +25,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -38,9 +39,41 @@ import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/error_causes.dart';
 import '../../domain/fsrs/fsrs_scheduler.dart';
+import '../../domain/knowledge/knowledge_point.dart';
 import '../../services/review/review_repository.dart';
 import '../problems/problem_images.dart';
 import 'error_prescription_panel.dart';
+
+/// 本次会话的一条评分流水（会话报告用）。
+///
+/// 刻意只存**原始数据**（id / 评级 / 考点 id / 错因 JSON 串）：
+/// 名称翻译要查本体与词表，而评分热路径上不该做这件事；
+/// 报告视图本来就 watch 着它们，翻译放那里。
+class SessionGradeEntry {
+  final String problemId;
+
+  /// 题干预览（报告里让人认出这道题；读取失败时为 null）。
+  final String? stemPreview;
+  final String? primaryKpId;
+
+  /// `user_problem_state.errorCauses` 的原始 JSON 串，报告视图再解。
+  final String causeIdsRaw;
+  final Rating rating;
+
+  const SessionGradeEntry({
+    required this.problemId,
+    required this.causeIdsRaw,
+    required this.rating,
+    this.stemPreview,
+    this.primaryKpId,
+  });
+}
+
+String _previewOf(String stem) {
+  final t = stem.trim();
+  if (t.isEmpty) return '（无题干）';
+  return t.length > 60 ? '${t.substring(0, 60)}…' : t;
+}
 
 class ReviewPage extends ConsumerStatefulWidget {
   const ReviewPage({super.key});
@@ -86,6 +119,11 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
   /// 今日提醒文案。非 null 时在页面顶部显示一条可关闭的横幅。
   String? _reminder;
 
+  /// 本次会话的评分流水（3.3 会话报告的数据源）。
+  /// 只记 id / 评级 / 考点 id / 错因 id 原始串 —— 名称翻译交给报告视图
+  /// （它本来就在 watch 本体与词表，不该在评分热路径上做）。
+  final List<SessionGradeEntry> _sessionLog = [];
+
   @override
   void initState() {
     super.initState();
@@ -128,6 +166,7 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
         _index = 0;
         _revealed = false;
         _shownAt = DateTime.now();
+        _sessionLog.clear();
       });
       ref.invalidate(reviewStatsProvider);
     } catch (e) {
@@ -169,6 +208,16 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
         return;
       }
       if (!mounted) return;
+
+      _sessionLog.add(SessionGradeEntry(
+        problemId: card.problemId,
+        stemPreview: card.problem == null
+            ? null
+            : _previewOf(card.problem!.stem),
+        primaryKpId: card.problem?.primaryKnowledge?.id,
+        causeIdsRaw: card.state.errorCauses,
+        rating: rating,
+      ));
 
       final next = describeDue(result.nextDue);
       setState(() {
@@ -260,7 +309,7 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
 
     final card = _current;
     if (card == null) {
-      return _SessionDoneView(graded: _graded, onAgain: _load);
+      return _SessionDoneView(graded: _graded, log: _sessionLog, onAgain: _load);
     }
 
     return CallbackShortcuts(
@@ -274,6 +323,7 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
         autofocus: true,
         child: _Session(
           card: card,
+          grading: _grading,
           position: _index + 1,
           total: _queue!.length,
           revealed: _revealed,
@@ -295,6 +345,10 @@ class _Session extends ConsumerWidget {
   final int position;
   final int total;
   final bool revealed;
+
+  /// 正在写入评分（M4）：写库期间三个评分按钮必须变灰 ——
+  /// 闸门本来就拦得住连点，但拦不住"用户以为没点上"的第二次点击预期。
+  final bool grading;
   final VoidCallback onReveal;
   final void Function(Rating) onGrade;
   final VoidCallback onSkip;
@@ -304,6 +358,7 @@ class _Session extends ConsumerWidget {
     required this.position,
     required this.total,
     required this.revealed,
+    required this.grading,
     required this.onReveal,
     required this.onGrade,
     required this.onSkip,
@@ -343,7 +398,9 @@ class _Session extends ConsumerWidget {
               ),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 760),
+                  // 限宽上限提到 1180：宽窗口下卡片内部做「左题右析」双栏，
+                    // 窄窗口回到单列 760（见 _CardBody 的 LayoutBuilder）。
+                    constraints: const BoxConstraints(maxWidth: 1180),
                   child: _CardBody(
                     card: card,
                     revealed: revealed,
@@ -360,6 +417,7 @@ class _Session extends ConsumerWidget {
         _Actions(
           revealed: revealed,
           compact: compact,
+          grading: grading,
           onReveal: onReveal,
           onGrade: onGrade,
           onSkip: onSkip,
@@ -459,7 +517,6 @@ class _CardBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final renderer = MathRendering.renderer;
 
     if (card.problem == null) {
@@ -467,7 +524,21 @@ class _CardBody extends ConsumerWidget {
     }
     final p = card.problem!;
 
-    return Column(
+    // 关键词行（设想 #2）：题面下方只给"认出这道题"所需的最小信息 ——
+    // 考点 + 错因 + 错次。完整处方在揭晓后的右栏里。
+    final keywords = Wrap(
+      spacing: 6,
+      runSpacing: 5,
+      children: [
+        if (kpName case final name?) _Chip(text: name, color: AppColors.primary),
+        for (final c in errorCauses) _Chip(text: c.name, color: AppColors.warningInk),
+        for (final u in unknownCauseIds) _Chip(text: u, color: AppColors.ink3),
+        if (card.state.wrongCount > 0)
+          _Chip(text: '错 ${card.state.wrongCount} 次', color: AppColors.danger),
+      ],
+    );
+
+    final stemSection = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
@@ -483,19 +554,11 @@ class _CardBody extends ConsumerWidget {
                 color: AppColors.primaryStrong,
               ),
             ),
-            if (kpName case final name?)
-              Text(
-                name,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
             Text(
               p.id,
               style: TextStyle(
                 fontSize: 10.5,
-                color: theme.colorScheme.onSurfaceVariant,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -524,7 +587,6 @@ class _CardBody extends ConsumerWidget {
             const SizedBox(height: 12),
             ProblemImageList(
               images: p.images,
-              // 题库路径未就绪时传 null → 每张显示"缺失"占位，不吞也不炸。
               imagesDirPath:
                   ref.watch(libraryPathsProvider).valueOrNull?.images.path,
             ),
@@ -551,46 +613,84 @@ class _CardBody extends ConsumerWidget {
               ),
           ],
         ],
-        const SizedBox(height: 22),
-        if (!revealed)
-          const _HiddenAnswer()
-        else ...[
-          if (p.answer != null) ...[
-            const _SectionLabel('答案'),
-            DefaultTextStyle.merge(
-              style: const TextStyle(fontSize: 14.5, height: 1.85),
-              child: renderer.renderMarkdown(p.answer!),
-            ),
-            const SizedBox(height: 20),
-          ],
-          if (p.solution != null) ...[
-            const _SectionLabel('解析'),
-            DefaultTextStyle.merge(
-              style: const TextStyle(fontSize: 14, height: 1.9),
-              child: renderer.renderMarkdown(p.solution!),
-            ),
-          ],
-          if (p.note != null && p.note!.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            const _SectionLabel('我的笔记'),
-            DefaultTextStyle.merge(
-              style: const TextStyle(fontSize: 13.5, height: 1.85),
-              child: renderer.renderMarkdown(p.note!),
-            ),
-          ],
-          // 错因处方放在**最后**：先看完答案与解析，再谈"接下来该怎么补"。
-          // 这是 `data/error_causes.json` 的处方第一次上界面 ——
-          // 在此之前那 6 段 action / not_action 只参与画像页的错因分布统计。
-          if (errorCauses.isNotEmpty || unknownCauseIds.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            const _SectionLabel('错因处方'),
-            ErrorPrescriptionPanel(
-              causes: errorCauses,
-              unknownIds: unknownCauseIds,
-            ),
-          ],
+        if (keywords.children.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          keywords,
         ],
       ],
+    );
+
+    final analysisSection = !revealed
+        ? const _HiddenAnswer()
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (p.answer != null) ...[
+                const _SectionLabel('答案'),
+                DefaultTextStyle.merge(
+                  style: const TextStyle(fontSize: 14.5, height: 1.85),
+                  child: renderer.renderMarkdown(p.answer!),
+                ),
+                const SizedBox(height: 20),
+              ],
+              if (p.solution != null) ...[
+                const _SectionLabel('解析'),
+                DefaultTextStyle.merge(
+                  style: const TextStyle(fontSize: 14, height: 1.9),
+                  child: renderer.renderMarkdown(p.solution!),
+                ),
+              ],
+              if (p.note != null && p.note!.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const _SectionLabel('我的笔记'),
+                DefaultTextStyle.merge(
+                  style: const TextStyle(fontSize: 13.5, height: 1.85),
+                  child: renderer.renderMarkdown(p.note!),
+                ),
+              ],
+              // 错因处方放在**最后**：先看完答案与解析，再谈"接下来该怎么补"。
+              if (errorCauses.isNotEmpty || unknownCauseIds.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const _SectionLabel('错因处方'),
+                ErrorPrescriptionPanel(
+                  causes: errorCauses,
+                  unknownIds: unknownCauseIds,
+                ),
+              ],
+            ],
+          );
+
+    // 左题右析（设想 #2）：≥1100px 双栏，题面常驻、解析揭晓后才出现在
+    // 右栏 —— 评完一张题不用滚回去找题面。窄窗口退化为原来的单列。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 1100;
+        if (!wide) {
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  stemSection,
+                  const SizedBox(height: 22),
+                  analysisSection,
+                ],
+              ),
+            ),
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 5, child: stemSection),
+            const SizedBox(width: 24),
+            const VerticalDivider(width: 1, color: AppColors.line),
+            const SizedBox(width: 24),
+            Expanded(flex: 4, child: analysisSection),
+          ],
+        );
+      },
     );
   }
 }
@@ -688,6 +788,10 @@ class _LoadFailedCard extends StatelessWidget {
 class _Actions extends StatelessWidget {
   final bool revealed;
   final bool compact;
+
+  /// 正在写库 —— 评分按钮变灰。写库期间 `_grade` 的闸门本来就拦得住，
+  /// 但"按钮没反应"和"按钮变灰"是两种体验：前者让用户以为没点上。
+  final bool grading;
   final VoidCallback onReveal;
   final void Function(Rating) onGrade;
   final VoidCallback onSkip;
@@ -695,6 +799,7 @@ class _Actions extends StatelessWidget {
   const _Actions({
     required this.revealed,
     required this.compact,
+    required this.grading,
     required this.onReveal,
     required this.onGrade,
     required this.onSkip,
@@ -716,6 +821,7 @@ class _Actions extends StatelessWidget {
                 keyHint: '1',
                 color: AppColors.danger,
                 filled: true,
+                disabled: grading,
                 onTap: () => onGrade(Rating.forgot),
               ),
               _GradeButton(
@@ -723,6 +829,7 @@ class _Actions extends StatelessWidget {
                 hint: '做出来了但卡住',
                 keyHint: '2',
                 color: const Color(0xFFF08C00),
+                disabled: grading,
                 onTap: () => onGrade(Rating.hard),
               ),
               _GradeButton(
@@ -730,6 +837,7 @@ class _Actions extends StatelessWidget {
                 hint: '很顺',
                 keyHint: '3',
                 color: const Color(0xFF0CA678),
+                disabled: grading,
                 onTap: () => onGrade(Rating.easy),
               ),
             ],
@@ -778,6 +886,9 @@ class _GradeButton extends StatelessWidget {
   final String keyHint;
   final Color color;
   final bool filled;
+
+  /// 写库中禁用 —— 与键盘闸门（`_grading`）同一时刻，两条入口一致。
+  final bool disabled;
   final VoidCallback onTap;
 
   const _GradeButton({
@@ -787,6 +898,7 @@ class _GradeButton extends StatelessWidget {
     required this.color,
     required this.onTap,
     this.filled = false,
+    this.disabled = false,
   });
 
   @override
@@ -847,7 +959,7 @@ class _GradeButton extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 132),
       child: filled
           ? FilledButton(
-              onPressed: onTap,
+              onPressed: disabled ? null : onTap,
               style: FilledButton.styleFrom(
                 backgroundColor: color,
                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
@@ -856,7 +968,7 @@ class _GradeButton extends StatelessWidget {
               child: child,
             )
           : OutlinedButton(
-              onPressed: onTap,
+              onPressed: disabled ? null : onTap,
               style: OutlinedButton.styleFrom(
                 foregroundColor: color,
                 padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
@@ -962,50 +1074,218 @@ class _AllDoneView extends ConsumerWidget {
   }
 }
 
-/// 本次会话抽完（队列里还有，只是这一轮已评完）。
-class _SessionDoneView extends StatelessWidget {
+/// 本次会话抽完（队列里还有，只是这一轮已评完）+ **会话报告**（3.3）。
+///
+/// 报告是**纯本地聚合**（评分流水在 `_sessionLog` 里现成），不读库、
+/// 不调模型 —— 「AI 挂了产品不能挂」在报告这件事上的意思就是：
+/// 它根本不需要 AI。可复制为 Markdown，贴进笔记或发给谁都行。
+class _SessionDoneView extends ConsumerWidget {
   final int graded;
+  final List<SessionGradeEntry> log;
   final VoidCallback onAgain;
 
-  const _SessionDoneView({required this.graded, required this.onAgain});
+  const _SessionDoneView({
+    required this.graded,
+    required this.log,
+    required this.onAgain,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final kb = ref.watch(knowledgeBaseProvider).valueOrNull;
+    final catalog = ref.watch(errorCauseCatalogProvider).valueOrNull;
+    final forgot = log.where((e) => e.rating == Rating.forgot).length;
+    final passed = log.length - forgot;
+
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.emoji_events_outlined,
-                size: 46, color: AppColors.primary),
-            const SizedBox(height: 14),
-            Text('本轮复习完成 · $graded 张',
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text(
-              '还有没到期的卡。现在再抽一轮会看到同样几张 —— '
-              '间隔是算法算出来的，不是越勤越好。',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12.5,
-                height: 1.75,
-                color: theme.colorScheme.onSurfaceVariant,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.emoji_events_outlined,
+                  size: 46, color: AppColors.primary),
+              const SizedBox(height: 14),
+              Text('本轮复习完成 · $graded 张',
+                  style: const TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(
+                '还有没到期的卡。现在再抽一轮会看到同样几张 —— '
+                '间隔是算法算出来的，不是越勤越好。',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  height: 1.75,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-            const SizedBox(height: 22),
-            FilledButton.icon(
-              onPressed: onAgain,
-              icon: const Icon(Icons.replay, size: 17),
-              label: const Text('再来一轮'),
-            ),
-          ],
+              if (log.isNotEmpty) ...[
+                const SizedBox(height: 22),
+                Text(
+                  '做出 $passed · 忘了 $forgot'
+                  '${log.isEmpty ? "" : "（正确率 ${(passed * 100 / log.length).round()}%）"}',
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                ..._weakKpLines(kb),
+                ..._causeLines(catalog),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(
+                        text: sessionReportMarkdown(log, kb: kb, catalog: catalog)));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('报告已复制为 Markdown')),
+                    );
+                  },
+                  icon: const Icon(Icons.copy_outlined, size: 16),
+                  label: const Text('复制 Markdown 报告'),
+                ),
+              ],
+              const SizedBox(height: 22),
+              FilledButton.icon(
+                onPressed: onAgain,
+                icon: const Icon(Icons.replay, size: 17),
+                label: const Text('再来一轮'),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  /// 最弱考点行（忘了 ≥1 次的考点，按次数降序，最多 3 行）。
+  List<Widget> _weakKpLines(KnowledgeBase? kb) {
+    final counts = <String, int>{};
+    for (final e in log) {
+      if (e.rating != Rating.forgot) continue;
+      final kp = e.primaryKpId;
+      if (kp == null) continue;
+      counts[kp] = (counts[kp] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return const [];
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return [
+      const SizedBox(height: 14),
+      const Text('这次忘了最多：',
+          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+      for (final e in sorted.take(3))
+        Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: Text(
+            '· ${kb?.byId[e.key]?.name ?? e.key}（忘了 ${e.value} 次）',
+            style: const TextStyle(fontSize: 12.5, height: 1.6),
+          ),
+        ),
+    ];
+  }
+
+  /// 错因分布行（只统计这次会话里评过分的题）。
+  List<Widget> _causeLines(ErrorCauseCatalog? catalog) {
+    final counts = <String, int>{};
+    for (final e in log) {
+      for (final id in catalog?.idsOfJson(e.causeIdsRaw) ?? const <String>[]) {
+        counts[id] = (counts[id] ?? 0) + 1;
+      }
+    }
+    if (counts.isEmpty) return const [];
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return [
+      const SizedBox(height: 10),
+      for (final e in sorted.take(3))
+        Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: Text(
+            '· ${catalog?.nameOf(e.key) ?? e.key} × ${e.value}',
+            style: const TextStyle(fontSize: 12.5, height: 1.6),
+          ),
+        ),
+    ];
+  }
+}
+
+/// 错因 JSON 串 → id 列表。坏数据当没标，报告不崩
+/// （与 `ErrorCauseCatalog.idsOfJson` 同一容错策略；解耦出来是因为
+/// 词表没载入时分布不该整个消失 —— 翻译可以缺，计数不能缺）。
+List<String> _decodeCauseIds(String raw) {
+  if (raw.trim().isEmpty) return const [];
+  try {
+    final v = jsonDecode(raw);
+    if (v is List) {
+      return v.map((e) => e?.toString() ?? '').where((e) => e.isNotEmpty).toList();
+    }
+  } catch (_) {
+    // 索引里的 JSON 坏了不该让报告挂掉
+  }
+  return const [];
+}
+
+/// 会话报告的 Markdown 文本（纯函数，可测）。
+String sessionReportMarkdown(
+  List<SessionGradeEntry> log, {
+  KnowledgeBase? kb,
+  ErrorCauseCatalog? catalog,
+  DateTime? now,
+}) {
+  if (log.isEmpty) return '本轮没有评分记录。';
+  final forgot = log.where((e) => e.rating == Rating.forgot).length;
+  final passed = log.length - forgot;
+  final d = now ?? DateTime.now();
+  final b = StringBuffer();
+  final ymd = '${d.year}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+  b.writeln('# 复习报告 · $ymd');
+  b.writeln();
+  b.writeln('- 共 ${log.length} 张：做出 $passed · 忘了 $forgot'
+      '（正确率 ${(passed * 100 / log.length).round()}%）');
+  b.writeln();
+  b.writeln('## 明细');
+  for (final e in log) {
+    final kpName = e.primaryKpId == null
+        ? ''
+        : '${kb?.byId[e.primaryKpId]?.name ?? e.primaryKpId!} · ';
+    b.writeln('- ${e.rating.label} · $kpName${e.stemPreview ?? e.problemId}');
+  }
+  final causeCounts = <String, int>{};
+  for (final e in log) {
+    for (final id in _decodeCauseIds(e.causeIdsRaw)) {
+      causeCounts[id] = (causeCounts[id] ?? 0) + 1;
+    }
+  }
+  if (causeCounts.isNotEmpty) {
+    b.writeln();
+    b.writeln('## 错因分布');
+    final sorted = causeCounts.entries.toList()
+      ..sort((a, z) => z.value.compareTo(a.value));
+    for (final e in sorted) {
+      b.writeln('- ${catalog?.nameOf(e.key) ?? e.key} × ${e.value}');
+    }
+  }
+  final kpCounts = <String, int>{};
+  for (final e in log) {
+    if (e.rating != Rating.forgot) continue;
+    final kp = e.primaryKpId;
+    if (kp == null) continue;
+    kpCounts[kp] = (kpCounts[kp] ?? 0) + 1;
+  }
+  if (kpCounts.isNotEmpty) {
+    b.writeln();
+    b.writeln('## 最需要回头看的考点（按忘了的次数）');
+    final sorted = kpCounts.entries.toList()
+      ..sort((a, z) => z.value.compareTo(a.value));
+    for (final e in sorted.take(3)) {
+      b.writeln('- ${kb?.byId[e.key]?.name ?? e.key} × ${e.value}');
+    }
+  }
+  return b.toString();
 }
 
 /// 未来 7 天到期分布。
