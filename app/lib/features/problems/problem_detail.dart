@@ -19,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/math/math_renderer.dart';
 import '../../core/providers.dart';
 import '../../data/markdown/problem_markdown.dart';
+import '../../domain/knowledge/knowledge_point.dart';
 import '../../domain/problem_draft.dart';
 import '../entry/entry_page.dart';
 import 'problem_images.dart';
@@ -155,6 +156,8 @@ class _ProblemDetailSheetState extends ConsumerState<ProblemDetailSheet> {
     // 题库路径没就绪（罕见）时 imagesDirPath 传 null → 组件显示"缺失"占位。
     final paths = ref.watch(libraryPathsProvider).valueOrNull;
     final imagesDir = paths?.images.path;
+    // 考点名翻译。本体没就绪时 kb 为 null → 显示裸 id（比白等强）。
+    final kb = ref.watch(knowledgeBaseProvider).valueOrNull;
 
     return DraggableScrollableSheet(
       expand: false,
@@ -182,15 +185,18 @@ class _ProblemDetailSheetState extends ConsumerState<ProblemDetailSheet> {
           _kv(theme, '题型', problem.qtype.label),
           _kv(theme, '难度',
               problem.difficulty == 1 ? '基础' : (problem.difficulty == 2 ? '综合' : '拓展')),
+          // 考点显示**名称**而不是裸 id：id 是给机器和 grep 用的
+          // （复习页同名场景早就显示名称——同一份数据不能两种口径）。
+          // 本体没载入/查不到时退回 id，但给个可读性提示。
           if (problem.primaryKnowledge != null)
-            _kv(theme, '主考点', problem.primaryKnowledge!.id),
+            _kv(theme, '主考点', _kpName(kb, problem.primaryKnowledge!.id)),
           if (problem.knowledge.length > 1)
             _kv(
               theme,
               '次考点',
               problem.knowledge
                   .where((k) => !k.isPrimary)
-                  .map((k) => k.id)
+                  .map((k) => _kpName(kb, k.id))
                   .join('、'),
             ),
           if (problem.source != null) _kv(theme, '来源', problem.source!),
@@ -293,6 +299,13 @@ class _ProblemDetailSheetState extends ConsumerState<ProblemDetailSheet> {
           ],
         ),
       );
+}
+
+/// 考点 id → 名称。查不到时退回 id 本身 ——
+/// 那通常是本体没载入或 id 已失效，用户至少还能看到可 grep 的原文。
+String _kpName(KnowledgeBase? kb, String id) {
+  final name = kb?.byId[id]?.name;
+  return (name == null || name.isEmpty) ? id : name;
 }
 
 class _SectionLabel extends StatelessWidget {

@@ -314,6 +314,8 @@ abstract final class LlmPricing {
     // https://bigmodel.cn/pricing
     'glm-4.6v-flashx': (0.15, 1.5),
     'glm-4.6v-flash': (0.0, 0.0), // 官方标注免费
+    // 4.1V-Thinking-Flash 也是免费档（2026-10-03 复核，图像录入预设用）
+    'glm-4.1v-thinking-flash': (0.0, 0.0),
     'glm-4.6v': (1.0, 3.0),
     'glm-4.5v': (2.0, 6.0),
     'glm-4v-plus': (4.0, 2.0),

@@ -16,6 +16,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/math/math_renderer.dart';
 import '../../core/theme/app_theme.dart';
@@ -57,7 +58,7 @@ class ProblemImageList extends StatelessWidget {
   }
 }
 
-class _OneImage extends StatelessWidget {
+class _OneImage extends ConsumerStatefulWidget {
   final String name;
   final String? imagesDirPath;
   final double maxHeight;
@@ -69,28 +70,84 @@ class _OneImage extends StatelessWidget {
   });
 
   @override
+  ConsumerState<_OneImage> createState() => _OneImageState();
+}
+
+class _OneImageState extends ConsumerState<_OneImage> {
+  /// 是否存在。**异步查**：build 里同步 `existsSync()` 在 Windows 上
+  /// （杀毒软件/冷盘）单次可达几十毫秒，一页十几张图就是可感知的卡顿。
+  /// null = 还在查（显示占位）。
+  bool? _exists;
+  File? _file;
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  @override
+  void didUpdateWidget(_OneImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imagesDirPath != widget.imagesDirPath ||
+        oldWidget.name != widget.name) {
+      _check();
+    }
+  }
+
+  Future<void> _check() async {
+    final dir = widget.imagesDirPath;
+    if (dir == null) {
+      setState(() => _exists = false);
+      return;
+    }
+    final file = File('$dir/${widget.name}');
+    _file = file;
+    // 先按"存在"渲染起解码（Image 自己的 errorBuilder 兜坏图），
+    // exists 结果回来后再修正为缺失占位。
+    bool exists;
+    try {
+      // 这条 lint（avoid_slow_async_io）是为"索引批量 stat"场景写的；
+      // 这里反过来：UI 线程上的**同步** stat（杀毒/冷盘单次几十毫秒）
+      // 才是要避开的，宁可为单张图付一次异步 round-trip。
+      exists = await
+          // ignore: avoid_slow_async_io
+          file.exists();
+    } catch (_) {
+      exists = false;
+    }
+    if (!mounted || !identical(_file, file)) return;
+    setState(() => _exists = exists);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final file = imagesDirPath == null ? null : File('$imagesDirPath/$name');
-    final exists = file?.existsSync() ?? false;
+    final file = _file;
+    final exists = _exists;
+    // 解码宽度上限：扫描照片常见 4000×3000（≈48MB 位图），而绘制高度
+    // 只有 maxHeight —— 按绘制需求解码，内存差一个数量级。
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0;
+    final cacheWidth = (widget.maxHeight * 2 * dpr).round();
 
     return Container(
-      constraints: BoxConstraints(maxHeight: maxHeight),
+      constraints: BoxConstraints(maxHeight: widget.maxHeight),
       decoration: BoxDecoration(
         border: Border.all(color: theme.dividerColor, width: 0.5),
         borderRadius: BorderRadius.circular(8),
       ),
       clipBehavior: Clip.antiAlias,
-      child: exists
-          ? Image.file(
-              file!,
+      child: exists == false || file == null
+          ? _Missing(name: widget.name)
+          : Image.file(
+              file,
               fit: BoxFit.contain,
               width: double.infinity,
+              cacheWidth: cacheWidth,
               // 解码失败（坏图/不支持的格式）与"文件不存在"同等对待：
               // 占位提示，绝不让一张坏图打断整页。
-              errorBuilder: (_, __, ___) => _Missing(name: name),
-            )
-          : _Missing(name: name),
+              errorBuilder: (_, __, ___) => _Missing(name: widget.name),
+            ),
     );
   }
 }

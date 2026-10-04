@@ -84,7 +84,7 @@ abstract final class LlmVision {
     'anthropic': ['claude-3', 'claude-4', 'claude-sonnet', 'claude-opus'],
     'gemini': ['gemini-1.5', 'gemini-2', 'gemini-pro-vision'],
     'qwen': ['-vl'],
-    'zhipu': ['glm-4v'],
+    'zhipu': ['glm-4v', 'glm-4.6v', 'glm-4.1v'],
     'moonshot': ['vision', 'kimi-latest'],
     'ollama': ['llava', 'vision', 'minicpm-v', 'bakllava', 'moondream'],
   };
@@ -98,7 +98,11 @@ abstract final class LlmVision {
     'anthropic': ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'],
     'gemini': ['gemini-1.5-flash', 'gemini-2.0-flash'],
     'qwen': ['qwen-vl-max', 'qwen-vl-plus'],
-    'zhipu': ['glm-4v-flash', 'glm-4v-plus'],
+    // 免费档在前：4.6V-Flash（手写体 OCR + 数学推理，2026-10 调研）、
+    // 4.1V-Thinking-Flash（题解/公式理解）、4V-Flash（660 题实测 0 失败）
+    'zhipu': [
+      'glm-4.6v-flash', 'glm-4.1v-thinking-flash', 'glm-4v-flash', 'glm-4v-plus',
+    ],
     'moonshot': ['moonshot-v1-8k-vision-preview', 'kimi-latest'],
     'ollama': ['llava', 'qwen2.5vl'],
   };
@@ -291,10 +295,12 @@ abstract final class LlmProviders {
       defaultModel: 'glm-4-flash',
       suggestedModels: [
         'glm-4-flash', 'glm-4-air', 'glm-4-plus',
-        // 视觉模型：批量导入要用这几个（模型名里带 4v）
-        'glm-4v-flash', 'glm-4v-plus',
+        // 视觉模型：图像录入/批量导入用。前两个**完全免费**（2026-10 调研：
+        // 4.6V-Flash 支持手写体 OCR 与数学推理，4.1V-Thinking-Flash 支持题解）
+        'glm-4.6v-flash', 'glm-4.1v-thinking-flash', 'glm-4v-flash', 'glm-4v-plus',
       ],
-      note: '国内直连，glm-4-flash 有免费额度。批量导入请选带 4v 的视觉模型',
+      note: '国内直连。视觉模型 glm-4.6v-flash / glm-4.1v-thinking-flash / '
+          'glm-4v-flash 均免费 —— 图像录入与批量导入够用',
       helpUrl: 'https://open.bigmodel.cn/usercenter/apikeys',
       // 上限**不能**写在服务商这一层：实测（2026-09-18/19）同一家的模型
       // 上限并不一样，写在这里会把能收 8192 的模型一起压到 1024 ——

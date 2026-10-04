@@ -41,13 +41,47 @@ class KatexRenderer implements MathRenderer {
   /// 只能靠真机截图。
   final bool splitCjk;
 
-  /// 解析失败时的降级样式（等宽红字，与 `katex` 自带兜底一致）。
+  /// 解析失败时的降级字色。曾用红色（与 katex 自带兜底一致），但红色
+  /// 在语义上是"报错"—— 而这不是报错，是**如实降级**：公式渲染不出来，
+  /// 原文照给、可选中复制。一整页解析失败的题（批量导入的扫描件很常见）
+  /// 满屏红色只会让人以为 App 坏了。
   final Color fallbackColor;
 
   const KatexRenderer({
     this.splitCjk = true,
-    this.fallbackColor = const Color(0xFFCC0000),
+    this.fallbackColor = const Color(0xFF8A8A8A),
   });
+
+  /// 解析失败的兜底：**原文照给 + 可选中复制**，不放 katex 默认的红字。
+  ///
+  /// ## 为什么不用 katex 自带兜底
+  ///
+  /// katex 默认把原文渲染成红色等宽字 —— 红色像"出错了"，但这里没有出错：
+  /// 只是这条公式（多为扫描件里 OCR/ repairing 没救回来的残缺 LaTeX）
+  /// 超出了渲染器的能力。用户真正需要的是两件事：**看得见原文**、
+  /// **能复制出去修**。附带提示告诉它为什么长得不像公式。
+  Widget _parseFallback(BuildContext context, String tex, bool display) {
+    final text = SelectableText(
+      tex,
+      style: TextStyle(
+        fontFamily: AppFonts.mono,
+        fontFamilyFallback: AppFonts.monoFallback,
+        fontSize: AppMathSizes.compact,
+        color: fallbackColor,
+        height: 1.6,
+      ),
+    );
+    final body = Tooltip(
+      message: '这条公式渲染失败，已按原文显示 —— 可选中复制',
+      child: text,
+    );
+    return display
+        ? Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Center(child: body),
+          )
+        : body;
+  }
 
   @override
   Widget render(
@@ -68,6 +102,7 @@ class KatexRenderer implements MathRenderer {
     final widget = Builder(
       builder: (context) => _renderTex(
         latex,
+        context: context,
         display: display,
         mathFontSize: base * scaleFor(context),
         textFontSize: base,
@@ -102,6 +137,7 @@ class KatexRenderer implements MathRenderer {
           markdown,
           base,
           options.color,
+          context: context,
           mathFontSize: base * scaleFor(context),
         );
 
@@ -166,6 +202,7 @@ class KatexRenderer implements MathRenderer {
   /// 两者分开正是为了不双重缩放，见 [scaleFor]。
   Widget _renderTex(
     String tex, {
+    required BuildContext context,
     required bool display,
     required double mathFontSize,
     required double textFontSize,
@@ -179,6 +216,7 @@ class KatexRenderer implements MathRenderer {
         displayMode: display,
         fontSize: mathFontSize,
         color: color,
+        onError: (ctx, e) => _parseFallback(ctx, tex, display),
       );
     }
 
@@ -190,6 +228,7 @@ class KatexRenderer implements MathRenderer {
         displayMode: display,
         fontSize: mathFontSize,
         color: color,
+        onError: (ctx, e) => _parseFallback(ctx, tex, display),
       );
     }
 
@@ -205,6 +244,10 @@ class KatexRenderer implements MathRenderer {
                   displayMode: display,
                   fontSize: mathFontSize,
                   color: color,
+                  onError: (e) => WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: _parseFallback(context, tex, display),
+                  ),
                 ),
               TextChunk(:final text) => TextSpan(
                   text: text,
@@ -237,6 +280,7 @@ class KatexRenderer implements MathRenderer {
     String src,
     double textFontSize,
     Color? color, {
+    required BuildContext context,
     required double mathFontSize,
   }) {
     final spans = <InlineSpan>[];
@@ -291,6 +335,7 @@ class KatexRenderer implements MathRenderer {
         baseline: TextBaseline.alphabetic,
         child: _renderTex(
           tex,
+          context: context,
           display: isDisplay,
           mathFontSize: mathFontSize,
           textFontSize: textFontSize,
