@@ -27,6 +27,7 @@ import 'ingest_draft.dart';
 import 'ingest_extractor.dart';
 import 'ingest_models.dart';
 import 'ingest_prompt.dart';
+import 'ingest_source_io.dart';
 
 /// 读取一个来源的附件内容。
 typedef AttachmentLoader = Future<ChatAttachment> Function(IngestSource source);
@@ -375,4 +376,62 @@ class IngestSession {
     }
     return out;
   }
+}
+
+/// 一次单图识别的结果（录入页「图像识别」用）。
+class SingleRecognition {
+  /// 识别出的题目草稿（可能为空 —— 封面/目录/答案页属于正常情况）。
+  final List<ExtractedProblem> problems;
+
+  final LlmUsage usage;
+
+  /// 解析层告警 + 截断提示，原样透给 UI。
+  final List<String> warnings;
+
+  const SingleRecognition({
+    required this.problems,
+    required this.usage,
+    required this.warnings,
+  });
+}
+
+/// 识别**一张**图片 → 题目草稿列表。
+///
+/// 与 [IngestSession] 的 `_processOne` 同一条管线：同一个提示词、同一个
+/// 解析器、同样的截断告警 —— 录入页的"拍一张/截一张"与批量导入必须
+/// 长得一样，否则同一个模型在两处的识别结果会莫名不同。
+/// 区别只有两点：**不做会话持久化**（单图没有"中途退出"可言，失败了重按
+/// 一次的代价就是一张图的钱），**不做查重**（`ProblemService.save` 的
+/// 指纹闸门在保存时本来就会拦，预览阶段拦是重复劳动）。
+Future<SingleRecognition> recognizeImageSource(
+  LlmClient client,
+  IngestSource source, {
+  int index = 1,
+  int total = 1,
+}) async {
+  final attachment = await loadAttachmentFromDisk(source);
+
+  final resp = await client.chat(ChatRequest(
+    system: kIngestSystemPrompt,
+    user: ingestUserPrompt(sourceName: source.name, index: index, total: total),
+    attachments: [attachment],
+    // 提炼要的是"照着抄"，温度压到 0（与批量导入同一口径）
+    temperature: 0.0,
+    jsonMode: true,
+    maxTokens: 8192,
+  ));
+
+  final outcome = IngestExtractor.parse(resp.text, sourceName: source.name);
+  final warnings = [...outcome.warnings];
+  if (resp.truncated) {
+    warnings.insert(0,
+        '模型输出被截断，这一页可能还有题没识别出来。'
+        '建议换输出上限更大的模型，或把一页拆成多张图。');
+  }
+
+  return SingleRecognition(
+    problems: outcome.problems,
+    usage: resp.usage,
+    warnings: warnings,
+  );
 }

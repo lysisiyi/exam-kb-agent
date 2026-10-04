@@ -25,12 +25,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/layout/breakpoints.dart';
 import '../../core/math/math_renderer.dart';
+import '../../core/platform/platform_services.dart';
 import '../../core/providers.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/widgets/state_views.dart';
 import '../../data/error_causes.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import '../../domain/problem_draft.dart';
+import '../../services/ingest/ingest_models.dart';
+import '../../services/ingest/ingest_session.dart';
+import '../../services/ingest/ingest_source_io.dart';
+import '../../services/llm/llm_client.dart';
 import 'widgets/entry_ai_button.dart';
 import 'widgets/formula_keyboard.dart';
 import 'widgets/kp_picker.dart';
@@ -360,6 +366,19 @@ class _EntryPageState extends ConsumerState<EntryPage> {
     final form = ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
       children: [
+        // ── 图像识别（V2-2e）：拍照/截图 → AI 解析 → 填入表单 ──────────
+        // 默认路径，排在手输前面 —— 目标是"录一道题 ≤60 秒"。
+        // 手输 LaTeX 收进下方表单，不删除（识别失败 / 无 Key 时是出路）。
+        _ImageEntryCard(
+          subject: _subject,
+          onAdopt: (ExtractedProblem p) {
+            setState(() => _loadDraft(p.toDraft(subject: _subject)));
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('已按识别结果填入表单 —— 请核对考点与错因'),
+            ));
+          },
+        ),
+        const SizedBox(height: 16),
         _SectionTitle(
           '题干',
           trailing: Text(
@@ -1020,6 +1039,221 @@ class _SaveBar extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+
+/// 图像识别入口（V2-2e）：选图 → 云端视觉模型解析 → 逐题「填入表单」。
+///
+/// ## 为什么排在手输前面
+///
+/// 目标是"录一道题 ≤60 秒"。手输 LaTeX 对扫描题等于二次誊写，
+/// 而识别免费档（glm-4.6v-flash）实测 201 题 0 失败 —— 默认路径应该
+/// 是最省力的那条。手输表单保留在下方：识别失败、没有 Key、
+/// 或者就是想手写的用户仍然有完整出路（不静默降级）。
+///
+/// ## 与批量导入的分工
+///
+/// 这里是"手上正有一两张图"的快路径：不建会话、不落进度草稿、
+/// 识别完直接进表单让用户核对。整册书用「批量导入」（有进度持久化
+/// 与逐题核对页）。两条路走**同一个**提示词与解析器。
+class _ImageEntryCard extends ConsumerStatefulWidget {
+  final String subject;
+  final void Function(ExtractedProblem p) onAdopt;
+
+  const _ImageEntryCard({required this.subject, required this.onAdopt});
+
+  @override
+  ConsumerState<_ImageEntryCard> createState() => _ImageEntryCardState();
+}
+
+class _ImageEntryCardState extends ConsumerState<_ImageEntryCard> {
+  bool _running = false;
+  List<ExtractedProblem>? _result;
+  final List<String> _warnings = [];
+  String? _error;
+
+  Future<void> _pickAndRecognize() async {
+    if (_running) return;
+    final client = ref.read(ingestClientProvider);
+    if (client == null) {
+      setState(() => _error =
+          '还没有配置 AI 服务商 —— 到「设置 → AI 服务商」填 Key，'
+          '或继续用下面的手输表单。');
+      return;
+    }
+
+    setState(() {
+      _running = true;
+      _error = null;
+      _result = null;
+      _warnings.clear();
+    });
+
+    try {
+      final picked =
+          await PlatformServices.instance.imageSource.pickMultipleImages();
+      if (!mounted) return;
+      if (picked.isEmpty) {
+        setState(() => _running = false);
+        return;
+      }
+
+      // 同一张表单一次喂多张图是允许的 —— 逐张串行识别（与批量导入
+      // 同一理由：不并发、进度诚实、取消即停）。
+      final sources = await sourcesFromPaths(picked.map((f) => f.path));
+      final problems = <ExtractedProblem>[];
+      var usage = const LlmUsage();
+      for (var i = 0; i < sources.length; i++) {
+        final r =
+            await recognizeImageSource(client, sources[i], index: i + 1, total: sources.length);
+        problems.addAll(r.problems);
+        usage = usage + r.usage;
+        _warnings.addAll(r.warnings);
+        if (!mounted) return;
+        setState(() {}); // 多图时逐张推进度
+      }
+
+      setState(() {
+        _running = false;
+        _result = problems;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _running = false;
+        // LlmException 自带"这类错误该怎么办"的建议文案（advice），
+        // 原样透出 —— 不要在这里再写一份错误映射。
+        _error = e.toString();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.photo_camera_outlined, size: 17),
+              const SizedBox(width: 6),
+              const Text('图像识别',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '拍照或截图 → AI 识别题目并填入表单',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: _running ? null : _pickAndRecognize,
+                icon: _running
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.auto_awesome, size: 15),
+                label: Text(_running ? '识别中…' : '选图片'),
+              ),
+            ],
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            SelectableText(_error!,
+                style: TextStyle(
+                    fontSize: 11.5, color: theme.colorScheme.error)),
+          ],
+          if (_warnings.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            for (final w in _warnings)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(w,
+                    style: const TextStyle(
+                        fontSize: 11,
+                        height: 1.5,
+                        color: AppColors.warningInk)),
+              ),
+          ],
+          if (_result != null) ...[
+            const SizedBox(height: 8),
+            if (_result!.isEmpty)
+              Text('没有识别到题目（封面 / 目录 / 答案页属于正常情况）。',
+                  style: TextStyle(
+                      fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant))
+            else
+              for (var i = 0; i < _result!.length; i++)
+                _RecognizedRow(
+                  index: i + 1,
+                  problem: _result![i],
+                  onAdopt: () {
+                    widget.onAdopt(_result![i]);
+                    setState(() => _result = null); // 填入后收起，防重复填
+                  },
+                ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 一条识别结果：题干摘要 + 「填入表单」。
+class _RecognizedRow extends StatelessWidget {
+  final int index;
+  final ExtractedProblem problem;
+  final VoidCallback onAdopt;
+
+  const _RecognizedRow({
+    required this.index,
+    required this.problem,
+    required this.onAdopt,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final stem = problem.stem;
+    final preview = stem.length > 80 ? stem.substring(0, 80) : stem;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 22,
+            child: Text('$index.',
+                style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink3)),
+          ),
+          Expanded(
+            child: Text(
+              preview,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, height: 1.5),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: onAdopt,
+            child: const Text('填入表单', style: TextStyle(fontSize: 12)),
+          ),
+        ],
       ),
     );
   }

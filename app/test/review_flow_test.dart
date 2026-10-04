@@ -105,6 +105,9 @@ void main() {
       expect(states.length, 2);
       // 新建的卡必须是**新卡**：fsrs_state 留空，而不是写一个空对象
       expect(states.every((s) => s.fsrsState == null), isTrue);
+      // 错次必须是 0（V2-2g）：录入 ≠ 做错。曾默认 1 —— 把"录过"当
+      // "错过一次"，错题次数从录题那一刻就失真。首次评分/记错才变 1。
+      expect(states.every((s) => s.wrongCount == 0), isTrue);
     });
 
     test('对账是幂等的：跑两次不会多出卡片', () async {

@@ -12,6 +12,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -821,6 +822,73 @@ void main() {
       final p = ExtractedProblem(stem: '求极限，当 \$x\\to0\$ 时。');
       expect(p.fingerprint, ExtractedProblem.fingerprintOf(p.stem));
       expect(p.fingerprint, isNotEmpty);
+    });
+
+    // ═════════════════════════════════════════════════════════════════════
+    group('单图识别（录入页图像入口，recognizeImageSource）', () {
+      /// 建一张真实的临时图 —— 助手走 `loadAttachmentFromDisk`（读盘），
+      /// 不是批量会话的可注入 loader。
+      Future<File> makeImage() async {
+        final dir = await Directory.systemTemp.createTemp('dsh-recog-');
+        addTearDown(() => dir.delete(recursive: true));
+        return File('${dir.path}/p1.png')..writeAsBytesSync(_pngBytes);
+      }
+
+      test('与批量导入同一管线：解析出题、带用量、请求带附件', () async {
+        final img = await makeImage();
+        final http = FakeHttp([FakeHttp.ok(_payload([_oneProblem]))]);
+
+        final r = await recognizeImageSource(
+          _client(http),
+          IngestSource(
+              path: img.path,
+              name: 'p1.png',
+              sizeBytes: 8,
+              kind: IngestSourceKind.image),
+        );
+
+        expect(r.problems, hasLength(1));
+        expect(r.problems.first.stem, contains('lim'));
+        expect(r.usage.totalTokens, greaterThan(0));
+        expect(r.warnings, isEmpty);
+        final req = http.requests.single;
+        expect(req.body, contains('image/png'),
+            reason: '图必须真的发出去（以 base64 附件形式进请求体）');
+      });
+
+      test('截断响应给出明确的截断告警（一条真实的静默丢题通道）', () async {
+        final img = await makeImage();
+        final http = FakeHttp([
+          FakeHttp.ok(_payload([_oneProblem]), finishReason: 'length'),
+        ]);
+
+        final r = await recognizeImageSource(
+          _client(http),
+          IngestSource(
+              path: img.path,
+              name: 'p1.png',
+              sizeBytes: 8,
+              kind: IngestSourceKind.image),
+        );
+
+        expect(r.warnings.first, contains('截断'));
+      });
+
+      test('空页（封面/目录/答案页）不报错，返回空列表', () async {
+        final img = await makeImage();
+        final http = FakeHttp([FakeHttp.ok(_payload([]))]);
+
+        final r = await recognizeImageSource(
+          _client(http),
+          IngestSource(
+              path: img.path,
+              name: 'p1.png',
+              sizeBytes: 8,
+              kind: IngestSourceKind.image),
+        );
+
+        expect(r.problems, isEmpty);
+      });
     });
   });
 }

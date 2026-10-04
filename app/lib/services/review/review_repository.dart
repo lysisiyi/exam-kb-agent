@@ -177,7 +177,12 @@ class ReviewRepository {
   /// 对账是幂等的，代价是一次全表读 + 一次集合差。
   ///
   /// [wrongCount] 用于新建时的初始错误次数；已存在的卡片不动。
-  Future<int> ensureCards({int wrongCount = 1, DateTime? now}) async {
+  /// 默认 **0**（2026-10-03，V2-2g）：FSRS 的"新卡"本身就是"没写过"——
+  /// 录入一道题不等于做错一道题。曾默认 1，等于把"录过"当成"错过一次"，
+  /// 错题次数与"错题最多"排序从录题那一刻就失真；首次复习评分（或
+  /// 「再记一次错」）才会把它变成 1。存量数据不动（它们在旧语义下录入，
+  /// 用户可能已按旧行为建立认知）。
+  Future<int> ensureCards({int wrongCount = 0, DateTime? now}) async {
     final rows = await db.select(db.problemsIndex).get();
     final states = await db.select(db.userProblemState).get();
     final known = {for (final s in states) s.problemId};
