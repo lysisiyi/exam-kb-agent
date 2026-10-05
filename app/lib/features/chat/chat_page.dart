@@ -1781,6 +1781,11 @@ class _Composer extends StatelessWidget {
                 if (HardwareKeyboard.instance.isShiftPressed) {
                   return KeyEventResult.ignored;
                 }
+                // IME 组合态（正在打拼音/选候选词）不发送 —— 否则中文
+                // 输入法确认候选词的 Enter 在部分时序下会把半句话发出去。
+                if (controller.value.composing != TextRange.empty) {
+                  return KeyEventResult.ignored;
+                }
                 unawaited(onSubmit());
                 return KeyEventResult.handled;
               },

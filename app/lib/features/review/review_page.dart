@@ -164,7 +164,8 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
     try {
       final repo = await ref.read(reviewRepositoryProvider.future);
       await repo.ensureCards();
-      final q = await repo.dueQueue(limit: 30);
+      final settings = await ref.watch(reviewSettingsProvider.future);
+      final q = await repo.dueQueue(limit: settings.dailyLimit);
       if (!mounted) return;
       setState(() {
         _queue = q;

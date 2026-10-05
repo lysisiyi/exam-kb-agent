@@ -199,13 +199,67 @@ final paperHistoryProvider = FutureProvider<List<PaperRow>>((ref) async {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// 复习仓库：到期队列 + 打分 + 统计。
+/// 复习参数（V2-4.3 设置控制面板）。
+///
+/// 全部存 `meta_entries`（单机偏好），改参数**即时生效于之后的评分**：
+/// `desiredRetention` 与 fuzz 进调度器，`dailyLimit` 管队列快照的条数。
+/// 不写 Markdown、不进 user_problem_state —— 它们是"你想要多狠的
+/// 复习曲线"，不是题目数据。
+class ReviewSettings {
+  /// 期望保持率：调高 → 复习更频繁、记得更牢；调低 → 更省时间。
+  final double desiredRetention;
+
+  /// 单轮队列上限（"每日上限"的口径：一轮最多抽多少张）。
+  final int dailyLimit;
+
+  /// 间隔模糊化：避免大量卡片挤在同一天。
+  final bool fuzzing;
+
+  const ReviewSettings({
+    this.desiredRetention = 0.9,
+    this.dailyLimit = 30,
+    this.fuzzing = true,
+  });
+
+  /// 从 meta 行读。缺省/坏值一律回落默认 —— 参数是**偏好**，
+  /// 读不出来不该让复习页挂掉。
+  factory ReviewSettings.fromMeta(Map<String, String> meta) {
+    final retention = double.tryParse(meta['review_retention'] ?? '');
+    final limit = int.tryParse(meta['review_daily_limit'] ?? '');
+    return ReviewSettings(
+      desiredRetention:
+          retention == null ? 0.9 : retention.clamp(0.80, 0.95).toDouble(),
+      dailyLimit: limit == null ? 30 : limit.clamp(5, 200),
+      fuzzing: meta['review_fuzzing'] != '0',
+    );
+  }
+}
+
+/// 复习参数。设置页改完 invalidate 它（连带 reviewStats）。
+final reviewSettingsProvider = FutureProvider<ReviewSettings>((ref) async {
+  final db = await ref.watch(databaseProvider.future);
+  final rows = await db.select(db.metaEntries).get();
+  return ReviewSettings.fromMeta({for (final r in rows) r.key: r.value});
+});
+
 final reviewRepositoryProvider = FutureProvider<ReviewRepository>((ref) async {
   final db = await ref.watch(databaseProvider.future);
   final store = await ref.watch(problemStoreProvider.future);
   // 错因词表只用于**队列的次序修正**（见 ReviewRepository.causes）。
   // 它加载失败会退化成 empty，那时排序等同于该维度引入之前 —— 不会报错。
   final causes = await ref.watch(errorCauseCatalogProvider.future);
-  return ReviewRepository(db: db, store: store, causes: causes);
+  // 复习参数进调度器（V2-4.3）：期望保持率与模糊化是 FsrsScheduler
+  // 早就有的构造参数，此前一直吃默认值。
+  final settings = await ref.watch(reviewSettingsProvider.future);
+  return ReviewRepository(
+    db: db,
+    store: store,
+    causes: causes,
+    scheduler: FsrsScheduler(
+      desiredRetention: settings.desiredRetention,
+      enableFuzzing: settings.fuzzing,
+    ),
+  );
 });
 
 /// 复习总览（侧边栏角标、复习页顶部）。
@@ -230,7 +284,8 @@ final dueQueueProvider = FutureProvider<List<DueCard>>((ref) async {
   // 先对账：索引里有、状态表里没有的补建成新卡。
   // 放在这里而不是"保存时建卡"，是为了覆盖批量导入、手工拷贝 .md 等路径。
   await repo.ensureCards();
-  return repo.dueQueue(limit: 30);
+  final settings = await ref.watch(reviewSettingsProvider.future);
+  return repo.dueQueue(limit: settings.dailyLimit);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

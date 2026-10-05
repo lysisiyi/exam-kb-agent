@@ -91,6 +91,13 @@ void main() {
     await seed(tester);
     await pump(tester);
 
+    // V2-4.3 复习参数卡让页面变高 —— ListView 是懒加载的，
+    // 数据位置节已 below the fold，先滚下去再找（滚动到页尾）。
+    for (var i = 0; i < 6 && find.text('数据位置').evaluate().isEmpty; i++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+      await tester.pump(const Duration(milliseconds: 30));
+    }
+
     // 路径是 SelectableText，用户要能复制走
     final selectables = tester.widgetList<SelectableText>(
       find.byType(SelectableText),

@@ -75,6 +75,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
+  /// 写一个复习参数并让相关 provider 失效：
+  /// 参数变了 → 调度器重建（reviewRepositoryProvider watch 着 settings）
+  /// → 角标/队列下次取数就是新口径。
+  Future<void> _saveParam(String key, Object value) async {
+    final db = await ref.read(databaseProvider.future);
+    await db.writeMeta(key, '$value');
+    ref.invalidate(reviewSettingsProvider);
+    ref.invalidate(reviewStatsProvider);
+  }
+
   Future<void> _openAiConfig(LlmSettings current) async {
     // 对话框内部在保存/清除后 invalidate(llmSettingsProvider)（P0-5），
     // 本页 watch 了同一个 provider，配置一变这里自动刷新。
@@ -178,6 +188,62 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
               ],
             ),
+            const Divider(height: 24),
+            // ── 复习参数（V2-4.3）：FsrsScheduler 早就参数化，这里补 UI ──
+            ref.watch(reviewSettingsProvider).when(
+                  loading: () => const Text('正在读取参数…',
+                      style: TextStyle(fontSize: 12)),
+                  error: (e, _) => Text('参数读取失败：$e',
+                      style: TextStyle(
+                          fontSize: 12, color: theme.colorScheme.error)),
+                  data: (st) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ParamSlider(
+                        label: '期望保持率',
+                        valueText: '${(st.desiredRetention * 100).round()}%',
+                        hint: '调高复习更频繁、记得更牢；调低更省时间。0.90 是算法默认。',
+                        value: st.desiredRetention,
+                        min: 0.80,
+                        max: 0.95,
+                        divisions: 15,
+                        formatValue: (v) => (v * 100).round().toString(),
+                        onChanged: (v) => _saveParam('review_retention', v),
+                      ),
+                      const SizedBox(height: 8),
+                      _ParamSlider(
+                        label: '单轮上限',
+                        valueText: '${st.dailyLimit} 张',
+                        hint: '一轮复习最多抽多少张。改完下一轮生效。',
+                        value: st.dailyLimit.toDouble(),
+                        min: 5,
+                        max: 100,
+                        divisions: 19,
+                        formatValue: (v) => v.round().toString(),
+                        onChanged: (v) => _saveParam('review_daily_limit', v.round()),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              '间隔模糊化\n'
+                              '给间隔加一点随机扰动，避免大量卡片挤在同一天。'
+                              '关掉后间隔完全确定（测试/演示用）。',
+                              style: TextStyle(
+                                  fontSize: 12, height: 1.6),
+                            ),
+                          ),
+                          Switch(
+                            value: st.fuzzing,
+                            onChanged: (v) =>
+                                _saveParam('review_fuzzing', v ? '1' : '0'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
           ],
         ),
 
@@ -431,6 +497,68 @@ class _Section extends StatelessWidget {
           ...children,
         ],
       ),
+    );
+  }
+}
+
+/// 一行参数滑杆：标签 + 当前值 + 说明 + Slider。
+class _ParamSlider extends StatelessWidget {
+  final String label;
+  final String valueText;
+  final String hint;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final String Function(double) formatValue;
+  final ValueChanged<double> onChanged;
+
+  const _ParamSlider({
+    required this.label,
+    required this.valueText,
+    required this.hint,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.formatValue,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.w700)),
+            const Spacer(),
+            Text(valueText,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.primary,
+                    fontFeatures: const [FontFeature.tabularFigures()])),
+          ],
+        ),
+        Slider(
+          value: value.clamp(min, max),
+          min: min,
+          max: max,
+          divisions: divisions,
+          label: formatValue(value.clamp(min, max)),
+          onChanged: onChanged,
+        ),
+        Text(hint,
+            style: TextStyle(
+                fontSize: 11,
+                height: 1.5,
+                color: theme.colorScheme.onSurfaceVariant)),
+      ],
     );
   }
 }
