@@ -139,6 +139,15 @@ class PaperRequest {
   /// 已用过的题目 id（避免重复出卷）。
   final Set<String> excludeProblemIds;
 
+  /// **手工锁定的题**（V2-4.1 检索挑题）：优先入座、自动补位避开它们。
+  ///
+  /// 语义：按列表顺序逐题找第一个题型匹配的空题位放入（**跳过难度
+  /// 宽容度判断** —— 用户点名要的题，难度不符也入座并在 warnings 里
+  /// 记账，与自动挑题的"放宽并记账"同一口径）；放不进的（题型无处可放）
+  /// 跳过并警告。剩余空位走原有算法，且不会重复使用锁定的题。
+  /// 空 = 纯自动组卷，行为与加它之前完全一致。
+  final List<String> pinnedProblemIds;
+
   const PaperRequest({
     required this.template,
     required this.subject,
@@ -149,6 +158,7 @@ class PaperRequest {
     this.diversify = true,
     this.drillCauseIds = const {},
     this.excludeProblemIds = const {},
+    this.pinnedProblemIds = const [],
   });
 
   /// 是否启用了「错因对症」这一维。

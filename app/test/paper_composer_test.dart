@@ -611,4 +611,98 @@ void main() {
       expect(labels.qtypeName(PaperSeat.anyQtype), '不限题型');
     });
   });
+  // ═══════════════════════════════════════════════════════════════════════════
+  group('手工锁定题（V2-4.1 检索挑题）', () {
+    test('锁定的题优先入座，自动补位避开它们', () {
+      final r = engine.compose(
+        request: PaperRequest(
+          template: _miniTemplate(),
+          subject: 'math1',
+          pinnedProblemIds: ['s2-a', 'c3-b'],
+        ),
+        pool: _amplePool(),
+      );
+
+      // s2-a 是解答题 → 座位 4 或 5；c3-b 是选择题 → 座位 1-3
+      final byProblem = {for (final i in r.items) i.problemId: i.seat.no};
+      expect(byProblem.containsKey('s2-a'), isTrue);
+      expect(byProblem.containsKey('c3-b'), isTrue);
+      expect(r.items.where((i) => i.problemId == 's2-a').single.seat.qtype,
+          'solve', reason: '锁定题放进题型匹配的题位');
+      // 没有重复入座
+      expect(r.items.length, 5, reason: '题位全满');
+      expect(
+        r.items.map((i) => i.problemId).toSet().length,
+        5,
+        reason: '自动补位不得复用锁定的题',
+      );
+      // 难度不符才警告；这里 s2-a(难度2) 目标座位是 2 或 3 → 无警告或仅难度记账
+    });
+
+    test('题型无处可放 → 跳过并警告，不硬塞', () {
+      // 小卷没有 proof 题位 —— 锁一道证明题必须被跳过
+      final r = engine.compose(
+        request: PaperRequest(
+          template: _miniTemplate(),
+          subject: 'math1',
+          pinnedProblemIds: ['p-proof'],
+        ),
+        pool: [
+          _c('p-proof', 'proof', 3, kp: 'kp.proof'),
+          ..._amplePool(),
+        ],
+      );
+      expect(r.items.any((i) => i.problemId == 'p-proof'), isFalse);
+      expect(r.warnings.any((w) => w.contains('没有匹配的空题位')), isTrue,
+          reason: '跳过要记账 —— 不静默');
+      // 其余座位照常填满
+      expect(r.items.length, 5);
+    });
+
+    test('锁定的题难度不符时入座并记账（用户点名优先）', () {
+      // 锁两道难度 1 的选择题：第一道进座位 1（target 1，正配），
+      // 第二道只能进座位 2（target 2）→ 入座 + 难度不符记账
+      final r = engine.compose(
+        request: PaperRequest(
+          template: _miniTemplate(),
+          subject: 'math1',
+          pinnedProblemIds: ['c1-a', 'c1-b'],
+        ),
+        pool: _amplePool(),
+      );
+      final item = r.items.singleWhere((i) => i.problemId == 'c1-b');
+      expect(item.actualDifficulty, 1);
+      expect(item.seat.targetDifficulty, isNot(1),
+          reason: '第一座位已被 c1-a 占走');
+      expect(r.warnings.any((w) => w.contains('难度')), isTrue,
+          reason: '难度不符与自动挑题同一口径：入座并记账');
+    });
+
+    test('锁定的题不在题库（科目不符/已删）→ 跳过并警告', () {
+      final r = engine.compose(
+        request: PaperRequest(
+          template: _miniTemplate(),
+          subject: 'math1',
+          pinnedProblemIds: ['ghost'],
+        ),
+        pool: _amplePool(),
+      );
+      expect(r.warnings.any((w) => w.contains('ghost')), isTrue);
+      expect(r.items.length, 5, reason: '不影响其余座位');
+    });
+
+    test('空锁定列表 = 纯自动组卷（行为与加它之前一致）', () {
+      final r = engine.compose(
+        request: PaperRequest(
+          template: _miniTemplate(),
+          subject: 'math1',
+        ),
+        pool: _amplePool(),
+      );
+      // 小卷模板自带"分值合计 35≠40"的模板漂移警告（与 pinned 无关），
+      // 这里只断言**没有手工挑选相关的警告**
+      expect(r.warnings.any((w) => w.contains('手工挑选')), isFalse);
+      expect(r.items.length, 5);
+    });
+  });
 }

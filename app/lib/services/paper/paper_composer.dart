@@ -137,8 +137,60 @@ class PaperComposer {
     final openSeats = <PaperSeat>[];
     var diversifiedSkips = 0;
 
+    // ── 手工锁定的题先入座（V2-4.1 检索挑题）──────────────────────────
+    // 按用户锁定的顺序逐题找第一个题型匹配的**空**题位。跳过难度宽容度
+    // 判断（用户点名要的题，难度不符也入座并记账 —— 与自动挑题的
+    // "放宽并记账"同一口径）；题型无处可放的跳过并警告。
+    final filledSeats = <PaperSeat>{};
+    for (final pid in request.pinnedProblemIds) {
+      Candidate? c;
+      for (final cand in pool) {
+        if (cand.problemId == pid && cand.subject == request.subject) {
+          c = cand;
+          break;
+        }
+      }
+      if (c == null) {
+        warnings.add('手工挑选的题 $pid 不在本卷题库（科目不符或已不存在），已跳过');
+        continue;
+      }
+      PaperSeat? seat;
+      for (final s in request.template.seats) {
+        final taken = filledSeats.contains(s);
+        final ok = allowTypeMismatch || s.isAnyQtype || s.qtype == c.qtype;
+        if (!taken && ok) {
+          seat = s;
+          break;
+        }
+      }
+      if (seat == null) {
+        warnings.add('手工挑选的「${c.stemText.length > 12 ? c.stemText.substring(0, 12) : c.stemText}…」'
+            '（${c.qtype}）没有匹配的空题位，已跳过');
+        continue;
+      }
+      usedIds.add(c.problemId);
+      if (c.primaryKpId != null) {
+        usedKps[c.primaryKpId!] = (usedKps[c.primaryKpId!] ?? 0) + 1;
+      }
+      filledSeats.add(seat);
+      final target = seat.targetDifficulty;
+      if (target != null && c.difficulty != target) {
+        _noteDifficultyMismatch(warnings, seat, c);
+      }
+      items.add(PaperItem(
+        seat: seat,
+        problemId: c.problemId,
+        stemText: c.stemText,
+        primaryKpName: c.primaryKpName,
+        actualDifficulty: c.difficulty,
+        wrongCount: c.wrongCount,
+      ));
+    }
+
     // 按题号顺序填 —— 难度是"从易到难"给的，顺序填才能保住那个递进感
+    // （已放好锁定题的题位直接跳过）
     for (final seat in request.template.seats) {
+      if (filledSeats.contains(seat)) continue;
       // 候选筛选。三层，按"能不能妥协"排序：
       //
       // 1. 题型匹配（或题位不限题型）—— **硬约束**

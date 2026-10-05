@@ -29,6 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/layout/breakpoints.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/index/index_builder.dart';
 import '../../data/problem_file.dart';
 import '../../domain/paper/paper_models.dart';
 import '../../domain/paper/paper_template.dart';
@@ -64,6 +65,9 @@ class _PaperPageState extends ConsumerState<PaperPage> {
 
   /// 组卷参数
   int _tolerance = 1;
+
+  /// 手工锁定的题（V2-4.1 检索挑题）：id → 题干预览（chips 显示用）。
+  final Map<String, String> _pinned = {};
   bool _preferWrong = true;
   bool _preferWeak = true;
   bool _diversify = true;
@@ -108,6 +112,8 @@ class _PaperPageState extends ConsumerState<PaperPage> {
           // 具体生效条件见 `PaperRequest.usesErrorCause` —— 它只在
           // 错题专练这类请求上起作用，真题全卷与限时模考不受影响。
           drillCauseIds: repo.drillCauseIds,
+          // 手工锁定的题优先入座（见 PaperRequest.pinnedProblemIds）
+          pinnedProblemIds: _pinned.keys.toList(),
         ),
         pool: pool,
       );
@@ -283,6 +289,13 @@ class _PaperPageState extends ConsumerState<PaperPage> {
                       diversify: _diversify,
                       onDiversify: (v) => setState(() => _diversify = v),
                       poolSize: _pool.length,
+                    ),
+                    const SizedBox(height: 16),
+                    _PinnedSearch(
+                      pinned: _pinned,
+                      onPin: (id, stem) =>
+                          setState(() => _pinned[id] = stem),
+                      onUnpin: (id) => setState(() => _pinned.remove(id)),
                     ),
                     const SizedBox(height: 16),
                     Wrap(
@@ -787,4 +800,176 @@ class _Pill extends StatelessWidget {
             style: TextStyle(
                 fontSize: 10, fontWeight: FontWeight.w600, color: color)),
       );
+}
+
+
+/// 检索挑题（V2-4.1）：搜题干/知识点 → 锁定进卷子 → 组卷时优先入座。
+///
+/// ## 与自动组卷的关系
+///
+/// 锁定的题**先入座**（题型匹配的第一个空位，难度不符也入座并记账），
+/// 剩余题位走原有算法且不会复用它们 —— 「手工挑选 + 自动补位」。
+/// 检索走错题本同一条 FTS5 通路（`problemSearchProvider`），不建第二套索引。
+class _PinnedSearch extends ConsumerStatefulWidget {
+  /// id → 题干预览。由父页持有（组卷时要读键表）。
+  final Map<String, String> pinned;
+  final void Function(String id, String stemPreview) onPin;
+  final ValueChanged<String> onUnpin;
+
+  const _PinnedSearch({
+    required this.pinned,
+    required this.onPin,
+    required this.onUnpin,
+  });
+
+  @override
+  ConsumerState<_PinnedSearch> createState() => _PinnedSearchState();
+}
+
+class _PinnedSearchState extends ConsumerState<_PinnedSearch> {
+  final _controller = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _controller,
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: '检索并锁定题目（可选）—— 搜题干里的词或考点名',
+              prefixIcon: const Icon(Icons.search, size: 18),
+              border: const OutlineInputBorder(),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () {
+                        _controller.clear();
+                        setState(() => _query = '');
+                      },
+                    ),
+            ),
+            onChanged: (v) => setState(() => _query = v),
+          ),
+          if (_query.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ref.watch(problemSearchProvider(_query)).when(
+                  loading: () => const Text('检索中…',
+                      style: TextStyle(fontSize: 11.5)),
+                  error: (e, _) => Text('检索失败：$e',
+                      style: TextStyle(
+                          fontSize: 11.5, color: theme.colorScheme.error)),
+                  data: (hits) {
+                    if (hits.isEmpty) {
+                      return const Text('没有命中的题（试试更短的词）',
+                          style: TextStyle(fontSize: 11.5));
+                    }
+                    return Column(
+                      children: [
+                        for (final h in hits.take(6))
+                          _SearchHitRow(
+                            hit: h,
+                            pinned: widget.pinned.containsKey(h.problemId),
+                            onPin: () => widget
+                                .onPin(h.problemId, _preview(h.stemText)),
+                            onUnpin: () => widget.onUnpin(h.problemId),
+                          ),
+                        if (hits.length > 6)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text('还有 ${hits.length - 6} 条 —— 缩短关键词或换词',
+                                style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: theme.colorScheme.onSurfaceVariant)),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+          ],
+          if (widget.pinned.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final e in widget.pinned.entries)
+                  InputChip(
+                    label: Text(e.value, style: const TextStyle(fontSize: 11)),
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    onDeleted: () => widget.onUnpin(e.key),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _preview(String stemText) {
+    final t = stemText.trim().replaceAll('\n', ' ');
+    return t.length > 24 ? t.substring(0, 24) : t;
+  }
+}
+
+/// 检索结果一行：题干摘要 + 锁定/已锁定。
+class _SearchHitRow extends StatelessWidget {
+  final SearchHit hit;
+  final bool pinned;
+  final VoidCallback onPin;
+  final VoidCallback onUnpin;
+
+  const _SearchHitRow({
+    required this.hit,
+    required this.pinned,
+    required this.onPin,
+    required this.onUnpin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final stem = hit.stemText.trim();
+    final preview = stem.length > 40 ? stem.substring(0, 40) : stem;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              preview,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, height: 1.5),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: pinned ? onUnpin : onPin,
+            child: Text(pinned ? '已锁定' : '锁定',
+                style: TextStyle(
+                    fontSize: 11.5,
+                    color: pinned ? AppColors.success : theme.colorScheme.primary)),
+          ),
+        ],
+      ),
+    );
+  }
 }
