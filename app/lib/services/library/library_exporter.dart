@@ -109,7 +109,32 @@ class LibraryExporter {
     final targetImages = Directory(p.join(target.path, 'images'));
     if (!problemsDir.existsSync()) await problemsDir.create(recursive: true);
 
-    final rows = await db.select(db.problemsIndex).get();
+    // 只取导出真正要用的列 —— 全列读会把 search_tokens（最大块）
+    // 与 parse_warnings 等白白搬进内存（V2 存储优化）。
+    final rowsQuery = db.selectOnly(db.problemsIndex)
+      ..addColumns([
+        db.problemsIndex.id,
+        db.problemsIndex.filePath,
+        db.problemsIndex.primaryKpName,
+        db.problemsIndex.difficulty,
+        db.problemsIndex.stemText,
+      ]);
+    final rows = <({
+      String id,
+      String filePath,
+      String? primaryKpName,
+      int difficulty,
+      String stemText,
+    })>[
+      for (final row in await rowsQuery.get())
+        (
+          id: row.read(db.problemsIndex.id)!,
+          filePath: row.read(db.problemsIndex.filePath)!,
+          primaryKpName: row.read(db.problemsIndex.primaryKpName),
+          difficulty: row.read(db.problemsIndex.difficulty)!,
+          stemText: row.read(db.problemsIndex.stemText)!,
+        ),
+    ];
     final states = await db.select(db.userProblemState).get();
     final stateById = {for (final s in states) s.problemId: s};
 
@@ -255,10 +280,25 @@ class LibraryExporter {
 
   /// 索引页：按主考点分组列题目，方便在 Obsidian 里跳转。
   String _indexMarkdown(
-    List<ProblemIndexRow> rows,
+    List<({
+      String id,
+      String filePath,
+      String? primaryKpName,
+      int difficulty,
+      String stemText,
+    })>
+        rows,
     Map<String, UserProblemStateRow> stateById,
   ) {
-    final byKp = <String, List<ProblemIndexRow>>{};
+    // 行类型与上面的 selectOnly 记录一致（不再整行 ProblemIndexRow）
+    final byKp = <String,
+        List<({
+          String id,
+          String filePath,
+          String? primaryKpName,
+          int difficulty,
+          String stemText,
+        })>>{};
     for (final r in rows) {
       final name = r.primaryKpName;
       final kp = (name == null || name.isEmpty) ? '未归类的题' : name;

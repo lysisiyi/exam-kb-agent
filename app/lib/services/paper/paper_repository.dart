@@ -123,10 +123,37 @@ class PaperRepository {
     required String subject,
     bool onlyWrong = false,
   }) async {
-    final rows = await db
-        .select(db.problemsIndex)
-        .get()
-      ..removeWhere((r) => r.subject != subject);
+    // 按需取列 + 科目过滤下推到 SQL（V2 存储优化）：候选池是"整科全量"，
+    // 全列读会把 search_tokens / parse_warnings 等对组卷毫无用处的大块
+    // 文本搬进内存。组卷用到：id / 题干预览 / 题型 / 难度 / 主考点名与权重。
+    final rowsQuery = db.selectOnly(db.problemsIndex)
+      ..addColumns([
+        db.problemsIndex.id,
+        db.problemsIndex.stemText,
+        db.problemsIndex.qtype,
+        db.problemsIndex.difficulty,
+        db.problemsIndex.primaryKpName,
+        db.problemsIndex.primaryKpWeight,
+      ])
+      ..where(db.problemsIndex.subject.equals(subject));
+    final rows = <({
+      String id,
+      String stemText,
+      String qtype,
+      int difficulty,
+      String? primaryKpName,
+      double? primaryKpWeight,
+    })>[
+      for (final row in await rowsQuery.get())
+        (
+          id: row.read(db.problemsIndex.id)!,
+          stemText: row.read(db.problemsIndex.stemText)!,
+          qtype: row.read(db.problemsIndex.qtype)!,
+          difficulty: row.read(db.problemsIndex.difficulty)!,
+          primaryKpName: row.read(db.problemsIndex.primaryKpName),
+          primaryKpWeight: row.read(db.problemsIndex.primaryKpWeight),
+        ),
+    ];
 
     final states = await db.select(db.userProblemState).get();
     final stateById = {for (final s in states) s.problemId: s};
@@ -168,7 +195,7 @@ class PaperRepository {
         stemText: r.stemText,
         qtype: r.qtype,
         difficulty: r.difficulty,
-        subject: r.subject,
+        subject: subject, // SQL 过滤后恒等于请求的科目
         primaryKpId: kpId,
         primaryKpName: r.primaryKpName ?? kpId,
         primaryKpWeight: r.primaryKpWeight,

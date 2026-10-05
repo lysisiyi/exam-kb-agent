@@ -16,6 +16,7 @@ library;
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:path/path.dart' as p;
 
@@ -149,6 +150,29 @@ class ProblemStore {
     } catch (e) {
       return ReadOutcome.failed('未知错误：$e');
     }
+  }
+
+  /// 列出全部 Markdown 文件**及其 mtime** —— 目录扫描与逐文件 stat
+  /// 在**后台 Isolate** 里做（V2 存储优化）。
+  ///
+  /// 5000 文件的同步递归 stat 在主 isolate 上约 0.25s 一次，而
+  /// 「每次启动 + 每次保存单题」都要走它（IndexBuilder.rebuild 的
+  /// mtime 快照）。File/Directory 自 Dart 2.15 起可跨 isolate 发送；
+  /// 这里只捕获路径字符串、在 isolate 内重建 Directory，最稳。
+  Future<List<(File, DateTime)>> listFilesWithStats() {
+    final dirPath = problemsDir.path;
+    return Isolate.run(() {
+      final dir = Directory(dirPath);
+      if (!dir.existsSync()) return const <(File, DateTime)>[];
+      final out = <(File, DateTime)>[];
+      for (final entity in dir.listSync(recursive: true, followLinks: false)) {
+        if (entity is File && entity.path.toLowerCase().endsWith('.md')) {
+          out.add((entity, entity.statSync().modified));
+        }
+      }
+      out.sort((a, b) => a.$1.path.compareTo(b.$1.path));
+      return out;
+    });
   }
 
   /// 列出全部 Markdown 文件（不解析，**递归子目录**）。

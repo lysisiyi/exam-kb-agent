@@ -183,11 +183,17 @@ class ReviewRepository {
   /// 「再记一次错」）才会把它变成 1。存量数据不动（它们在旧语义下录入，
   /// 用户可能已按旧行为建立认知）。
   Future<int> ensureCards({int wrongCount = 0, DateTime? now}) async {
-    final rows = await db.select(db.problemsIndex).get();
+    // 只取 id 一列：ensureCards 是"每次打开复习页 + 每次保存"都跑的
+    // 对账，全列读会把 search_tokens / stem_text 两块大文本白白搬进内存。
+    final idQuery = db.selectOnly(db.problemsIndex)
+      ..addColumns([db.problemsIndex.id]);
+    final allIds = <String>{
+      for (final row in await idQuery.get()) row.read(db.problemsIndex.id)!,
+    };
     final states = await db.select(db.userProblemState).get();
     final known = {for (final s in states) s.problemId};
 
-    final missing = rows.where((r) => !known.contains(r.id)).toList();
+    final missing = allIds.difference(known).toList();
     if (missing.isEmpty) return 0;
 
     final ts = now ?? DateTime.now();
@@ -195,9 +201,9 @@ class ReviewRepository {
       b.insertAll(
         db.userProblemState,
         [
-          for (final r in missing)
+          for (final id in missing)
             UserProblemStateCompanion.insert(
-              problemId: r.id,
+              problemId: id,
               wrongCount: Value(wrongCount),
               firstSeen: Value(ts),
               // fsrsState 留空 = 新卡，dueQueue 会把它排在前面

@@ -115,7 +115,9 @@ class IndexBuilder {
   ///
   /// [force] 为 true 时忽略 mtime，全部重新解析（用于怀疑索引损坏时）。
   Future<IndexReport> rebuild({bool force = false}) async {
-    final files = await store.listFiles();
+    // 目录扫描 + 逐文件 stat 在后台 Isolate（V2 存储优化：
+    // 5000 文件的主线程 stat ≈ 0.25s/次，每次启动与每次保存都要走）
+    final filesWithStats = await store.listFilesWithStats();
 
     var added = 0;
     var updated = 0;
@@ -125,21 +127,30 @@ class IndexBuilder {
     final failures = <String, String>{};
     final idConflicts = <String, String>{};
 
-    // 现有索引：文件路径 → (id, mtime)
+    // 现有索引：文件路径 → (id, mtime)。
+    // ⚠️ 只取 3 列（selectOnly）：这张表带着 search_tokens / stem_text
+    // 两块大文本列，全列读等于每次重建都把几 MB 的检索文本搬进内存
+    // —— 与 problemListProvider / ProblemService.count 修过的同一个坑。
     final existing = <String, ({String id, DateTime? mtime})>{};
-    final rows = await db.select(db.problemsIndex).get();
-    for (final r in rows) {
-      existing[r.filePath] = (id: r.id, mtime: r.fileModifiedAt);
+    final snapshotQuery = db.selectOnly(db.problemsIndex)
+      ..addColumns([
+        db.problemsIndex.id,
+        db.problemsIndex.filePath,
+        db.problemsIndex.fileModifiedAt,
+      ]);
+    for (final row in await snapshotQuery.get()) {
+      existing[row.read(db.problemsIndex.filePath)!] = (
+        id: row.read(db.problemsIndex.id)!,
+        mtime: row.read(db.problemsIndex.fileModifiedAt),
+      );
     }
 
     final seenPaths = <String>{};
 
-    for (final file in files) {
+    for (final (file, mtime) in filesWithStats) {
       // 用相对路径作为稳定键（绝对路径会因机器/用户不同而变化）
       final relPath = _relativePath(file.path);
       seenPaths.add(relPath);
-
-      final mtime = file.statSync().modified;
       final prev = existing[relPath];
 
       if (!force &&
@@ -193,7 +204,7 @@ class IndexBuilder {
     ));
 
     return IndexReport(
-      scannedFiles: files.length,
+      scannedFiles: filesWithStats.length,
       added: added,
       updated: updated,
       skipped: skipped,

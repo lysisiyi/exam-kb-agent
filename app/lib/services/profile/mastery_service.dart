@@ -393,7 +393,17 @@ class MasteryService {
       if (l.role == 'primary') primaryKpOf[l.problemId] = l.kpId;
     }
 
-    final indexRows = await db.select(db.problemsIndex).get();
+    // 只取 id + 错因两列（V2 存储优化）：画像只消费这两个字段，
+    // 全列读会把 search_tokens 等大文本白搬进内存。
+    final indexQuery = db.selectOnly(db.problemsIndex)
+      ..addColumns([db.problemsIndex.id, db.problemsIndex.errorCauses]);
+    final indexRows = <({String id, String? errorCauses})>[
+      for (final row in await indexQuery.get())
+        (
+          id: row.read(db.problemsIndex.id)!,
+          errorCauses: row.read(db.problemsIndex.errorCauses),
+        ),
+    ];
     final states = await db.select(db.userProblemState).get();
     final stateById = {for (final s in states) s.problemId: s};
 
@@ -606,7 +616,7 @@ class MasteryService {
 
   /// 错因分布。
   List<CauseStat> _causeStats(
-    List<ProblemIndexRow> rows,
+    List<({String id, String? errorCauses})> rows,
     Map<String, UserProblemStateRow> stateById,
   ) {
     final byCause = <String, _Acc>{};
