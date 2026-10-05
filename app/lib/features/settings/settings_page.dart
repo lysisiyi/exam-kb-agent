@@ -151,6 +151,38 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
         const SizedBox(height: 20),
 
+        // ── 复习 ──────────────────────────────────────────────────────
+        _Section(
+          title: '复习',
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Expanded(
+                  child: Text(
+                    '手写答案拍照核对（可选，默认关）\n'
+                    '开启后，复习卡解析区会出现「拍照核对」—— 把手写解答'
+                    '拍照传给 AI，它对照题库里的标准解析给出**要点命中清单**。'
+                    '每次调用真实计费（免费视觉模型可用）；打分始终由你完成，'
+                    'AI 的结论不进入复习算法。',
+                    style: TextStyle(fontSize: 12.5, height: 1.8),
+                  ),
+                ),
+                Switch(
+                  value: ref.watch(handwriteCheckEnabledProvider).valueOrNull ?? false,
+                  onChanged: (v) async {
+                    final db = await ref.read(databaseProvider.future);
+                    await db.writeMeta('review_handwrite_enabled', v ? '1' : '0');
+                    ref.invalidate(handwriteCheckEnabledProvider);
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 20),
+
         // ── 导出 ──────────────────────────────────────────────────────
         _Section(
           title: '导出题库',

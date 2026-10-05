@@ -26,6 +26,7 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,12 +35,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/layout/breakpoints.dart';
 import '../../core/math/math_renderer.dart';
 import '../../core/platform/capabilities.dart';
+import '../../core/platform/platform_services.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/error_causes.dart';
+import '../../data/markdown/problem_markdown.dart';
 import '../../domain/fsrs/fsrs_scheduler.dart';
 import '../../domain/knowledge/knowledge_point.dart';
+import '../../services/llm/llm_client.dart';
+import '../../services/review/handwrite_check.dart';
 import '../../services/review/review_repository.dart';
 import '../problems/problem_images.dart';
 import 'error_prescription_panel.dart';
@@ -657,6 +662,10 @@ class _CardBody extends ConsumerWidget {
                   unknownIds: unknownCauseIds,
                 ),
               ],
+              // 手写核对（V2-3.2）：可选能力，设置里开了才出现 ——
+              // 每次调用真实计费，不该让没打算用的用户看见入口。
+              if (ref.watch(handwriteCheckEnabledProvider).valueOrNull ?? false)
+                _HandwriteCheckPanel(problem: p),
             ],
           );
 
@@ -1442,4 +1451,151 @@ class _SectionLabel extends StatelessWidget {
           ],
         ),
       );
+}
+
+
+/// 手写答案拍照核对（V2-3.2）。
+///
+/// ## 交互契约
+///
+/// 拍照/选图 → 视觉模型对照标准解析 → **要点命中清单**（✓/✗ + 一句话
+/// 依据）→ 用户自己打分。清单上没有分数，将来也不会有 —— 那条边界
+/// 写在提示词与解析层（见 `handwrite_check.dart`）。
+///
+/// ## 失败路径
+///
+/// 无 Key / 无视觉能力 / 网络失败 / 解析失败 → 红字如实显示，
+/// 手动三档打分**始终可用** —— 这是增强，不是依赖。
+class _HandwriteCheckPanel extends ConsumerStatefulWidget {
+  final Problem problem;
+
+  const _HandwriteCheckPanel({required this.problem});
+
+  @override
+  ConsumerState<_HandwriteCheckPanel> createState() =>
+      _HandwriteCheckPanelState();
+}
+
+class _HandwriteCheckPanelState extends ConsumerState<_HandwriteCheckPanel> {
+  bool _running = false;
+  HandwriteCheckResult? _result;
+  String? _error;
+
+  Future<void> _check() async {
+    if (_running) return;
+    final client = ref.read(ingestClientProvider);
+    if (client == null) {
+      setState(() => _error = '还没有配置 AI 服务商 —— 到「设置 → AI 服务商」填 Key。');
+      return;
+    }
+
+    setState(() {
+      _running = true;
+      _error = null;
+      _result = null;
+    });
+    try {
+      final picked =
+          await PlatformServices.instance.imageSource.pickMultipleImages();
+      if (!mounted) return;
+      if (picked.isEmpty) {
+        setState(() => _running = false);
+        return;
+      }
+      final f = picked.first;
+      final bytes = f.bytes ?? await File(f.path).readAsBytes();
+      final p = widget.problem;
+
+      final r = await checkHandwrittenAnswer(
+        client: client,
+        attachment: ChatAttachment(
+          kind: ChatAttachmentKind.image,
+          mimeType: 'image/png',
+          bytes: bytes,
+          name: f.name,
+        ),
+        answer: p.answer,
+        solution: p.solution,
+      );
+      if (!mounted) return;
+      setState(() {
+        _running = false;
+        _result = r;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _running = false;
+        _error = '$e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            const _SectionLabel('手写核对'),
+            const SizedBox(width: 10),
+            OutlinedButton.icon(
+              onPressed: _running ? null : _check,
+              icon: _running
+                  ? const SizedBox(
+                      width: 13,
+                      height: 13,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.draw_outlined, size: 15),
+              label: Text(_running ? '核对中…' : '拍照核对',
+                  style: const TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: SelectableText(
+              '核对失败：$_error\n（不影响手动打分）',
+              style: TextStyle(
+                  fontSize: 11.5,
+                  height: 1.6,
+                  color: theme.colorScheme.error),
+            ),
+          ),
+        if (_result != null) ...[
+          const SizedBox(height: 8),
+          for (final pt in _result!.points)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    pt.hit ? Icons.check_circle_outline : Icons.cancel_outlined,
+                    size: 14,
+                    color: pt.hit ? AppColors.success : AppColors.danger,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      pt.hit ? '${pt.name} —— ${pt.note}' : '${pt.name}：${pt.note}',
+                      style: const TextStyle(fontSize: 12, height: 1.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (_result!.points.isEmpty)
+            Text('模型没有给出可辨认的要点。', style: _secondaryText()),
+        ],
+      ],
+    );
+  }
+
+  TextStyle _secondaryText() => TextStyle(
+      fontSize: 11.5, color: Theme.of(context).colorScheme.onSurfaceVariant);
 }

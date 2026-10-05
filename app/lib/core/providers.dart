@@ -393,6 +393,16 @@ final masteryReportProvider = FutureProvider<MasteryReport>((ref) async {
   return svc.build(knowledge: kb);
 });
 
+/// 手写答案核对开关（V2-3.2，**默认关**）。
+///
+/// 开了之后复习卡解析区会出现「拍照核对」—— 每次调用真实计费，
+/// 所以默认关、由用户在设置里打开。存 `meta_entries`（单机偏好，
+/// 与"今日提醒已发"同一张表），不进 Markdown、不进 user_problem_state。
+final handwriteCheckEnabledProvider = FutureProvider<bool>((ref) async {
+  final db = await ref.watch(databaseProvider.future);
+  return await db.readMeta('review_handwrite_enabled') == '1';
+});
+
 /// 一个考点下挂的题目（知识库详情页「你的题目」节）。
 ///
 /// autoDispose family：离开那个考点的详情就丢弃 —— 题目数据会因
