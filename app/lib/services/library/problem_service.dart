@@ -136,6 +136,12 @@ class ProblemService {
   Future<SaveOutcome> save(
     ProblemDraft draft, {
     bool overwriteExisting = false,
+
+    /// 来源原图字节（V2）：非空且草稿未带图时，存进题库 images/ 并按
+    /// [attachImagesPrimary] 设为题面。批量导入与图像识别走这里。
+    List<Uint8List>? attachImages,
+    bool attachImagesPrimary = false,
+    String attachImageExt = 'png',
   }) async {
     final issues = draft.validate(knowledge: knowledge);
     final blocking = issues.where((i) => i.level == DraftIssueLevel.blocking);
@@ -164,7 +170,7 @@ class ProblemService {
         ? (duplicates.isNotEmpty ? duplicates.first.id : null)
         : draft.id;
 
-    final problem = draft.build(knowledge: knowledge, idOverride: targetId);
+    var problem = draft.build(knowledge: knowledge, idOverride: targetId);
     // 编辑 / 按指纹覆盖时题目已入库 —— 以索引里的真实路径为准（外部题库
     // 允许 id ≠ 文件名，按 id 推导会把编辑结果写成一个错误的新文件，
     // 旧文件留在盘上变成两道"同一道题"）。新建题索引里没有行，解析器
@@ -175,6 +181,25 @@ class ProblemService {
       problemId: problem.id,
     );
     final alreadyThisId = file.existsSync();
+
+    // 附带来源原图（V2）：图像识别/批量导入的题把扫描件存进题库并设为
+    // 题面 —— 否则复习与详情页的"图当题面"分支永远没有数据，扫描题只能
+    // 看 OCR 重排的 LaTeX。仅在草稿本身没带图时生效（手插图优先）。
+    if (attachImages != null && attachImages.isNotEmpty && draft.images.isEmpty) {
+      final rels = <String>[];
+      for (var i = 0; i < attachImages.length; i++) {
+        rels.add(await store.saveImage(
+          problem.id,
+          i,
+          attachImages[i],
+          ext: attachImageExt,
+        ));
+      }
+      problem = problem.copyWith(
+        images: rels,
+        imagesPrimary: attachImagesPrimary,
+      );
+    }
 
     try {
       await store.saveTo(problem, file);

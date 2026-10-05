@@ -19,6 +19,8 @@
 /// 录入流程完全不受影响（离线可用是产品承诺，不是降级方案）。
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,6 +70,10 @@ class _EntryPageState extends ConsumerState<EntryPage> {
   SourceType _sourceType = SourceType.textbook;
   int? _sourceYear;
   String? _primaryKpId;
+
+  /// 识别采用的来源原图（V2）：保存时随题入库并设为题面。
+  Uint8List? _pendingImage;
+  String _pendingImageExt = 'png';
   final List<String> _secondaryKpIds = [];
   final Set<String> _errorCauses = {};
   bool _aiTagged = false;
@@ -101,6 +107,7 @@ class _EntryPageState extends ConsumerState<EntryPage> {
 
   /// 把草稿填进表单（编辑已有题目）。
   void _loadDraft(ProblemDraft d) {
+    _pendingImage = null; // 编辑已有题：它的图已在库里的 images/ 中
     _editingId = d.id;
     _subject = d.subject;
     _stem.text = d.stem;
@@ -232,7 +239,14 @@ class _EntryPageState extends ConsumerState<EntryPage> {
     final service = await ref.read(problemServiceProvider.future);
     if (!mounted) return;
 
-    final outcome = await service.save(_draft(), overwriteExisting: overwrite);
+    final outcome = await service.save(
+      _draft(),
+      overwriteExisting: overwrite,
+      attachImages:
+          _pendingImage == null ? null : [_pendingImage!],
+      attachImagesPrimary: _pendingImage != null,
+      attachImageExt: _pendingImageExt,
+    );
     if (!mounted) return;
 
     if (!outcome.ok) {
@@ -371,8 +385,12 @@ class _EntryPageState extends ConsumerState<EntryPage> {
         // 手输 LaTeX 收进下方表单，不删除（识别失败 / 无 Key 时是出路）。
         _ImageEntryCard(
           subject: _subject,
-          onAdopt: (ExtractedProblem p) {
-            setState(() => _loadDraft(p.toDraft(subject: _subject)));
+          onAdopt: (ExtractedProblem p, Uint8List? imageBytes, String ext) {
+            setState(() {
+              _loadDraft(p.toDraft(subject: _subject));
+              _pendingImage = imageBytes;
+              _pendingImageExt = ext;
+            });
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('已按识别结果填入表单 —— 请核对考点与错因'),
             ));
@@ -1061,7 +1079,7 @@ class _SaveBar extends StatelessWidget {
 /// 与逐题核对页）。两条路走**同一个**提示词与解析器。
 class _ImageEntryCard extends ConsumerStatefulWidget {
   final String subject;
-  final void Function(ExtractedProblem p) onAdopt;
+  final void Function(ExtractedProblem p, Uint8List? imageBytes, String ext) onAdopt;
 
   const _ImageEntryCard({required this.subject, required this.onAdopt});
 
@@ -1072,6 +1090,11 @@ class _ImageEntryCard extends ConsumerStatefulWidget {
 class _ImageEntryCardState extends ConsumerState<_ImageEntryCard> {
   bool _running = false;
   List<ExtractedProblem>? _result;
+
+  /// 本次识别的来源清单（ adopting 时把来源图一起交给表单 ——
+  /// 单来源时按题附图；多来源时题与图的对应关系没有解析出来，
+  /// 刻意不附 —— 附错图比没图糟）。
+  List<IngestSource>? _lastSources;
   final List<String> _warnings = [];
   String? _error;
 
@@ -1119,6 +1142,7 @@ class _ImageEntryCardState extends ConsumerState<_ImageEntryCard> {
       setState(() {
         _running = false;
         _result = problems;
+        _lastSources = sources;
       });
     } catch (e) {
       if (!mounted) return;
@@ -1199,8 +1223,22 @@ class _ImageEntryCardState extends ConsumerState<_ImageEntryCard> {
                 _RecognizedRow(
                   index: i + 1,
                   problem: _result![i],
-                  onAdopt: () {
-                    widget.onAdopt(_result![i]);
+                  onAdopt: () async {
+                    Uint8List? bytes;
+                    var ext = 'png';
+                    final src = (_lastSources ?? const []).length == 1
+                        ? _lastSources!.first
+                        : null;
+                    if (src != null && !src.isPdf) {
+                      try {
+                        bytes = await File(src.path).readAsBytes();
+                        ext = _extOf(src.path);
+                      } catch (_) {
+                        bytes = null; // 读不到原图就只填文字 —— 如实降级
+                      }
+                    }
+                    if (!context.mounted) return;
+                    widget.onAdopt(_result![i], bytes, ext);
                     setState(() => _result = null); // 填入后收起，防重复填
                   },
                 ),
@@ -1215,7 +1253,7 @@ class _ImageEntryCardState extends ConsumerState<_ImageEntryCard> {
 class _RecognizedRow extends StatelessWidget {
   final int index;
   final ExtractedProblem problem;
-  final VoidCallback onAdopt;
+  final Future<void> Function() onAdopt;
 
   const _RecognizedRow({
     required this.index,
@@ -1257,4 +1295,12 @@ class _RecognizedRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 来源图扩展名（缺省 png）。
+String _extOf(String path) {
+  final base = path.replaceAll('\\', '/').split('/').last;
+  final dot = base.lastIndexOf('.');
+  final e = dot > 0 ? base.substring(dot + 1).toLowerCase() : '';
+  return (e == 'jpg' || e == 'jpeg' || e == 'png' || e == 'webp') ? e : 'png';
 }

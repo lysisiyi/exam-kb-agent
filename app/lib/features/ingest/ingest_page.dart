@@ -28,6 +28,9 @@ library;
 
 import 'dart:async';
 
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -447,9 +450,24 @@ class _IngestPageState extends ConsumerState<IngestPage> {
       final service = await ref.read(problemServiceProvider.future);
       final subject = ref.read(currentSubjectProvider).id;
 
-      for (final (_, _, p) in picked) {
+      // 来源原图缓存（路径 → 字节）：同一次保存里多个题可能来自同一张图
+      final imageBytes = <String, Uint8List>{};
+
+      for (final (item, _, p) in picked) {
         try {
-          final outcome = await service.save(p.toDraft(subject: subject));
+          // 图片来源把原图一起入库（V2）：复习/详情才能"图当题面"。
+          // PDF 来源跳过 —— 整份 PDF 没法按题拆图（见 T45 的取舍）。
+          Uint8List? sourceImage;
+          if (!item.source.isPdf) {
+            final path = item.source.path;
+            sourceImage = imageBytes[path] ??= await File(path).readAsBytes();
+          }
+          final outcome = await service.save(
+            p.toDraft(subject: subject),
+            attachImages: sourceImage == null ? null : [sourceImage],
+            attachImagesPrimary: true,
+            attachImageExt: _extOf(item.source.path),
+          );
           if (outcome.ok && outcome.problem != null) {
             ok++;
             problems.add(outcome.problem!);
@@ -1642,4 +1660,13 @@ class _EmptyHint extends StatelessWidget {
       ],
     );
   }
+}
+
+/// 来源图扩展名（缺省 png）。非法/空扩展名回落 png —— saveImage 只把它
+/// 用在文件名上，识别与显示都不依赖它。
+String _extOf(String path) {
+  final base = path.contains('/') ? path.split('/').last : path;
+  final dot = base.lastIndexOf('.');
+  final e = dot > 0 ? base.substring(dot + 1).toLowerCase() : '';
+  return (e == 'jpg' || e == 'jpeg' || e == 'png' || e == 'webp') ? e : 'png';
 }
