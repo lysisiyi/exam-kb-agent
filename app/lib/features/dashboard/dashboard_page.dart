@@ -6,12 +6,12 @@
 /// P1（截图笔记管道）与 P3（练习生成）上线后逐卡接线。
 library;
 
-import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../pet/pet_service.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -125,14 +125,7 @@ class DashboardPage extends ConsumerWidget {
                   style: TextStyle(fontSize: 11, height: 1.5)),
             ),
             GestureDetector(
-              onTap: () async {
-                // 0.3.x 契约：create 传 WindowConfiguration，新引擎跑同一份
-                // main，由 fromCurrentEngine().arguments == 'pet' 分流。
-                final controller = await WindowController.create(
-                    const WindowConfiguration(
-                        arguments: 'pet', hiddenAtLaunch: false));
-                await controller.show();
-              },
+              onTap: () => ref.read(petServiceProvider).summon(),
               child: Image.asset('assets/pets/zhipu.png',
                   width: 92, fit: BoxFit.contain),
             ),

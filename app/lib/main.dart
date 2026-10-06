@@ -29,6 +29,7 @@ import 'core/theme/app_theme.dart';
 import 'data/db/database.dart' show LibraryPaths;
 
 import 'dev_shell.dart';
+import 'pet/pet_tray.dart';
 import 'pet/pet_window.dart';
 
 /// 桌宠子窗口走独立分支：desktop_multi_window(0.3.x) 给**每个引擎**都跑
@@ -46,6 +47,9 @@ Future<void> main(List<String> args) async {
     runApp(const PetWindow());
     return;
   }
+
+  // 主窗口：关到托盘，伴学不中断（桌宠分支不需要）
+  await setupTrayAndClosePolicy();
 
   // 启动进度探针。见 `_launchProbe` 的说明 —— 它是"应用走到哪一步死了"
   // 这个问题的唯一可靠答案。

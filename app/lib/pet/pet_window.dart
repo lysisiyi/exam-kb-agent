@@ -7,6 +7,7 @@
 /// 自关闭；六状态 Rive 动画、主窗口→气泡的数据通道、托盘在后续增量。
 library;
 
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -21,11 +22,25 @@ class PetWindow extends StatefulWidget {
 }
 
 class _PetWindowState extends State<PetWindow> with WindowListener {
+  String _bubble = '我在陪你上网课 ✍';
+
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
     _setupWindow();
+    // 主窗口 → 气泡：伴学记了笔记会推 'bubble' 过来
+    WindowController.fromCurrentEngine().then((c) {
+      c.setWindowMethodHandler((call) async {
+        if (call.method == 'bubble' && mounted) {
+          final text = (call.arguments as Map?)?['text']?.toString();
+          if (text != null && text.isNotEmpty) {
+            setState(() => _bubble = text);
+          }
+        }
+        return null;
+      });
+    });
   }
 
   Future<void> _setupWindow() async {
@@ -80,8 +95,8 @@ class _PetWindowState extends State<PetWindow> with WindowListener {
                     border: Border.all(color: AppColors.line),
                     boxShadow: AppShadows.s2,
                   ),
-                  child: const Text('我在陪你上网课 ✍',
-                      style: TextStyle(fontSize: 11.5, height: 1.4)),
+                  child: Text(_bubble,
+                      style: const TextStyle(fontSize: 11.5, height: 1.4)),
                 ),
                 Image.asset('assets/pets/zhipu.png',
                     width: 130, fit: BoxFit.contain),

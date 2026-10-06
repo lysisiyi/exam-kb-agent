@@ -15,6 +15,7 @@ import 'package:image/image.dart' as img;
 
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../pet/pet_service.dart';
 import '../../services/companion/course_store.dart';
 import '../../services/companion/note_llm.dart';
 import '../../services/companion/screen_capture.dart';
@@ -270,6 +271,12 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
         if (ok) added++;
       }
       await _reload();
+      if (added > 0) {
+        // 气泡推给桌宠（不在/通道失败静默，绝不带崩伴学）
+        await ref
+            .read(petServiceProvider)
+            .sendBubble('刚记下：${rawNotes.first.point}');
+      }
       setState(() => _status = added == 0
           ? '内容与已有笔记重复，没有新条目。'
           : '记下 $added 条笔记（共 ${_notes.length} 条）。');
