@@ -148,57 +148,127 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // V3 手账风（对齐 docs/design/ui/ui_knowledge.png）：
+    // 标题行「知识库 + 学科 chip」+ 状态 chips（骨架/已填，由"有没有定义"
+    // 现算——与 md 文件里的 status 字段同源口径）+ 原有数量统计 + 视图切换。
+    final leaves = kb.leaves;
+    final filled = leaves.where((l) => (l.definition ?? '').trim().isNotEmpty).length;
+    final skeleton = leaves.length - filled;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        kb.subjectName,
-                        style: AppTypography.pageTitle,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Row(
+                      children: [
+                        const Flexible(
+                          child: Text(
+                            '知识库',
+                            style: AppTypography.pageTitle,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryWeak,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text(
+                            kb.subjectName,
+                            style: const TextStyle(
+                                fontSize: KnowledgeSizes.secondary,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryStrong),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text('本体 v${kb.version}',
-                        style: const TextStyle(
-                            fontSize: KnowledgeSizes.secondary,
-                            color: kSecondaryInk)),
+                    const SizedBox(height: 5),
+                    const Text(
+                      'Obsidian 式 Markdown 知识库 —— knowledge/ 目录下每个知识点一个 .md，'
+                      '可用任何编辑器直接改',
+                      style: TextStyle(
+                          fontSize: KnowledgeSizes.secondary,
+                          color: kSecondaryInk),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 5),
-                Wrap(
-                  spacing: 14,
-                  runSpacing: 4,
-                  children: [
-                    _Stat(label: '章节', value: '${kb.chapters.length}'),
-                    _Stat(label: '知识点', value: '${kb.leaves.length}'),
-                    _Stat(
-                      label: '含公式',
-                      value:
-                          '${kb.leaves.where((l) => l.formulas.isNotEmpty).length}',
-                    ),
-                    _Stat(
-                      label: '有考频数据',
-                      value:
-                          '${kb.leaves.where((l) => l.examYears.isNotEmpty).length}',
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              _ModeSwitch(mode: mode, onChanged: onModeChanged),
+            ],
           ),
-          const SizedBox(width: 12),
-          _ModeSwitch(mode: mode, onChanged: onModeChanged),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 14,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _StatusChip(
+                  text: '骨架 $skeleton',
+                  color: AppColors.ink3,
+                  hollow: true),
+              _StatusChip(
+                  text: '已填 $filled', color: AppColors.success, hollow: false),
+              _Stat(label: '章节', value: '${kb.chapters.length}'),
+              _Stat(label: '知识点', value: '${leaves.length}'),
+              _Stat(
+                label: '含公式',
+                value: '${leaves.where((l) => l.formulas.isNotEmpty).length}',
+              ),
+              _Stat(
+                label: '有考频数据',
+                value: '${leaves.where((l) => l.examYears.isNotEmpty).length}',
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// 状态 chip：手账风参考图里树节点的四色状态点，这里是顶部汇总。
+/// hollow = 空心（骨架），实心 = 已填。
+class _StatusChip extends StatelessWidget {
+  final String text;
+  final Color color;
+  final bool hollow;
+  const _StatusChip({
+    required this.text,
+    required this.color,
+    required this.hollow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: hollow ? null : color,
+            border: hollow ? Border.all(color: color, width: 1.5) : null,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(text,
+            style: const TextStyle(
+                fontSize: KnowledgeSizes.secondary, color: kSecondaryInk)),
+      ],
     );
   }
 }

@@ -459,6 +459,9 @@ class _Legend extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
         child: Wrap(
+          // 显式 key：测试用它定位"图例"这一块（此前靠 byType(Wrap).first，
+          // 页头新增 chips Wrap 后 .first 抓到的是别处——脆断言换成具名定位）
+          key: const ValueKey('graph-legend'),
           spacing: 12,
           runSpacing: 4,
           children: [

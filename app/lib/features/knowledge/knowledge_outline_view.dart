@@ -272,7 +272,25 @@ class _OutlineRowTile extends StatelessWidget {
                           size: 18,
                           color: kSecondaryInk,
                         )
-                      : Icon(Icons.circle, size: 5, color: theme.accent),
+                      // 手账风状态点（对齐参考图的四色点）：有定义=实心绿（已填）、
+                      // 没有=空心灰（骨架）。与页头「骨架/已填」chips 同一口径
+                      // （definition 是否为空），扫树即可看出哪些还没填。
+                      : Center(
+                          child: Container(
+                            width: 9,
+                            height: 9,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _isFilled(node)
+                                  ? AppColors.success
+                                  : null,
+                              border: _isFilled(node)
+                                  ? null
+                                  : Border.all(
+                                      color: AppColors.ink4, width: 1.5),
+                            ),
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 4),
                 // 层级编号：教材里"第几章第几节"的那种，方便口头引用
@@ -461,6 +479,10 @@ class _WeightChip extends StatelessWidget {
 }
 
 /// 叶子行的元信息文本：考频次数 + 错题数，都没有时如实说"暂无考频"。
+/// 这个叶子"填了没有"——有定义即已填（与页头 chips、md status 同口径）。
+bool _isFilled(KnowledgePoint node) =>
+    (node.definition ?? '').trim().isNotEmpty;
+
 String _leafMetaText(KnowledgePoint node, int problemCount) {
   final parts = <String>[
     if (node.examYears.isNotEmpty) '考过 ${node.examYears.length} 次',

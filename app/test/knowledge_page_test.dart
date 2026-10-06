@@ -340,7 +340,7 @@ void main() {
       await pumpPage(tester, size: const Size(560, 800));
 
       expect(tester.takeException(), isNull);
-      final legend = tester.getRect(find.byType(Wrap).first);
+      final legend = tester.getRect(find.byKey(const ValueKey('graph-legend')));
       final toolbar = tester.getRect(find.byTooltip('放大（也可以用滚轮）'));
       // 两者在水平方向不能有交集
       expect(
