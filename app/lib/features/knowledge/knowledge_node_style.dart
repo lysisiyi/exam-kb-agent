@@ -231,3 +231,12 @@ NodeTheme masteryThemeOf(GraphNodeKind kind, double? mastery) {
     accent: masteryBandInk(band),
   );
 }
+
+/// examWeight → 星级文本（参考图的"优先级 ★★"）。
+/// null（没有考频数据）→ 空串（不显示，与"0 题不显示徽标"同一口径）。
+String starsOf(double? weight) {
+  if (weight == null) return '';
+  if (weight >= 0.85) return '★★★';
+  if (weight >= 0.6) return '★★';
+  return '★';
+}

@@ -105,6 +105,11 @@ class KnowledgeLeafDetail extends ConsumerWidget {
               ],
             ],
           ),
+          // 参考图右上角「✍ AI 补全此节」——按钮在标题行，草稿框在下方
+          Align(
+            alignment: Alignment.centerRight,
+            child: _AiDraftButton(leaf: leaf, crumbs: crumbs),
+          ),
           if (crumbs.isNotEmpty) ...[
             const SizedBox(height: 4),
             // caption 默认 ink3（白底 3.2:1，低于 AA）—— 面包屑是要读的
@@ -155,8 +160,8 @@ class KnowledgeLeafDetail extends ConsumerWidget {
               _TrapItem(index: i + 1, text: leaf.commonTraps[i]),
           ],
 
-          // ── AI 补全此节（参考图 ui_knowledge.png 的虚线草稿框） ─────────
-          _AiDraftSection(leaf: leaf, crumbs: crumbs),
+          // ── AI 草稿框（有草稿才出现；参考图 ui_knowledge.png 的琥珀框） ──
+          _DraftBox(leaf: leaf),
 
           // ── 你的题目 ──────────────────────────────────────────────────
           // 主考点挂在这里的错题清单（次考点命中折叠在下面）。
@@ -858,22 +863,19 @@ final kpAiDraftProvider =
   return store.draftOf(file);
 });
 
-/// 「AI 补全此节」按钮 + 草稿琥珀框（接纳/丢弃/重新生成）。
-///
-/// 纪律：草稿只写进 md 的 `## AI 草稿（待确认）` 小节，
-/// **用户点"接纳"之前绝不并入正式内容**。
-class _AiDraftSection extends ConsumerStatefulWidget {
+/// 「✍ AI 补全此节」按钮（参考图右上）。生成草稿写进 md 的
+/// `## AI 草稿（待确认）` 小节——**用户点"接纳"之前绝不并入正式内容**。
+class _AiDraftButton extends ConsumerStatefulWidget {
   final KnowledgePoint leaf;
   final List<String> crumbs;
-  const _AiDraftSection({required this.leaf, required this.crumbs});
+  const _AiDraftButton({required this.leaf, required this.crumbs});
 
   @override
-  ConsumerState<_AiDraftSection> createState() => _AiDraftSectionState();
+  ConsumerState<_AiDraftButton> createState() => _AiDraftButtonState();
 }
 
-class _AiDraftSectionState extends ConsumerState<_AiDraftSection> {
+class _AiDraftButtonState extends ConsumerState<_AiDraftButton> {
   bool _busy = false;
-  String? _status;
 
   Future<File?> _fileFor() async {
     final store = await ref.read(knowledgeMdStoreProvider.future);
@@ -881,21 +883,23 @@ class _AiDraftSectionState extends ConsumerState<_AiDraftSection> {
     return store.fileOf(subject, widget.leaf.id);
   }
 
+  void _say(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
   Future<void> _generate() async {
     if (_busy) return;
-    setState(() {
-      _busy = true;
-      _status = null;
-    });
+    setState(() => _busy = true);
     try {
       final client = ref.read(chatClientProvider);
       if (client == null) {
-        setState(() => _status = '先到「设置」里配好 AI 服务商（文本模型即可）。');
+        _say('先到「设置」里配好 AI 服务商（文本模型即可）。');
         return;
       }
       final file = await _fileFor();
       if (file == null) {
-        setState(() => _status = '找不到这个知识点的 md 文件——知识库需来自 knowledge/ 文件夹（K1 导入）。');
+        _say('找不到这个知识点的 md 文件——知识库需来自 knowledge/ 文件夹（K1 导入）。');
         return;
       }
       final leaf = widget.leaf;
@@ -911,126 +915,117 @@ class _AiDraftSectionState extends ConsumerState<_AiDraftSection> {
       final store = await ref.read(knowledgeMdStoreProvider.future);
       store.writeAiDraft(file, resp.text.trim());
       ref.invalidate(kpAiDraftProvider(widget.leaf.id));
-      setState(() => _status = '草稿已写入 md 的「AI 草稿（待确认）」小节。');
+      _say('草稿已写入 md 的「AI 草稿（待确认）」小节。');
     } catch (e) {
-      setState(() => _status = '生成失败：$e');
+      _say('生成失败：$e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _accept() async {
-    final file = await _fileFor();
-    if (file == null) return;
+  @override
+  Widget build(BuildContext context) {
+    final hasDraft =
+        (ref.watch(kpAiDraftProvider(widget.leaf.id)).valueOrNull ?? '')
+            .isNotEmpty;
+    return TextButton.icon(
+      onPressed: _busy ? null : _generate,
+      icon: _busy
+          ? const SizedBox(
+              width: 13,
+              height: 13,
+              child: CircularProgressIndicator(strokeWidth: 2))
+          : const Icon(Icons.auto_awesome, size: 15),
+      label: Text(hasDraft ? '重新生成草稿' : 'AI 补全此节'),
+      style: TextButton.styleFrom(
+          foregroundColor: AppColors.primaryStrong,
+          padding: const EdgeInsets.symmetric(horizontal: 8)),
+    );
+  }
+}
+
+/// 草稿琥珀框：渲染草稿 + ✓接纳进「定义」/ 丢弃。
+class _DraftBox extends ConsumerWidget {
+  final KnowledgePoint leaf;
+  const _DraftBox({required this.leaf});
+
+  Future<void> _accept(BuildContext context, WidgetRef ref) async {
     final store = await ref.read(knowledgeMdStoreProvider.future);
+    final file = store.fileOf(ref.read(currentSubjectProvider).id, leaf.id);
+    if (file == null) return;
     store.acceptAiDraft(file);
-    ref.invalidate(kpAiDraftProvider(widget.leaf.id));
-    // 定义小节变了 → 树内容与状态点一起刷新
-    ref.invalidate(knowledgeBaseProvider);
-    if (mounted) {
-      setState(() => _status = '已接纳进「定义」小节。');
+    ref.invalidate(kpAiDraftProvider(leaf.id));
+    ref.invalidate(knowledgeBaseProvider); // 定义变了 → 树状态点刷新
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已接纳进「定义」小节。')));
     }
   }
 
-  Future<void> _discard() async {
-    final file = await _fileFor();
-    if (file == null) return;
+  Future<void> _discard(BuildContext context, WidgetRef ref) async {
     final store = await ref.read(knowledgeMdStoreProvider.future);
+    final file = store.fileOf(ref.read(currentSubjectProvider).id, leaf.id);
+    if (file == null) return;
     store.discardAiDraft(file);
-    ref.invalidate(kpAiDraftProvider(widget.leaf.id));
-    if (mounted) {
-      setState(() => _status = '草稿已丢弃。');
+    ref.invalidate(kpAiDraftProvider(leaf.id));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('草稿已丢弃。')));
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final draft = ref.watch(kpAiDraftProvider(widget.leaf.id));
-    final hasDraft =
-        draft.valueOrNull != null && (draft.valueOrNull ?? '').isNotEmpty;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 13, bottom: 7),
-          child: Row(children: [
-            // _SectionTitle 内部有 Expanded(Divider) —— 放进 Row 必须拿
-            // 有界宽度（Row 的非 flex 子项收到的是无界约束，Expanded 会炸）
-            const Expanded(child: _SectionTitle('AI 补全')),
-            TextButton.icon(
-              onPressed: _busy ? null : _generate,
-              icon: _busy
-                  ? const SizedBox(
-                      width: 13,
-                      height: 13,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.auto_awesome, size: 15),
-              label: Text(hasDraft ? '重新生成草稿' : 'AI 补全此节'),
-              style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primaryStrong,
-                  padding: const EdgeInsets.symmetric(horizontal: 8)),
-            ),
-          ]),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final draft = ref.watch(kpAiDraftProvider(leaf.id)).valueOrNull;
+    if (draft == null || draft.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 13),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+        decoration: BoxDecoration(
+          color: AppColors.warningWeak,
+          borderRadius: AppRadius.rMd,
+          border: Border.all(color: AppColors.warning.withValues(alpha: 0.45)),
         ),
-        if (_status != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Text(_status!,
-                style: const TextStyle(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('✨ AI 草稿（待确认） · 不会在接纳前并入正式内容',
+                style: TextStyle(
                     fontSize: KnowledgeSizes.secondary,
-                    color: AppColors.primaryStrong)),
-          ),
-        if (hasDraft)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
-            decoration: BoxDecoration(
-              color: AppColors.warningWeak,
-              borderRadius: AppRadius.rMd,
-              border: Border.all(color: AppColors.warning.withValues(alpha: 0.45)),
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.warningInk)),
+            const SizedBox(height: 6),
+            MathRendering.renderer.renderMarkdown(
+              draft,
+              options: const MathRenderOptions(fontSize: AppMathSizes.reading),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('✨ AI 草稿（待确认） · 不会在接纳前并入正式内容',
-                    style: TextStyle(
-                        fontSize: KnowledgeSizes.secondary,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.warningInk)),
-                const SizedBox(height: 6),
-                MathRendering.renderer.renderMarkdown(
-                  draft.valueOrNull!,
-                  options: const MathRenderOptions(
-                      fontSize: AppMathSizes.reading),
-                ),
-                const SizedBox(height: 8),
-                Row(children: [
-                  FilledButton(
-                    onPressed: _busy ? null : _accept,
-                    style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 6),
-                        minimumSize: const Size(0, 32)),
-                    child: const Text('✓ 接纳进「定义」',
-                        style: TextStyle(fontSize: 12)),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: _busy ? null : _discard,
-                    style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        minimumSize: const Size(0, 32)),
-                    child:
-                        const Text('丢弃', style: TextStyle(fontSize: 12)),
-                  ),
-                ]),
-              ],
-            ),
-          ),
-      ],
+            const SizedBox(height: 8),
+            Row(children: [
+              FilledButton(
+                onPressed: () => _accept(context, ref),
+                style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 6),
+                    minimumSize: const Size(0, 32)),
+                child:
+                    const Text('✓ 接纳进「定义」', style: TextStyle(fontSize: 12)),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () => _discard(context, ref),
+                style: OutlinedButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: const Size(0, 32)),
+                child: const Text('丢弃', style: TextStyle(fontSize: 12)),
+              ),
+            ]),
+          ],
+        ),
+      ),
     );
   }
 }

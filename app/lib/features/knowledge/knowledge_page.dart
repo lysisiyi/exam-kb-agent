@@ -1,45 +1,34 @@
-/// 知识库页面：**图谱**与**大纲**两种查看方式。
+/// 知识库页（V3 严格按参考图 `docs/design/ui/ui_knowledge.png` 重构）。
 ///
-/// ## 两种视图各自回答什么
+/// ## 版式（与参考图逐块对应）
 ///
-/// | 视图 | 回答的问题 | 交互 |
-/// |---|---|---|
-/// | 图谱 | 「这一科长什么样」—— 层级、分布、哪些考点考频高 | 滚轮缩放、拖动平移、点节点看详情 |
-/// | 大纲 | 「第几章第几节讲了什么」—— 按考纲顺序逐行读 | 逐级展开、点考点看定义与公式 |
+/// ```
+/// [知识库 · 学科chip · 骨架/已填 chips · AI梳理/导入题目/新建学科]   ← 页头
+/// [▸ 下一步建议：xx —— 尚未填内容（骨架）   去看]                    ← 建议横幅
+/// ┌── 左：知识树（拖拽整理，id 不变）──┬── 右：节点详情 ──────────┐
+/// │ ⋮⋮ ● 01 绪论 已填                │ 面包屑 · md 路径           │
+/// │   ⋮⋮ ● 01-1 什么是数据结构 已填  │ 标题 [已填] ★★  [AI 补全] │
+/// │   ● 02 线性表 ★★ 已填            │ 别名 chips / 前置 chips     │
+/// │ ...                              │ 定义 / 公式 / 陷阱 / 草稿   │
+/// │                                  │ 本节点题目（图像题面）      │
+/// └──────────────────────────────────┴───────────────────────────┘
+/// ```
 ///
-/// 数据是同一份本体，两种视图都**从树结构出发**（`KnowledgeBase.childrenOf`），
-/// 不依赖 `level` 字段 —— 那个字段历史上与树深不一致，曾让这里显示「章节 0」。
-///
-/// ## 为什么页头不再放大卡片
-///
-/// 图谱要占满剩余高度（它的平移手势不能与页面滚动打架），所以页头压成
-/// 一行统计 + 视图切换；「高频考点 Top 10」搬到大纲视图里 —— 它本来就是
-/// "读目录"这件事的一部分。
+/// 旧版是「图谱/大纲」双模式切换 + 叶子行内联展开详情 —— 与参考图的
+/// "左树右详情"两栏结构不符，已整体替换（图谱视图代码保留但不再挂载）。
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
-import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/state_views.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import '../../services/profile/mastery_service.dart';
-import 'knowledge_graph_view.dart';
-import 'knowledge_node_style.dart' show kSecondaryInk;
+import 'knowledge_leaf_detail.dart';
+import 'knowledge_node_style.dart';
 import 'knowledge_outline_view.dart';
 import 'knowledge_sizes.dart';
-
-/// 查看方式。
-enum KnowledgeViewMode {
-  graph('图谱', Icons.account_tree_outlined),
-  outline('大纲', Icons.format_list_bulleted);
-
-  const KnowledgeViewMode(this.label, this.icon);
-  final String label;
-  final IconData icon;
-}
 
 class KnowledgePage extends ConsumerStatefulWidget {
   const KnowledgePage({super.key});
@@ -49,18 +38,12 @@ class KnowledgePage extends ConsumerStatefulWidget {
 }
 
 class _KnowledgePageState extends ConsumerState<KnowledgePage> {
-  KnowledgeViewMode _mode = KnowledgeViewMode.graph;
+  /// 右栏当前展示的节点。null = 还没选（默认落到第一个骨架叶子）。
+  String? _selectedId;
 
   @override
   Widget build(BuildContext context) {
     final kbAsync = ref.watch(knowledgeBaseProvider);
-
-    // 掌握度：图谱用它做**状态着色**（"我对它掌握得怎么样"）。
-    //
-    // 刻意用 `valueOrNull` 而不是并进 kbAsync 的 when 链：
-    // 画像算不出来（或还没算完）时，知识库照样要能打开 ——
-    // 大不了所有节点保持结构色，而那正好就是"没有复习数据"的样子。
-    // 把两件事绑在一起，会让一个次要功能的失败变成一个主要功能的失败。
     final mastery = ref.watch(masteryReportProvider).valueOrNull;
     final masteryByKpId = <String, KpMastery>{
       for (final m in mastery?.kps ?? const <KpMastery>[]) m.kpId: m,
@@ -69,177 +52,362 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
     return kbAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, st) => _ErrorView(error: e),
-      data: (kb) => _LoadedView(
-        kb: kb,
-        mode: _mode,
-        onModeChanged: (m) => setState(() => _mode = m),
-        masteryByKpId: masteryByKpId,
-      ),
-    );
-  }
-}
-
-class _ErrorView extends ConsumerWidget {
-  final Object error;
-  const _ErrorView({required this.error});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // 复用统一的错误态，但重试要**多做一步**：清掉 `KnowledgeRepository`
-    // 的内部缓存。只 invalidate provider 不够 —— 单例仓库会把上次的失败
-    // 结果一直留在 `_cache` 里，重试永远拿到同一个错误。
-    return AppErrorView(
-      title: '知识点本体载入失败',
-      error: error,
-      onRetry: () {
-        ref.read(knowledgeRepositoryProvider).clear();
-        ref.invalidate(knowledgeBaseProvider);
+      data: (kb) {
+        final selected = kb.byId[_selectedId] ?? _defaultPick(kb);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _EditorHeader(kb: kb),
+            _NextStepBanner(
+              kb: kb,
+              onGo: (node) => setState(() => _selectedId = node.id),
+            ),
+            const Divider(height: 1, color: AppColors.line),
+            Expanded(
+              child: LayoutBuilder(builder: (context, cons) {
+                // 参考图是 430 定宽左树；窄窗（<900）按 45% 收窄，
+                // 否则右栏只剩几十像素、公式全在横滑。
+                final treeWidth =
+                    cons.maxWidth >= 900 ? 430.0 : cons.maxWidth * 0.45;
+                return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 左：树
+                  SizedBox(
+                    width: treeWidth,
+                    child: KnowledgeOutlineView(
+                      kb: kb,
+                      masteryByKpId: masteryByKpId,
+                      selectedId: selected?.id,
+                      onSelect: (n) => setState(() => _selectedId = n.id),
+                    ),
+                  ),
+                  const VerticalDivider(width: 1, color: AppColors.line),
+                  // 右：详情（叶子 = 完整详情卡；分支 = 分支摘要）
+                  Expanded(
+                    child: selected == null
+                        ? const Center(child: Text('从左边选一个知识点'))
+                        : _NodeDetailPane(kb: kb, node: selected),
+                  ),
+                ],
+                );
+              }),
+            ),
+          ],
+        );
       },
-      retryLabel: '重新载入',
     );
   }
-}
 
-class _LoadedView extends StatelessWidget {
-  final KnowledgeBase kb;
-  final KnowledgeViewMode mode;
-  final ValueChanged<KnowledgeViewMode> onModeChanged;
-
-  /// 每个知识点的掌握情况，按 `kpId` 索引（空 map = 不做状态着色）。
-  final Map<String, KpMastery> masteryByKpId;
-
-  const _LoadedView({
-    required this.kb,
-    required this.mode,
-    required this.onModeChanged,
-    this.masteryByKpId = const {},
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _Header(kb: kb, mode: mode, onModeChanged: onModeChanged),
-        const Divider(height: 1),
-        Expanded(
-          child: switch (mode) {
-            KnowledgeViewMode.graph =>
-              KnowledgeGraphView(kb: kb, masteryByKpId: masteryByKpId),
-            KnowledgeViewMode.outline =>
-              KnowledgeOutlineView(kb: kb, masteryByKpId: masteryByKpId),
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  final KnowledgeBase kb;
-  final KnowledgeViewMode mode;
-  final ValueChanged<KnowledgeViewMode> onModeChanged;
-
-  const _Header({
-    required this.kb,
-    required this.mode,
-    required this.onModeChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // V3 手账风（对齐 docs/design/ui/ui_knowledge.png）：
-    // 标题行「知识库 + 学科 chip」+ 状态 chips（骨架/已填，由"有没有定义"
-    // 现算——与 md 文件里的 status 字段同源口径）+ 原有数量统计 + 视图切换。
+  /// 默认落点：树序里第一个没填定义的叶子（= 与"下一步建议"同源）；全填了用第一个叶子。
+  KnowledgePoint? _defaultPick(KnowledgeBase kb) {
     final leaves = kb.leaves;
-    final filled = leaves.where((l) => (l.definition ?? '').trim().isNotEmpty).length;
+    if (leaves.isEmpty) return null;
+    for (final l in leaves) {
+      if ((l.definition ?? '').trim().isEmpty) return l;
+    }
+    return leaves.first;
+  }
+}
+
+/// 页头：知识库 + 学科 chip + 状态 chips + 动作按钮（参考图第一行）。
+class _EditorHeader extends StatelessWidget {
+  final KnowledgeBase kb;
+  const _EditorHeader({required this.kb});
+
+  @override
+  Widget build(BuildContext context) {
+    final leaves = kb.leaves;
+    final filled =
+        leaves.where((l) => (l.definition ?? '').trim().isNotEmpty).length;
     final skeleton = leaves.length - filled;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Flexible(
+                    child: Text('知识库',
+                        style: AppTypography.pageTitle,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryWeak,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(kb.subjectName,
+                        style: const TextStyle(
+                            fontSize: KnowledgeSizes.secondary,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primaryStrong)),
+                  ),
+                ]),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        const Flexible(
-                          child: Text(
-                            '知识库',
-                            style: AppTypography.pageTitle,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryWeak,
-                            borderRadius: BorderRadius.circular(99),
-                          ),
-                          child: Text(
-                            kb.subjectName,
-                            style: const TextStyle(
-                                fontSize: KnowledgeSizes.secondary,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primaryStrong),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    const Text(
-                      'Obsidian 式 Markdown 知识库 —— knowledge/ 目录下每个知识点一个 .md，'
-                      '可用任何编辑器直接改',
-                      style: TextStyle(
-                          fontSize: KnowledgeSizes.secondary,
-                          color: kSecondaryInk),
-                    ),
+                    _StatusChip(
+                        text: '骨架 $skeleton',
+                        color: AppColors.ink3,
+                        hollow: true),
+                    _StatusChip(
+                        text: '已填 $filled',
+                        color: AppColors.success,
+                        hollow: false),
+                    _Stat(label: '章节', value: '${kb.chapters.length}'),
+                    _Stat(label: '知识点', value: '${leaves.length}'),
                   ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              _ModeSwitch(mode: mode, onChanged: onModeChanged),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 14,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _StatusChip(
-                  text: '骨架 $skeleton',
-                  color: AppColors.ink3,
-                  hollow: true),
-              _StatusChip(
-                  text: '已填 $filled', color: AppColors.success, hollow: false),
-              _Stat(label: '章节', value: '${kb.chapters.length}'),
-              _Stat(label: '知识点', value: '${leaves.length}'),
-              _Stat(
-                label: '含公式',
-                value: '${leaves.where((l) => l.formulas.isNotEmpty).length}',
-              ),
-              _Stat(
-                label: '有考频数据',
-                value: '${leaves.where((l) => l.examYears.isNotEmpty).length}',
-              ),
-            ],
+          const SizedBox(width: 12),
+          // 参考图右上三个动作。未接线的按钮点击后如实说明去向，
+          // 不做"点了没反应"的假按钮。
+          _HeaderAction(
+            icon: Icons.cleaning_services_outlined,
+            label: 'AI 梳理本章',
+            onTap: () => _notYet(context, 'AI 梳理（重复/缺失检测）随 K3 上线'),
+          ),
+          const SizedBox(width: 8),
+          _HeaderAction(
+            icon: Icons.download_outlined,
+            label: '导入题目',
+            onTap: () {
+              // 真动作：切到知识库宿主页的「图像录入」标签（索引 2）
+              final controller = DefaultTabController.maybeOf(context);
+              if (controller != null) {
+                controller.animateTo(2);
+              } else {
+                _notYet(context, '入口在「知识库 › 图像录入」标签');
+              }
+            },
+          ),
+          const SizedBox(width: 8),
+          _HeaderAction(
+            icon: Icons.add,
+            label: '新建学科（向导）',
+            primary: true,
+            onTap: () =>
+                _notYet(context, '建库向导随 K2 上线（当前可手动建 knowledge/ 文件夹）'),
           ),
         ],
       ),
     );
   }
+
+  void _notYet(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
 }
 
-/// 状态 chip：手账风参考图里树节点的四色状态点，这里是顶部汇总。
-/// hollow = 空心（骨架），实心 = 已填。
+class _HeaderAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool primary;
+  const _HeaderAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.primary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return primary
+        ? FilledButton.icon(
+            onPressed: onTap,
+            icon: Icon(icon, size: 16),
+            label: Text(label, style: const TextStyle(fontSize: 12.5)),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 34),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+          )
+        : OutlinedButton.icon(
+            onPressed: onTap,
+            icon: Icon(icon, size: 16),
+            label: Text(label, style: const TextStyle(fontSize: 12.5)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.ink2,
+              side: const BorderSide(color: AppColors.line),
+              minimumSize: const Size(0, 34),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+          );
+  }
+}
+
+/// 「下一步建议」横幅（参考图第二行）。诚实版：给出树序里第一个骨架叶子。
+class _NextStepBanner extends StatelessWidget {
+  final KnowledgeBase kb;
+  final ValueChanged<KnowledgePoint> onGo;
+  const _NextStepBanner({required this.kb, required this.onGo});
+
+  @override
+  Widget build(BuildContext context) {
+    KnowledgePoint? suggestion;
+    for (final l in kb.leaves) {
+      if ((l.definition ?? '').trim().isEmpty) {
+        suggestion = l;
+        break;
+      }
+    }
+    if (suggestion == null) return const SizedBox.shrink();
+    final s = suggestion;
+    final stars = starsOf(s.examWeight);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.rMd,
+        border: Border(left: BorderSide(color: AppColors.primary, width: 4)),
+      ),
+      child: Row(children: [
+        const Icon(Icons.play_arrow_rounded, size: 16, color: AppColors.primary),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text.rich(
+            TextSpan(children: [
+              const TextSpan(
+                  text: '下一步建议：',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+              TextSpan(text: s.name),
+              const TextSpan(text: ' —— 尚未填内容（骨架）'),
+              if (stars.isNotEmpty)
+                TextSpan(
+                    text: ' · 优先级 $stars',
+                    style: const TextStyle(color: AppColors.warningInk)),
+            ]),
+            style: const TextStyle(fontSize: 12.5, height: 1.6),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const Spacer(),
+        FilledButton(
+          onPressed: () => onGo(s),
+          style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 30),
+              padding: const EdgeInsets.symmetric(horizontal: 14)),
+          child: const Text('去看', style: TextStyle(fontSize: 12)),
+        ),
+      ]),
+    );
+  }
+}
+
+/// 右栏：叶子 → 完整详情卡；分支 → 分支摘要（子节点清单，可继续下钻）。
+class _NodeDetailPane extends StatelessWidget {
+  final KnowledgeBase kb;
+  final KnowledgePoint node;
+  const _NodeDetailPane({required this.kb, required this.node});
+
+  @override
+  Widget build(BuildContext context) {
+    if (node.isLeaf) {
+      final crumb = detailBreadcrumb(kb, node.id);
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+        child: KnowledgeLeafDetail(
+          key: ValueKey('detail-${node.id}'),
+          leaf: node,
+          sectionName: crumb.section,
+          chapterName: crumb.chapter,
+        ),
+      );
+    }
+    final leaves = _leavesUnder(node);
+    final filled =
+        leaves.where((l) => (l.definition ?? '').trim().isNotEmpty).length;
+    final children = kb.childrenOf[node.id] ?? const <KnowledgePoint>[];
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+      children: [
+        Text(node.name,
+            style: const TextStyle(
+                fontSize: KnowledgeSizes.heading,
+                fontWeight: FontWeight.w700)),
+        const SizedBox(height: 6),
+        Text(
+            '这一支共 ${leaves.length} 个考点 · 已填 $filled · 骨架 ${leaves.length - filled}',
+            style: const TextStyle(
+                fontSize: KnowledgeSizes.secondary, color: kSecondaryInk)),
+        const SizedBox(height: 12),
+        for (final c in children)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: AppRadius.rMd,
+              border: Border.all(color: AppColors.line),
+            ),
+            child: ListTile(
+              dense: true,
+              leading: _StatusDot(
+                  filled: (c.definition ?? '').trim().isNotEmpty || !c.isLeaf),
+              title: Text(c.name,
+                  style: const TextStyle(fontSize: KnowledgeSizes.body)),
+              subtitle: c.isLeaf
+                  ? null
+                  : Text('${(kb.childrenOf[c.id] ?? const []).length} 个子节点',
+                      style: const TextStyle(
+                          fontSize: KnowledgeSizes.secondary,
+                          color: kSecondaryInk)),
+            ),
+          ),
+      ],
+    );
+  }
+
+  List<KnowledgePoint> _leavesUnder(KnowledgePoint n) {
+    final out = <KnowledgePoint>[];
+    void walk(KnowledgePoint x) {
+      if (x.isLeaf) {
+        out.add(x);
+        return;
+      }
+      for (final c in kb.childrenOf[x.id] ?? const <KnowledgePoint>[]) {
+        walk(c);
+      }
+    }
+
+    walk(n);
+    return out;
+  }
+}
+
+/// 状态点（复用于分支清单）。
+class _StatusDot extends StatelessWidget {
+  final bool filled;
+  const _StatusDot({required this.filled});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: filled ? AppColors.success : null,
+        border: filled ? null : Border.all(color: AppColors.ink4, width: 1.5),
+      ),
+    );
+  }
+}
+
 class _StatusChip extends StatelessWidget {
   final String text;
   final Color color;
@@ -281,8 +449,6 @@ class _Stat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      // key 是给测试用的：页面上"3"和"章节"都可能在别处出现（图例里也有
-      // "章节"两个字），断言必须能定位到这一格
       key: ValueKey('stat-$label'),
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -304,64 +470,26 @@ class _Stat extends StatelessWidget {
   }
 }
 
-class _ModeSwitch extends StatelessWidget {
-  final KnowledgeViewMode mode;
-  final ValueChanged<KnowledgeViewMode> onChanged;
-
-  const _ModeSwitch({required this.mode, required this.onChanged});
+class _ErrorView extends ConsumerWidget {
+  final Object error;
+  const _ErrorView({required this.error});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface2,
-        borderRadius: AppRadius.rMd,
-      ),
-      padding: const EdgeInsets.all(3),
-      child: Row(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final m in KnowledgeViewMode.values)
-            Material(
-              type: MaterialType.transparency,
-              child: InkWell(
-                onTap: () => onChanged(m),
-                borderRadius: AppRadius.rSm,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: m == mode ? AppColors.surface : null,
-                    borderRadius: AppRadius.rSm,
-                    boxShadow: m == mode ? AppShadows.s1 : null,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        m.icon,
-                        size: 16,
-                        color: m == mode ? AppColors.primaryStrong : AppColors.ink3,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        m.label,
-                        style: TextStyle(
-                          fontSize: KnowledgeSizes.title,
-                          // 选中态只差"粗一档"：族里只有 Regular/Bold，
-                          // 用 w500 会被静默近似成 Regular（等于没变）——
-                          // 见 `app_fonts.dart` 里字重的说明
-                          fontWeight:
-                              m == mode ? AppFonts.bold : AppFonts.regular,
-                          color:
-                              m == mode ? AppColors.primaryStrong : AppColors.ink2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+          const Icon(Icons.error_outline, color: AppColors.danger, size: 32),
+          const SizedBox(height: 10),
+          Text('知识本体载入失败：$error',
+              style: const TextStyle(fontSize: 13),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: () => ref.invalidate(knowledgeBaseProvider),
+            child: const Text('重试'),
+          ),
         ],
       ),
     );

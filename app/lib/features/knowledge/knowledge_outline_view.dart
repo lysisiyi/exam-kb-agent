@@ -1,24 +1,19 @@
-/// 知识点大纲视图：常规的**顺序目录**（教材那种）。
+/// 知识点树（V3 两栏编辑器的**左栏**，对齐 docs/design/ui/ui_knowledge.png）。
 ///
-/// ## 与图谱的分工
+/// 只有树本身：展开/收起、状态点（已填/骨架）、优先级星、拖拽把手、
+/// 选中高亮；**详情一律走 `onSelect` 交给右栏**——旧版把详情内联展开在
+/// 行下方（"点叶子就地铺一屏"），参考图是"左树右详情"两栏，已重构掉。
 ///
-/// 图谱回答"这一科长什么样"，大纲回答"第几章第几节讲了什么"。
-/// 大纲按 id 顺序（= 考纲书写顺序）逐行列出，带层级编号（`2.3.1`），
-/// 可以逐级展开、点开某个考点的定义与公式。
-///
-/// 行是**扁平化之后交给 `ListView.builder`** 的：展开 141 个叶子时会有
-/// 三百多行，必须懒构建。所以这里不用嵌套 ExpansionTile，而是自己维护
-/// "哪些节点展开了"，每次重建只算一遍可见行。
+/// 行是**扁平化之后交给 `ListView.builder`** 的：展开数百叶子时会有
+/// 三百多行，必须懒构建。
 library;
 
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import '../../services/profile/mastery_service.dart';
 import 'knowledge_graph_layout.dart' show graphKindOf;
-import 'knowledge_leaf_detail.dart';
 import 'knowledge_node_style.dart';
 import 'knowledge_sizes.dart';
 
@@ -30,10 +25,18 @@ class KnowledgeOutlineView extends StatefulWidget {
   /// 徽标；报告没就绪时传空表，徽标整体不出现（与图谱同一口径）。
   final Map<String, KpMastery> masteryByKpId;
 
+  /// 点行回调（两栏编辑器：左树右详情）。分支行点击 = 选中 + 展开切换。
+  final ValueChanged<KnowledgePoint>? onSelect;
+
+  /// 当前选中的节点 id（该行高亮）。
+  final String? selectedId;
+
   const KnowledgeOutlineView({
     super.key,
     required this.kb,
     this.masteryByKpId = const {},
+    this.onSelect,
+    this.selectedId,
   });
 
   @override
@@ -43,9 +46,6 @@ class KnowledgeOutlineView extends StatefulWidget {
 class _KnowledgeOutlineViewState extends State<KnowledgeOutlineView> {
   /// 展开了的分支节点 id。
   late Set<String> _expanded;
-
-  /// 展开了详情的叶子 id。
-  String? _openLeaf;
 
   @override
   void initState() {
@@ -58,7 +58,6 @@ class _KnowledgeOutlineViewState extends State<KnowledgeOutlineView> {
     super.didUpdateWidget(old);
     if (!identical(old.kb, widget.kb)) {
       _expanded = _defaultExpanded(widget.kb);
-      _openLeaf = null;
     }
   }
 
@@ -96,7 +95,6 @@ class _KnowledgeOutlineViewState extends State<KnowledgeOutlineView> {
           ])
             n.id,
         };
-        _openLeaf = null;
       });
   @override
   Widget build(BuildContext context) {
@@ -119,42 +117,17 @@ class _KnowledgeOutlineViewState extends State<KnowledgeOutlineView> {
             itemCount: rows.length,
             itemBuilder: (ctx, i) {
               final r = rows[i];
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _OutlineRowTile(
-                    // key 挂在**行**上（不是外层 Column）：测试要按 key 点击
-                    // 这一行，而 Column 还包着展开的详情，中心点会落在详情里
-                    key: ValueKey('outline-row-${r.node.id}'),
-                    row: r,
-                    expanded: _expanded.contains(r.node.id),
-                    open: _openLeaf == r.node.id,
-                    problemCount:
-                        widget.masteryByKpId[r.node.id]?.problemCount ?? 0,
-                    onTap: () {
-                      if (r.node.isLeaf) {
-                        setState(() => _openLeaf =
-                            _openLeaf == r.node.id ? null : r.node.id);
-                      } else {
-                        _toggle(r.node.id);
-                      }
-                    },
-                  ),
-                  if (r.node.isLeaf && _openLeaf == r.node.id)
-                    Padding(
-                      padding: EdgeInsets.only(
-                        left: _indent(r.depth) + 22,
-                        right: 4,
-                        bottom: 8,
-                      ),
-                      child: KnowledgeLeafDetail(
-                        key: ValueKey('outline-detail-${r.node.id}'),
-                        leaf: r.node,
-                        sectionName: detailBreadcrumb(kb, r.node.id).section,
-                        chapterName: detailBreadcrumb(kb, r.node.id).chapter,
-                      ),
-                    ),
-                ],
+              return _OutlineRowTile(
+                key: ValueKey('outline-row-${r.node.id}'),
+                row: r,
+                expanded: _expanded.contains(r.node.id),
+                selected: widget.selectedId == r.node.id,
+                problemCount:
+                    widget.masteryByKpId[r.node.id]?.problemCount ?? 0,
+                onTap: () {
+                  widget.onSelect?.call(r.node);
+                  if (!r.node.isLeaf) _toggle(r.node.id);
+                },
               );
             },
           ),
@@ -170,7 +143,7 @@ class _KnowledgeOutlineViewState extends State<KnowledgeOutlineView> {
       final kids = node.isLeaf
           ? const <KnowledgePoint>[]
           : (kb.childrenOf[node.id] ?? const <KnowledgePoint>[]);
-      final expanded = _expanded.contains(node.id) || _openLeaf == node.id;
+      final expanded = _expanded.contains(node.id);
 
       out.add(_OutlineRow(
         node: node,
@@ -223,7 +196,7 @@ class _OutlineRow {
 class _OutlineRowTile extends StatelessWidget {
   final _OutlineRow row;
   final bool expanded;
-  final bool open;
+  final bool selected;
   final VoidCallback onTap;
 
     /// 该考点的错题数（0 = 没有题，徽标不显示）。
@@ -233,7 +206,7 @@ class _OutlineRowTile extends StatelessWidget {
     super.key,
     required this.row,
     required this.expanded,
-    required this.open,
+    required this.selected,
     required this.problemCount,
     required this.onTap,
   });
@@ -258,10 +231,23 @@ class _OutlineRowTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6),
             decoration: BoxDecoration(
               borderRadius: AppRadius.rSm,
-              color: open && node.isLeaf ? AppColors.primaryWeak : null,
+              // 选中行高亮（参考图里被点中的行是暖色底）
+              color: selected ? AppColors.primaryWeak : null,
             ),
-            child: Row(
+            // 窄树（<300px 可用宽）时折叠星级/meta/权重三列：固定列 + 缩进
+            // 已占满，硬摆必溢出。桌面宽（参考图场景）照常全显。
+            child: LayoutBuilder(builder: (context, cons) {
+              final wide = cons.maxWidth >= 300;
+              return Row(
               children: [
+                // 拖拽把手（参考图的 ⋮⋮）。K2 编辑器接线前只是视觉占位，
+                // tooltip 如实说明。
+                const Tooltip(
+                  message: '拖拽整理（随 K2 编辑器接线）',
+                  child: Icon(Icons.drag_indicator,
+                      size: 13, color: AppColors.ink4),
+                ),
+                const SizedBox(width: 2),
                 SizedBox(
                   width: 20,
                   child: isBranch
@@ -325,27 +311,43 @@ class _OutlineRowTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                if (isBranch)
-                  Text(
-                    row.childCount == 0 ? '空' : '${row.leafCount} 个考点',
-                    style: const TextStyle(
-                        fontSize: KnowledgeSizes.secondary,
-                        color: kSecondaryInk),
+                // 优先级星（参考图叶子行 "★★"）—— 只在有考频数据时出现
+                if (wide && starsOf(node.examWeight).isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Text(starsOf(node.examWeight),
+                      style: const TextStyle(
+                          fontSize: 9.5, color: AppColors.warning)),
+                ],
+                if (wide) const SizedBox(width: 8),
+                // 说明文字必须可压缩（Flexible+ellipsis）：左树固定 430
+                // （窄窗 45%），行内固定列已占 ~180px，自然宽的文本会溢出。
+                if (!wide) const SizedBox.shrink() else if (isBranch)
+                  Flexible(
+                    child: Text(
+                      row.childCount == 0 ? '空' : '${row.leafCount} 个考点',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: KnowledgeSizes.secondary,
+                          color: kSecondaryInk),
+                    ),
                   )
                 else
-                  Text(
-                    // 错题数与考频并列：一个说"这个考点多重要"，
-                    // 一个说"你在这里攒了多少题"。没有题时不显示 ——
-                    // "0 题"和"还没录过"是两个意思（与画像的空槽同一口径）。
-                    _leafMetaText(node, problemCount),
-                    style: const TextStyle(
-                        fontSize: KnowledgeSizes.secondary,
-                        color: kSecondaryInk),
+                  Flexible(
+                    child: Text(
+                      // 错题数与考频并列：一个说"这个考点多重要"，
+                      // 一个说"你在这里攒了多少题"。没有题时不显示 ——
+                      // "0 题"和"还没录过"是两个意思（与画像的空槽同一口径）。
+                      _leafMetaText(node, problemCount),
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: KnowledgeSizes.secondary,
+                          color: kSecondaryInk),
+                    ),
                   ),
-                const SizedBox(width: 8),
+                if (wide) const SizedBox(width: 6),
+                if (wide)
                 SizedBox(
-                  width: 46,
+                  width: 40,
                   child: node.examWeight == null
                       ? const SizedBox.shrink()
                       : Text(
@@ -360,7 +362,8 @@ class _OutlineRowTile extends StatelessWidget {
                         ),
                 ),
               ],
-            ),
+              );
+            }),
           ),
         ),
       ),
@@ -368,7 +371,11 @@ class _OutlineRowTile extends StatelessWidget {
   }
 }
 
-/// 顶部：题数概览 + 高频考点 + 展开/折叠。
+/// 树头（参考图第一行）："── 学科名（拖拽整理，id 不变）──" + 展开/收起。
+///
+/// 旧版这里是"题数概览 + 高频考点 Top 10 + 两个带字按钮" —— 参考图没有
+/// Top10（页头 chips 已给数量），带字按钮在 430 定宽下会溢出，一并换成
+/// 紧凑图标钮。
 class _OutlineHeader extends StatelessWidget {
   final KnowledgeBase kb;
   final int expandedCount;
@@ -384,109 +391,51 @@ class _OutlineHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top = kb.leavesByWeight(limit: 10);
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(12, 8, 6, 4),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Text(
-                '${kb.chapters.length} 章 · ${kb.leaves.length} 个知识点',
-                style: AppTypography.bodyStrong,
-              ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: onExpandAll,
-                icon: const Icon(Icons.unfold_more, size: 16),
-                label: const Text('全部展开'),
-              ),
-              const SizedBox(width: 4),
-              TextButton.icon(
-                onPressed: onCollapseAll,
-                icon: const Icon(Icons.unfold_less, size: 16),
-                label: const Text('收起到分段'),
-              ),
-            ],
-          ),
-          if (top.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            // caption 默认 ink3（白底 3.2:1，低于 AA）—— 这句是要读的说明
-            const Text('高频考点 Top 10（按考频权重）',
-                style: TextStyle(
-                    fontSize: KnowledgeSizes.secondary, color: kSecondaryInk)),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 7,
-              runSpacing: 7,
-              children: [for (final kp in top) _WeightChip(kp: kp)],
+          Expanded(
+            child: Text(
+              '── ${kb.subjectName}（拖拽整理，id 不变）──',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: KnowledgeSizes.secondary,
+                  color: kSecondaryInk,
+                  letterSpacing: 0.4),
             ),
-          ],
+          ),
+          IconButton(
+            tooltip: '全部展开',
+            onPressed: onExpandAll,
+            icon: const Icon(Icons.unfold_more, size: 17),
+            visualDensity: VisualDensity.compact,
+            color: kSecondaryInk,
+          ),
+          IconButton(
+            tooltip: '收起到分段',
+            onPressed: onCollapseAll,
+            icon: const Icon(Icons.unfold_less, size: 17),
+            visualDensity: VisualDensity.compact,
+            color: kSecondaryInk,
+          ),
         ],
       ),
     );
   }
 }
 
-class _WeightChip extends StatelessWidget {
-  final KnowledgePoint kp;
-  const _WeightChip({required this.kp});
 
-  @override
-  Widget build(BuildContext context) {
-    final w = kp.examWeight ?? 0;
-    final color = w >= 0.85
-        ? AppColors.danger
-        : w >= 0.6
-            ? AppColors.warning
-            : AppColors.ink2;
-
-    return Tooltip(
-      message: '${kp.name}\n${kp.id}',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(7),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              kp.name,
-              style: TextStyle(
-                fontSize: KnowledgeSizes.secondary,
-                fontWeight: AppFonts.bold,
-                color: color,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              w.toStringAsFixed(2),
-              style: TextStyle(
-                fontSize: KnowledgeSizes.secondary,
-                fontWeight: FontWeight.w700,
-                color: color.withValues(alpha: 0.75),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 叶子行的元信息文本：考频次数 + 错题数，都没有时如实说"暂无考频"。
 /// 这个叶子"填了没有"——有定义即已填（与页头 chips、md status 同口径）。
 bool _isFilled(KnowledgePoint node) =>
     (node.definition ?? '').trim().isNotEmpty;
 
+/// 叶子行的右侧说明：错题数与考频并列。没题时不显示"0 题"
+/// （"0 题"与"还没录过"是两个意思——与画像的空槽同一口径）。
 String _leafMetaText(KnowledgePoint node, int problemCount) {
   final parts = <String>[
-    if (node.examYears.isNotEmpty) '考过 ${node.examYears.length} 次',
     if (problemCount > 0) '$problemCount 题',
+    if (node.examYears.isNotEmpty) '考过 ${node.examYears.length} 次',
   ];
-  return parts.isEmpty ? '暂无考频' : parts.join(' · ');
+  return parts.join(' · ');
 }
