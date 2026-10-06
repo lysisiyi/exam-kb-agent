@@ -1,10 +1,10 @@
 /// 开发期导航外壳。
 ///
-/// V3 当前阶段（2026-10-05 用户指令）：**练习/复习暂时移出导航**，界面收敛为
-/// 五个目的地：学习台 | 网课 | 知识库 | 画像 | 设置。
-/// 知识库直接呈现知识树（K1 起 md 文件形态）；错题/录入/批量导入的页面代码
-/// 保留（problems/entry/ingest 的测试与数据层全部有效），K2 并入节点下方。
-/// 「对话」同样移出导航（P2 并入宠物课堂问答，P5 删）。
+/// V3 当前阶段（2026-10-05）：复习优化后回到导航（带到期角标）；
+/// 知识库恢复四标签宿主（知识树/题目/**图像录入**/批量导入——录入按
+/// 用户口径明确叫「图像」，题目 K2 起演进为节点下图像题卡）。
+/// 练习页暂离导航（组卷能力在 P3 并入练习时一起回来）；
+/// 「对话」保持移出（P2 并入宠物课堂问答）。
 library;
 
 import 'package:flutter/material.dart';
@@ -14,8 +14,9 @@ import 'core/providers.dart';
 import 'core/widgets/adaptive_shell.dart';
 import 'features/courses/courses_page.dart';
 import 'features/dashboard/dashboard_page.dart';
-import 'features/knowledge/knowledge_page.dart';
+import 'features/knowledge/knowledge_home_page.dart';
 import 'features/profile/profile_page.dart';
+import 'features/review/review_page.dart';
 import 'features/settings/settings_page.dart';
 
 /// 导航目的地定义。
@@ -45,24 +46,32 @@ List<NavDestination> buildDevDestinations({
         builder: () => const CoursesPage(),
       ),
       NavDestination(
+        label: '复习',
+        icon: Icons.home_outlined,
+        selectedIcon: Icons.home,
+        shortcutHint: 'Ctrl+3',
+        badgeCount: dueCount,
+        builder: () => const ReviewPage(),
+      ),
+      NavDestination(
         label: '知识库',
         icon: Icons.account_tree_outlined,
         selectedIcon: Icons.account_tree,
-        shortcutHint: 'Ctrl+3',
-        builder: () => const KnowledgePage(),
+        shortcutHint: 'Ctrl+4',
+        builder: () => const KnowledgeHomePage(),
       ),
       NavDestination(
         label: '画像',
         icon: Icons.insights_outlined,
         selectedIcon: Icons.insights,
-        shortcutHint: 'Ctrl+4',
+        shortcutHint: 'Ctrl+5',
         builder: () => const ProfilePage(),
       ),
       NavDestination(
         label: '设置',
         icon: Icons.settings_outlined,
         selectedIcon: Icons.settings,
-        shortcutHint: 'Ctrl+5',
+        shortcutHint: 'Ctrl+6',
         builder: () => const SettingsPage(),
       ),
     ];

@@ -30,12 +30,13 @@ class DashboardPage extends ConsumerWidget {
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     final dateText = '${now.month}月${now.day}日 周${weekdays[now.weekday - 1]}';
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 980),
-          child: Column(
+    return Stack(children: [
+      SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 96),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 980),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -103,7 +104,30 @@ class DashboardPage extends ConsumerWidget {
           ),
         ),
       ),
-    );
+      ),
+      // 桌宠角标：默认「小研」（智谱皮肤）。P2 起这里是真悬浮窗的镜像位。
+      Positioned(
+        right: 10,
+        bottom: 4,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.line),
+                boxShadow: AppShadows.s2,
+              ),
+              child: const Text('本节「施密特正交化」还没出现，出现了我会马上记 ✍',
+                  style: TextStyle(fontSize: 11, height: 1.5)),
+            ),
+            Image.asset('assets/pets/zhipu.png', width: 92, fit: BoxFit.contain),
+          ],
+        ),
+      ),
+    ]);
   }
 }
 
