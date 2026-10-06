@@ -2157,3 +2157,5 @@ OpenAI 上踩过的是同一个坑）。history 路径上的工具消息守卫**
 | 2026-10-05 | 🎴 **V2 页面手账风重设计第二批：错题本一题一卡 + 复习页双卡布局（提交 2fe770a）。** 错题本：Divider 分隔线列表 → 一题一卡（白卡+暖边+rMd+AppShadows.s1+14/12 留白），行内 pill 改全圆角胶囊（10.5 号字）。复习页：「题面 | 竖线 | 解析」双栏 → 两张白卡并排（新增 `_JournalCard`：白底+rLg+暖边+轻阴影+内边距），窄窗单列同样双卡——竖线在暖底上太硬，白卡把题与析各自装进一张纸。**下一批待做**：录入表单分组、批量导入核对表卡片化、知识库大纲视图换肤。1122 全绿、analyze 零输出。 |
 
 | 2026-10-05 | 📖 **知识库界面重构（手账风）+ 交接文档（提交待查）。** ①知识库页头按 ui_knowledge.png 重构：标题「知识库」+学科 chip+md 存储说明副标语+**骨架/已填状态 chips**（空心点=骨架、实心绿=已填，由 definition 是否为空现算，与 md status 同口径）；②大纲树叶子节点 accent 圆点 → **状态点**（已填实心绿/骨架空心灰），扫树即见填充状态；③图例定位由 `byType(Wrap).first` 改显式 `ValueKey('graph-legend')`——页头新增 chips Wrap 后脆断言抓错对象（教训已入交接文档）。④新增 `docs/V3_HANDOFF.md`：给下一个 agent 的完整交接（读文档顺序/工作纪律/代码地图/未完成清单含 K2 拆解/11 条踩坑录/命令速查）。1122 全绿、analyze 零输出。 |
+
+| 2026-10-05 | 📦 **交接工作副本建立：项目克隆至 `D:\agent\workspaces\study_V3`（36M，不含 app/build 212M 构建产物）。** git clone 保留完整提交历史；origin 指向 kaoyan-math-agent，后续合并走 `git pull`。克隆内已验证：sync_assets 生成 assets/data、flutter analyze 零输出、flutter test 1122 全绿。V3_HANDOFF.md 头部已标明工作副本位置（下一个 agent 在 study_V3 开发）。 |
