@@ -2,6 +2,10 @@
 
 > 写给下一个接手开发的 agent。**先读完这份再动代码。**
 > 更新时间：2026-10-05。当前测试基线：**1122 全绿**、`flutter analyze` 零输出。
+>
+> ⚠️ **开发工作副本位置：`D:\agent\workspaces\study_V3`**（本交接文档随仓库一同
+> 克隆过去）。请在 study_V3 里开发；`kaoyan-math-agent` 目录保留为完整历史副本，
+> 如需合并改动：`git pull D:\agent\workspaces\kaoyan-math-agent`。
 
 ---
 
