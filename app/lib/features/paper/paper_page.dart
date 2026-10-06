@@ -47,13 +47,25 @@ const Map<String, String> _kWhenToUse = {
 };
 
 class PaperPage extends ConsumerStatefulWidget {
-  const PaperPage({super.key});
+  /// 预选模板（练习页入口②③带进来：wrong_only / real_exam）。
+  final String? presetKind;
+
+  /// 嵌入练习页时为 true：隐藏页内自带的标题/说明/入口卡（页头由外层负责）。
+  final bool embedded;
+
+  const PaperPage({super.key, this.presetKind, this.embedded = false});
 
   @override
   ConsumerState<PaperPage> createState() => _PaperPageState();
 }
 
 class _PaperPageState extends ConsumerState<PaperPage> {
+
+  @override
+  void initState() {
+    super.initState();
+    _kind = widget.presetKind;
+  }
   String _subject = 'math1';
   String? _kind;
   PaperResult? _result;
@@ -243,10 +255,9 @@ class _PaperPageState extends ConsumerState<PaperPage> {
     final compact = bp == LayoutBreakpoint.compact;
     final templates = ref.watch(paperTemplatesProvider(_subject));
 
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
+    // 嵌入模式（练习页）：外层已有滚动容器，这里不能再包 Column+Expanded
+    // —— 纵向无界约束下 Expanded 会直接炸布局。
+    final body = SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(compact ? 16 : 24, 18, compact ? 16 : 24, 24),
             child: Center(
               child: ConstrainedBox(
@@ -254,55 +265,20 @@ class _PaperPageState extends ConsumerState<PaperPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('练习',
-                        style: Theme.of(context).textTheme.headlineSmall),
-                    const SizedBox(height: 4),
-                    Text(
-                      '课时练习（看课生成，随 P3 上线）之外，先用组卷能力：'
-                      '按真题结构从题库里抽题，难度、考点与偏离模板的地方如实标出。',
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.7,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    if (!widget.embedded) ...[
+                      Text('练习',
+                          style: Theme.of(context).textTheme.headlineSmall),
+                      const SizedBox(height: 4),
+                      Text(
+                        '按真题结构从题库里抽题，难度、考点与偏离模板的地方如实标出。',
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.7,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    // D17/P3：课时练习入口的占位卡。练习生成上线后，
-                    // 这里变成可点的入口卡（与参考图 ui_practice.png 一致）。
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryWeak,
-                        borderRadius: AppRadius.rMd,
-                        border: Border.all(color: AppColors.primarySoft),
-                      ),
-                      child: const Row(
-                        children: [
-                          Text('🎯',
-                              style: TextStyle(fontSize: 18)),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              '课时练习 —— 看完一节课，从题库匹配 + AI 自创题里'
-                              '生成 8 题小练习（随 P3 练习生成上线）',
-                              style: TextStyle(
-                                  fontSize: 12.5, height: 1.6),
-                            ),
-                          ),
-                          Chip(
-                            label: Text('P3 上线'),
-                            backgroundColor: AppColors.surface,
-                            labelStyle: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primaryStrong),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 20),
+                    ],
                     _Settings(
                       subject: _subject,
                       onSubject: (s) => setState(() {
@@ -391,8 +367,11 @@ class _PaperPageState extends ConsumerState<PaperPage> {
                 ),
               ),
             ),
-          ),
-        ),
+    );
+    if (widget.embedded) return body;
+    return Column(
+      children: [
+        Expanded(child: body),
       ],
     );
   }
