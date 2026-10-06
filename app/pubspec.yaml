@@ -159,6 +159,8 @@ dependencies:
   # 所以必须显式声明：靠传递依赖拿 API，会在上游换实现或改依赖树时
   # 突然编译不过，而那时你根本不知道是自己用了个没声明的包。
   katex_dart: ^0.1.1
+  screen_capturer: ^0.2.3
+  image: ^4.10.1
 
 dev_dependencies:
   flutter_test:
