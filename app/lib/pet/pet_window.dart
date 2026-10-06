@@ -58,7 +58,7 @@ class _PetWindowState extends State<PetWindow> with WindowListener {
         floatingActionButton: FloatingActionButton.small(
           backgroundColor: AppColors.surface,
           foregroundColor: AppColors.ink2,
-          onPressed: () => windowManager.destroy(),
+          onPressed: windowManager.destroy,
           child: const Icon(Icons.close, size: 16),
         ),
         body: GestureDetector(
