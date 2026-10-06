@@ -1,7 +1,9 @@
 /// 开发期导航外壳。
 ///
-/// 只挂载**已经实现**的页面。M7 之后**七个目的地全部指向真实页面**，
-/// 开发期的占位页组件已经删掉了。
+/// V3（P0）导航重组为**七个目的地**：学习台 | 网课 | 练习 | 知识库 | 复习 | 画像 | 设置。
+/// 「错题本/录入/批量导入」不再是顶级导航，整体并入知识库宿主页（D17，
+/// 见 `features/knowledge/knowledge_home_page.dart`）；「对话」移出导航，
+/// 其能力随 P2 并入桌宠「课堂问答」（代码保留，P5 移除）。
 library;
 
 import 'package:flutter/material.dart';
@@ -9,12 +11,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/providers.dart';
 import 'core/widgets/adaptive_shell.dart';
-import 'features/chat/chat_page.dart';
-import 'features/entry/entry_page.dart';
-import 'features/ingest/ingest_page.dart';
-import 'features/knowledge/knowledge_page.dart';
+import 'features/courses/courses_page.dart';
+import 'features/dashboard/dashboard_page.dart';
+import 'features/knowledge/knowledge_home_page.dart';
 import 'features/paper/paper_page.dart';
-import 'features/problems/problems_page.dart';
 import 'features/profile/profile_page.dart';
 import 'features/review/review_page.dart';
 import 'features/settings/settings_page.dart';
@@ -34,70 +34,53 @@ List<NavDestination> buildDevDestinations({
 }) =>
     [
       NavDestination(
+        label: '学习台',
+        icon: Icons.dashboard_outlined,
+        selectedIcon: Icons.dashboard,
+        shortcutHint: 'Ctrl+1',
+        builder: () => const DashboardPage(),
+      ),
+      NavDestination(
+        label: '网课',
+        icon: Icons.smart_display_outlined,
+        selectedIcon: Icons.smart_display,
+        shortcutHint: 'Ctrl+2',
+        builder: () => const CoursesPage(),
+      ),
+      NavDestination(
+        label: '练习',
+        icon: Icons.track_changes_outlined,
+        selectedIcon: Icons.track_changes,
+        shortcutHint: 'Ctrl+3',
+        builder: () => const PaperPage(),
+      ),
+      NavDestination(
         label: '知识库',
         icon: Icons.account_tree_outlined,
         selectedIcon: Icons.account_tree,
-        shortcutHint: 'Ctrl+1',
-        builder: () => const KnowledgePage(),
+        shortcutHint: 'Ctrl+4',
+        builder: () => const KnowledgeHomePage(),
       ),
       NavDestination(
-        label: '今日复习',
+        label: '复习',
         icon: Icons.home_outlined,
         selectedIcon: Icons.home,
-        shortcutHint: 'Ctrl+2',
+        shortcutHint: 'Ctrl+5',
         badgeCount: dueCount,
         builder: () => const ReviewPage(),
-      ),
-      NavDestination(
-        label: '错题本',
-        icon: Icons.menu_book_outlined,
-        selectedIcon: Icons.menu_book,
-        shortcutHint: 'Ctrl+3',
-        builder: () => const ProblemsPage(),
-      ),
-      NavDestination(
-        label: '录入',
-        icon: Icons.add_box_outlined,
-        selectedIcon: Icons.add_box,
-        shortcutHint: 'Ctrl+4',
-        builder: () => const EntryPage(),
-      ),
-      NavDestination(
-        label: '批量导入',
-        icon: Icons.drive_folder_upload_outlined,
-        selectedIcon: Icons.drive_folder_upload,
-        shortcutHint: 'Ctrl+5',
-        builder: () => const IngestPage(),
-      ),
-      NavDestination(
-        label: '组卷',
-        icon: Icons.description_outlined,
-        selectedIcon: Icons.description,
-        shortcutHint: 'Ctrl+6',
-        builder: () => const PaperPage(),
       ),
       NavDestination(
         label: '画像',
         icon: Icons.insights_outlined,
         selectedIcon: Icons.insights,
-        shortcutHint: 'Ctrl+7',
+        shortcutHint: 'Ctrl+6',
         builder: () => const ProfilePage(),
-      ),
-      NavDestination(
-        label: '对话',
-        icon: Icons.forum_outlined,
-        selectedIcon: Icons.forum,
-        shortcutHint: 'Ctrl+8',
-        builder: () => const ChatPage(),
       ),
       NavDestination(
         label: '设置',
         icon: Icons.settings_outlined,
         selectedIcon: Icons.settings,
-        // ⚠️ 这一项排在第 9 位，而 [AdaptiveShell] 的快捷键生成只覆盖
-        // Ctrl+1..9 —— 再加一项就没有快捷键可用了。
-        // 那时要么扩到 Ctrl+0 之外的组合，要么把这批页面分个组。
-        shortcutHint: 'Ctrl+9',
+        shortcutHint: 'Ctrl+7',
         builder: () => const SettingsPage(),
       ),
     ];
@@ -105,7 +88,7 @@ List<NavDestination> buildDevDestinations({
 class DevShell extends ConsumerWidget {
   /// 启动时停在第几个 Tab。
   ///
-  /// 默认 0（知识库）。**开发期可覆盖**：`main()` 会读环境变量
+  /// 默认 0（学习台）。**开发期可覆盖**：`main()` 会读环境变量
   /// `DSH_INITIAL_TAB`，让 App 直接开在某个页面上。
   ///
   /// 为什么需要这个：这个项目的界面在自动化环境里无法交互
@@ -133,13 +116,6 @@ class DevShell extends ConsumerWidget {
 }
 
 /// 侧边栏底部。
-///
-/// 占位页与检查清单组件已移除：它们曾用来在导航里展示"这个功能做到哪了"。
-/// M7 之后**七个导航目的地全部指向真实页面**，已经没有占位页，
-/// 所以那两个组件一并删掉 —— 留着就是永远不会被执行、
-/// 但每次读代码都要跳过的死代码。
-///
-/// 进度看板搬到 `docs/PROGRESS.md`（它本来就是唯一可信的进度来源）。
 class _SidebarFooter extends StatelessWidget {
   const _SidebarFooter();
 
@@ -153,12 +129,12 @@ class _SidebarFooter extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(15),
             gradient: const LinearGradient(
-              colors: [Color(0xFF4A66E0), Color(0xFF7048E8)],
+              colors: [Color(0xFFC05A17), Color(0xFFE8833A)],
             ),
           ),
           alignment: Alignment.center,
           child: const Text(
-            '李',
+            '研',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -173,12 +149,12 @@ class _SidebarFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '开发版',
+                '研伴 · V3',
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
               ),
               Text(
-                'M1 · 地基验收',
-                style: TextStyle(fontSize: 10.5, color: Color(0xFF8A909E)),
+                'P0 · 骨架与设计语言',
+                style: TextStyle(fontSize: 10.5, color: Color(0xFF8F887C)),
               ),
             ],
           ),
@@ -187,4 +163,3 @@ class _SidebarFooter extends StatelessWidget {
     );
   }
 }
-

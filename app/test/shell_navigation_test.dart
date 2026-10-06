@@ -34,12 +34,10 @@ import 'package:kaoyan_math_agent/core/platform/platform_services_mock.dart';
 import 'package:kaoyan_math_agent/core/providers.dart';
 import 'package:kaoyan_math_agent/core/widgets/adaptive_shell.dart';
 import 'package:kaoyan_math_agent/dev_shell.dart';
-import 'package:kaoyan_math_agent/features/chat/chat_page.dart';
-import 'package:kaoyan_math_agent/features/entry/entry_page.dart';
-import 'package:kaoyan_math_agent/features/ingest/ingest_page.dart';
-import 'package:kaoyan_math_agent/features/knowledge/knowledge_page.dart';
+import 'package:kaoyan_math_agent/features/courses/courses_page.dart';
+import 'package:kaoyan_math_agent/features/dashboard/dashboard_page.dart';
+import 'package:kaoyan_math_agent/features/knowledge/knowledge_home_page.dart';
 import 'package:kaoyan_math_agent/features/paper/paper_page.dart';
-import 'package:kaoyan_math_agent/features/problems/problems_page.dart';
 import 'package:kaoyan_math_agent/features/profile/profile_page.dart';
 import 'package:kaoyan_math_agent/features/review/review_page.dart';
 import 'package:kaoyan_math_agent/features/settings/settings_page.dart';
@@ -220,20 +218,24 @@ void main() {
       };
 
       // 这一条同时守住"占位页有没有被忘掉换掉"。
-      // 全部九个目的地都要点名 —— 早先这里只断言了前四个 + 一句
+      // 全部七个目的地都要点名 —— 早先这里只断言了前四个 + 一句
       // `isNot(EntryPage)`，于是"组卷还是占位页"能一路绿到 M6；
       // 而"都指向真页面"这句话在 `dev_shell.dart` 里只是注释，没人守。
-      expect(built['知识库'], KnowledgePage);
-      expect(built['今日复习'], ReviewPage);
-      expect(built['错题本'], ProblemsPage);
-      expect(built['录入'], EntryPage);
-      expect(built['批量导入'], IngestPage);
-      expect(built['组卷'], PaperPage);
+      expect(built['学习台'], DashboardPage);
+      expect(built['网课'], CoursesPage);
+      expect(built['练习'], PaperPage);
+      expect(built['知识库'], KnowledgeHomePage);
+      expect(built['复习'], ReviewPage);
       expect(built['画像'], ProfilePage);
-      expect(built['对话'], ChatPage);
       expect(built['设置'], SettingsPage);
 
-      expect(shell.destinations.length, 9, reason: '新增/删除目的地时这条要一起改');
+      // D17：错题本/录入/批量导入并入知识库宿主页，「对话」移出导航
+      expect(built.containsKey('错题本'), isFalse);
+      expect(built.containsKey('录入'), isFalse);
+      expect(built.containsKey('批量导入'), isFalse);
+      expect(built.containsKey('对话'), isFalse);
+
+      expect(shell.destinations.length, 7, reason: '新增/删除目的地时这条要一起改');
 
       // 快捷键提示必须与位置一致：AdaptiveShell 的 Ctrl+N 是按**下标**算的，
       // 提示写错了比没有提示更糟（用户按了没反应，会以为快捷键坏了）
@@ -243,24 +245,23 @@ void main() {
 
       // builder 每次调用都该给新实例（`_LazyPage` 只在首次构建时调用一次，
       // 之后复用同一个 widget —— 所以这里必须是新实例，不能是同一个常量）
-      expect(shell.destinations[3].builder(), isA<EntryPage>());
+      expect(shell.destinations[1].builder(), isA<CoursesPage>());
     });
 
-    testWidgets('真外壳里切到录入能挂上 EntryPage', (tester) async {
+    testWidgets('真外壳里切到网课能挂上 CoursesPage', (tester) async {
       await _pumpShell(tester, realShell: true);
 
-      expect(find.byType(EntryPage), findsNothing, reason: '启动了但不是当前页');
+      expect(find.byType(CoursesPage), findsNothing, reason: '启动了但不是当前页');
 
-      await tester.tap(find.text('录入').first);
+      await tester.tap(find.text('网课').first);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
       expect(tester.takeException(), isNull,
           reason: '切换导航时抛异常 → 真机上就是"什么都没出现"');
-      expect(find.byType(EntryPage), findsOneWidget, reason: '录入页没有被挂上');
+      expect(find.byType(CoursesPage), findsOneWidget, reason: '网课页没有被挂上');
 
-      // 录入页内部的渲染细节（公式键盘、预览面板、校验提示）
-      // 由 `entry_page_test.dart` 覆盖；这里只验"外壳真的把它挂上了"。
+      // 网课页内部的课程列表 / 伴学入口由后续阶段补测试；这里只验"外壳真的把它挂上了"。
     });
   });
 }

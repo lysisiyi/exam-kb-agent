@@ -196,7 +196,7 @@ class ExamKbApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '考试知识库 Agent',
+      title: '研伴',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       home: DevShell(initialIndex: initialTab),

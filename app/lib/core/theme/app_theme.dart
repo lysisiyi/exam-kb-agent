@@ -8,15 +8,22 @@ import 'package:flutter/material.dart';
 import 'app_fonts.dart';
 
 /// 调色板。对应原型里的 CSS 变量。
+///
+/// V3 起为「温暖学习手账风」：暖白纸底 + 焦糖橙主色 + 墨绿/柔红语义色 +
+/// 暖灰墨色。只换值不改名——全 App 通过 token 引用，页面代码零改动。
 abstract final class AppColors {
   // 品牌与语义色
-  static const primary = Color(0xFF3B5BDB);
-  static const primaryStrong = Color(0xFF2F49AF);
-  static const primaryWeak = Color(0xFFEDF0FF);
-  static const primarySoft = Color(0xFFDDE3FF);
+  /// 焦糖橙。压到 #BA5614 而不是参考图上的 #E8833A，是因为 accent 会以
+  /// **白底文字/编号**出现：#E8833A 只有 3.36:1，#C05A17 也只有 4.45:1，
+  /// 都过不了 `knowledge_palette_test` 的 4.5:1 闸门；#BA5614 是 4.75:1。
+  static const primary = Color(0xFFBA5614);
+  static const primaryStrong = Color(0xFF9E4A12);
+  static const primaryWeak = Color(0xFFFBF0E3);
+  static const primarySoft = Color(0xFFF6DCC0);
 
-  static const success = Color(0xFF0CA678);
-  static const successWeak = Color(0xFFE6F7F1);
+  /// 墨绿（正确/完成）。
+  static const success = Color(0xFF3D7A52);
+  static const successWeak = Color(0xFFE9F3EC);
 
   static const warning = Color(0xFFE8850C);
   static const warningWeak = Color(0xFFFFF4E5);
@@ -30,23 +37,23 @@ abstract final class AppColors {
   /// 由 `test/knowledge_palette_test.dart` 守着。
   static const warningInk = Color(0xFF9A5604);
 
-  static const danger = Color(0xFFE03131);
-  static const dangerWeak = Color(0xFFFFEBEB);
+  static const danger = Color(0xFFD13A3A);
+  static const dangerWeak = Color(0xFFFBECEC);
 
   static const purple = Color(0xFF7048E8);
   static const purpleWeak = Color(0xFFF0EBFF);
 
-  // 中性色
-  static const ink1 = Color(0xFF16181D);
-  static const ink2 = Color(0xFF4A4F5C);
-  static const ink3 = Color(0xFF8A909E);
-  static const ink4 = Color(0xFFB4BAC6);
+  // 中性色（暖灰墨色阶）
+  static const ink1 = Color(0xFF2B2723);
+  static const ink2 = Color(0xFF5C564D);
+  static const ink3 = Color(0xFF8F887C);
+  static const ink4 = Color(0xFFBFB6A8);
 
-  static const bg = Color(0xFFF6F7F9);
+  static const bg = Color(0xFFFAF7F2);
   static const surface = Color(0xFFFFFFFF);
-  static const surface2 = Color(0xFFF1F2F5);
-  static const line = Color(0xFFE7E9EE);
-  static const sidebar = Color(0xFFFBFAF9);
+  static const surface2 = Color(0xFFF3EEE6);
+  static const line = Color(0xFFEDE5D8);
+  static const sidebar = Color(0xFFFFFDF9);
 }
 
 /// 圆角。对应原型的 --r-* 变量。
@@ -79,17 +86,18 @@ abstract final class AppSpacing {
 }
 
 /// 阴影。Windows 上阴影表现比移动端含蓄，所以透明度略低。
+/// V3：色相换暖棕（原冷蓝黑），贴合纸感底色。
 abstract final class AppShadows {
   static const s1 = [
-    BoxShadow(color: Color(0x0F101828), blurRadius: 2, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x0F3A2E1C), blurRadius: 2, offset: Offset(0, 1)),
   ];
 
   static const s2 = [
-    BoxShadow(color: Color(0x14101828), blurRadius: 14, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x143A2E1C), blurRadius: 14, offset: Offset(0, 4)),
   ];
 
   static const s3 = [
-    BoxShadow(color: Color(0x24101828), blurRadius: 34, offset: Offset(0, 12)),
+    BoxShadow(color: Color(0x243A2E1C), blurRadius: 34, offset: Offset(0, 12)),
   ];
 }
 

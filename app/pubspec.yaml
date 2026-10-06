@@ -194,6 +194,7 @@ flutter:
     - assets/data/error_causes.json
     - assets/data/exam_frequency.json
     - assets/data/exam_templates.json
+    - assets/pets/
 
   # 中文字体：Windows 自带微软雅黑，无需打包。
   # 数学公式渲染所需的字体由具体渲染包提供。

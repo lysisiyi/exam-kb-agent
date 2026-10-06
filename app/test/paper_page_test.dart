@@ -107,7 +107,7 @@ void main() {
     await pump(tester);
 
     expect(tester.takeException(), isNull);
-    expect(find.text('智能组卷'), findsOneWidget);
+    expect(find.text('练习'), findsOneWidget); // V3：组卷并入练习页（P0 重命名）
     expect(find.text('真题结构全卷'), findsOneWidget);
     // 模板元信息要显示出来，用户才知道这是什么卷。
     // 用 findsWidgets 而不是 findsOneWidget：组卷后预览头部也会出现同样的

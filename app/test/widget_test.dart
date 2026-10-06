@@ -52,8 +52,8 @@ void main() {
     );
     await tester.pump();
 
-    // 底部导航应出现「错题本」标签
-    expect(find.text('错题本'), findsWidgets);
+    // 底部导航应出现「知识库」标签（D17 后题库不再是顶级导航）
+    expect(find.text('知识库'), findsWidgets);
   });
 
   testWidgets('导航外壳能渲染（large 断点：PC 三栏）', (tester) async {
@@ -76,7 +76,7 @@ void main() {
     );
     await tester.pump();
 
-    // 侧边栏应显示应用名
-    expect(find.text('数学错题 Agent'), findsWidgets);
+    // 侧边栏应显示应用名（V3 起叫「研伴」）
+    expect(find.text('研伴'), findsWidgets);
   });
 }

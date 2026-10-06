@@ -53,7 +53,7 @@ class AdaptiveShell extends StatefulWidget {
     super.key,
     required this.destinations,
     this.initialIndex = 0,
-    this.appTitle = '数学错题 Agent',
+    this.appTitle = '研伴',
     this.sidebarFooter,
   });
 
@@ -506,9 +506,9 @@ class _AppMark extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: const Text(
-        'M',
+        '研',
         style: TextStyle(
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: FontWeight.w700,
           color: Colors.white,
         ),
@@ -523,7 +523,7 @@ class _AppMark extends StatelessWidget {
         const SizedBox(width: 9),
         const Expanded(
           child: Text(
-            '数学错题 Agent',
+            '研伴',
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
           ),
