@@ -1,9 +1,10 @@
 /// 开发期导航外壳。
 ///
-/// V3（P0）导航重组为**七个目的地**：学习台 | 网课 | 练习 | 知识库 | 复习 | 画像 | 设置。
-/// 「错题本/录入/批量导入」不再是顶级导航，整体并入知识库宿主页（D17，
-/// 见 `features/knowledge/knowledge_home_page.dart`）；「对话」移出导航，
-/// 其能力随 P2 并入桌宠「课堂问答」（代码保留，P5 移除）。
+/// V3 当前阶段（2026-10-05 用户指令）：**练习/复习暂时移出导航**，界面收敛为
+/// 五个目的地：学习台 | 网课 | 知识库 | 画像 | 设置。
+/// 知识库直接呈现知识树（K1 起 md 文件形态）；错题/录入/批量导入的页面代码
+/// 保留（problems/entry/ingest 的测试与数据层全部有效），K2 并入节点下方。
+/// 「对话」同样移出导航（P2 并入宠物课堂问答，P5 删）。
 library;
 
 import 'package:flutter/material.dart';
@@ -13,23 +14,19 @@ import 'core/providers.dart';
 import 'core/widgets/adaptive_shell.dart';
 import 'features/courses/courses_page.dart';
 import 'features/dashboard/dashboard_page.dart';
-import 'features/knowledge/knowledge_home_page.dart';
-import 'features/paper/paper_page.dart';
+import 'features/knowledge/knowledge_page.dart';
 import 'features/profile/profile_page.dart';
-import 'features/review/review_page.dart';
 import 'features/settings/settings_page.dart';
 
 /// 导航目的地定义。
 ///
-/// 抽成顶层函数（而不是写在 `build` 里）是为了**能被单测**：
-/// "七个目的地全部指向真实页面"这句话如果只写在注释里，
-/// 将来某次改动把一个页面换回占位组件，没有任何东西会响。
+/// 抽成顶层函数（而不是写在 `build` 里）是为了**能被单测**。
 /// 见 `test/shell_navigation_test.dart`。
 ///
 /// 快捷键由 [AdaptiveShell] 按顺序生成（Ctrl+1..9），
 /// 所以新增目的地时只要保证 `shortcutHint` 与它在列表里的位置一致。
 List<NavDestination> buildDevDestinations({
-  /// 待复习张数。null 表示还没取到，此时不显示角标。
+  /// 待复习张数。保留参数：复习回到导航时角标立即可用。
   int? dueCount,
 }) =>
     [
@@ -48,39 +45,24 @@ List<NavDestination> buildDevDestinations({
         builder: () => const CoursesPage(),
       ),
       NavDestination(
-        label: '练习',
-        icon: Icons.track_changes_outlined,
-        selectedIcon: Icons.track_changes,
-        shortcutHint: 'Ctrl+3',
-        builder: () => const PaperPage(),
-      ),
-      NavDestination(
         label: '知识库',
         icon: Icons.account_tree_outlined,
         selectedIcon: Icons.account_tree,
-        shortcutHint: 'Ctrl+4',
-        builder: () => const KnowledgeHomePage(),
-      ),
-      NavDestination(
-        label: '复习',
-        icon: Icons.home_outlined,
-        selectedIcon: Icons.home,
-        shortcutHint: 'Ctrl+5',
-        badgeCount: dueCount,
-        builder: () => const ReviewPage(),
+        shortcutHint: 'Ctrl+3',
+        builder: () => const KnowledgePage(),
       ),
       NavDestination(
         label: '画像',
         icon: Icons.insights_outlined,
         selectedIcon: Icons.insights,
-        shortcutHint: 'Ctrl+6',
+        shortcutHint: 'Ctrl+4',
         builder: () => const ProfilePage(),
       ),
       NavDestination(
         label: '设置',
         icon: Icons.settings_outlined,
         selectedIcon: Icons.settings,
-        shortcutHint: 'Ctrl+7',
+        shortcutHint: 'Ctrl+5',
         builder: () => const SettingsPage(),
       ),
     ];

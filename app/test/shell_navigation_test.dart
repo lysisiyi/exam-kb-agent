@@ -36,10 +36,8 @@ import 'package:kaoyan_math_agent/core/widgets/adaptive_shell.dart';
 import 'package:kaoyan_math_agent/dev_shell.dart';
 import 'package:kaoyan_math_agent/features/courses/courses_page.dart';
 import 'package:kaoyan_math_agent/features/dashboard/dashboard_page.dart';
-import 'package:kaoyan_math_agent/features/knowledge/knowledge_home_page.dart';
-import 'package:kaoyan_math_agent/features/paper/paper_page.dart';
+import 'package:kaoyan_math_agent/features/knowledge/knowledge_page.dart';
 import 'package:kaoyan_math_agent/features/profile/profile_page.dart';
-import 'package:kaoyan_math_agent/features/review/review_page.dart';
 import 'package:kaoyan_math_agent/features/settings/settings_page.dart';
 
 /// 一个同步渲染、零异步的假页面。
@@ -218,24 +216,19 @@ void main() {
       };
 
       // 这一条同时守住"占位页有没有被忘掉换掉"。
-      // 全部七个目的地都要点名 —— 早先这里只断言了前四个 + 一句
-      // `isNot(EntryPage)`，于是"组卷还是占位页"能一路绿到 M6；
-      // 而"都指向真页面"这句话在 `dev_shell.dart` 里只是注释，没人守。
+      // 当前阶段（2026-10-05）：练习/复习暂时移出导航，五个目的地。
       expect(built['学习台'], DashboardPage);
       expect(built['网课'], CoursesPage);
-      expect(built['练习'], PaperPage);
-      expect(built['知识库'], KnowledgeHomePage);
-      expect(built['复习'], ReviewPage);
+      expect(built['知识库'], KnowledgePage);
       expect(built['画像'], ProfilePage);
       expect(built['设置'], SettingsPage);
 
-      // D17：错题本/录入/批量导入并入知识库宿主页，「对话」移出导航
-      expect(built.containsKey('错题本'), isFalse);
-      expect(built.containsKey('录入'), isFalse);
-      expect(built.containsKey('批量导入'), isFalse);
-      expect(built.containsKey('对话'), isFalse);
+      // 暂时移出：练习/复习（回归时恢复），以及并入知识库的错题本/录入/导入
+      for (final gone in ['练习', '复习', '错题本', '录入', '批量导入', '对话']) {
+        expect(built.containsKey(gone), isFalse, reason: '$gone 不应在当前导航里');
+      }
 
-      expect(shell.destinations.length, 7, reason: '新增/删除目的地时这条要一起改');
+      expect(shell.destinations.length, 5, reason: '新增/删除目的地时这条要一起改');
 
       // 快捷键提示必须与位置一致：AdaptiveShell 的 Ctrl+N 是按**下标**算的，
       // 提示写错了比没有提示更糟（用户按了没反应，会以为快捷键坏了）

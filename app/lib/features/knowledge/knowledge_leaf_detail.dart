@@ -27,6 +27,7 @@ import '../../data/problem_file.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import '../../services/profile/mastery_service.dart';
 import '../problems/problem_detail.dart';
+import '../problems/problem_images.dart';
 import 'knowledge_formula_row.dart';
 import 'knowledge_node_style.dart';
 import 'knowledge_sizes.dart';
@@ -102,6 +103,14 @@ class KnowledgeLeafDetail extends ConsumerWidget {
                     fontSize: KnowledgeSizes.secondary,
                     color: kSecondaryInk)),
           ],
+          // K1 md 文件形态：一个知识点 = 一个 md 文件。路径按种子树约定
+          // 展示（data 层迁移到 Markdown 后即真实路径）。
+          Text('knowledge/${(crumbs.isNotEmpty ? crumbs.join('/') : leaf.id)}/${leaf.name}.md',
+              style: const TextStyle(
+                  fontFamily: AppFonts.mono,
+                  fontFamilyFallback: AppFonts.monoFallback,
+                  fontSize: KnowledgeSizes.secondary,
+                  color: AppColors.ink3)),
 
           // ── 定义 ──────────────────────────────────────────────────────
           if (leaf.definition != null && leaf.definition!.isNotEmpty) ...[
@@ -455,6 +464,19 @@ class _AliasChip extends StatelessWidget {
   }
 }
 
+/// 节点下题目的首图（D17 图像题面卡）。没有配图返回 null（行内不渲染）。
+final kpProblemCoverProvider =
+    FutureProvider.family<({String dir, String name})?, String>(
+        (ref, problemId) async {
+  final store = await ref.read(problemStoreProvider.future);
+  final db = await ref.read(databaseProvider.future);
+  final read = await readIndexedProblem(db: db, store: store, problemId: problemId);
+  if (!read.isOk) return null;
+  final problem = read.problem!;
+  if (problem.images.isEmpty) return null;
+  return (dir: store.imagesDir.path, name: problem.images.first);
+});
+
 /// 「你的题目」：主考点挂在这个考点下的错题清单（P1-1）。
 ///
 /// ## 为什么放在知识点详情里
@@ -482,7 +504,7 @@ class _KpProblemsSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('你的题目'),
+        const _SectionTitle('相关题目（图像题面）'),
         problemsAsync.when(
           loading: () => Padding(
             padding: const EdgeInsets.only(bottom: 4),
@@ -593,6 +615,21 @@ class _KpProblemRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 图像题面（D17）：有配图的题直接亮图，文字摘要退居其后。
+                  ref.watch(kpProblemCoverProvider(e.id)).when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (cover) => cover == null
+                        ? const SizedBox.shrink()
+                        : Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: ProblemImageList(
+                              images: [cover.name],
+                              imagesDirPath: cover.dir,
+                              maxHeight: 120,
+                            ),
+                          ),
+                  ),
                   Text(
                     e.stemPreview.isEmpty ? '（无题干）' : e.stemPreview,
                     maxLines: 2,
