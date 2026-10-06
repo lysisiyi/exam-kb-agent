@@ -2153,3 +2153,5 @@ OpenAI 上踩过的是同一个坑）。history 路径上的工具消息守卫**
 | 2026-10-05 | 💬 **V3 P2c 部分：关窗缩后台 + 气泡通道（提交待查）。** ①主窗口 ✕=隐藏（setPreventClose+onWindowClose→hide），伴学不中断；**托盘图标推迟**——tray_manager 0.7 的 `TrayManager` 导出与 nativeapi 冲突（setIcon/addListener 全 undefined），需专项 spike，回归路径暂为任务栏。②PetService：summon（getAll 查重防叠窗）+ sendBubble（`controller.invokeMethod('bubble')` 主→宠，失败静默）；伴学落盘成功即推「刚记下：要点」。③PetWindow `setWindowMethodHandler` 接气泡实时刷新。P2c 余项：托盘 spike、换皮设置项、全局热键。1122 全绿、analyze 零输出。 |
 
 | 2026-10-05 | 🎨 **V2 遗留页面手账风重设计（第一批：统一页头）。** 用户指令「V2 的原 UI 都要重新设计」——新增 `core/widgets/page_header.dart`（大标题+副标语+可选动作区，对齐六张参考图版式），接入四页：题目（练错的题都在这里）/复习（图片题面·双栏解析·手写核对）/画像（最该补的考点…现算）/设置（数据在你自己电脑上·BYOK）。各页原版式（工具栏、Banner、双列 ListView）保留，只把「这页是什么、现在什么状态」用统一版式说出来。**下一批待做**：错题本行卡、复习卡、录入表单、批量导入核对表的卡片化与手账风细节（分组卡+暖色 chip+更多留白），以及知识库大纲视图换肤。1122 全绿、analyze 零输出。 |
+
+| 2026-10-05 | 🎴 **V2 页面手账风重设计第二批：错题本一题一卡 + 复习页双卡布局（提交 2fe770a）。** 错题本：Divider 分隔线列表 → 一题一卡（白卡+暖边+rMd+AppShadows.s1+14/12 留白），行内 pill 改全圆角胶囊（10.5 号字）。复习页：「题面 | 竖线 | 解析」双栏 → 两张白卡并排（新增 `_JournalCard`：白底+rLg+暖边+轻阴影+内边距），窄窗单列同样双卡——竖线在暖底上太硬，白卡把题与析各自装进一张纸。**下一批待做**：录入表单分组、批量导入核对表卡片化、知识库大纲视图换肤。1122 全绿、analyze 零输出。 |
