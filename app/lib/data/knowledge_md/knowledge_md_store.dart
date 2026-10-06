@@ -144,6 +144,177 @@ class KnowledgeMdStore {
     return (kb, warnings);
   }
 
+  // ── 单节点读写（K2 编辑器与 AI 草稿的地基） ──────────────────────────────
+
+  /// 按 frontmatter id 找节点的 md 文件；找不到返回 null。
+  ///
+  /// 逐文件解析 frontmatter（768 节点 ≈ 一次点击几毫秒级 IO）——
+  /// 只在"AI 补全/接纳草稿"这类低频写路径上调用，不进启动路径。
+  File? fileOf(String subject, String nodeId) {
+    final dir = subjectDir(subject);
+    if (!dir.existsSync()) return null;
+    for (final f in dir
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.md'))) {
+      final fm = _Frontmatter.parse(f.readAsStringSync());
+      if (fm['id'] == nodeId) return f;
+    }
+    return null;
+  }
+
+  /// 读出 `## AI 草稿（待确认）` 小节正文；没有草稿返回 null。
+  String? draftOf(File file) =>
+      file.existsSync() ? aiDraftBodyOf(file.readAsStringSync()) : null;
+
+  /// 写入/替换 AI 草稿小节（保留文件其余内容）。返回写入后的全文。
+  String writeAiDraft(File file, String markdown) {
+    final text = file.readAsStringSync();
+    final updated = upsertAiDraft(text, markdown);
+    file.writeAsStringSync(updated);
+    return updated;
+  }
+
+  /// 接纳草稿：草稿正文并进 [intoSection]（默认「定义」），移除草稿小节。
+  String acceptAiDraft(File file, {String intoSection = '定义'}) {
+    final text = file.readAsStringSync();
+    final updated = acceptDraftInto(text, intoSection: intoSection);
+    file.writeAsStringSync(updated);
+    return updated;
+  }
+
+  /// 丢弃草稿：只移除草稿小节。
+  String discardAiDraft(File file) {
+    final text = file.readAsStringSync();
+    final updated = removeAiDraft(text);
+    file.writeAsStringSync(updated);
+    return updated;
+  }
+
+  /// AI 草稿小节标题（与 md 渲染口径**唯一一处定义**）。
+  static const aiDraftHeading = '## AI 草稿（待确认）';
+
+  /// 纯函数：取草稿正文。
+  static String? aiDraftBodyOf(String text) {
+    final lines = text.split('\n');
+    int? start;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim() == aiDraftHeading) {
+        start = i + 1;
+        break;
+      }
+    }
+    if (start == null) return null;
+    final buf = <String>[];
+    for (var i = start; i < lines.length; i++) {
+      if (lines[i].startsWith('## ')) break;
+      buf.add(lines[i]);
+    }
+    final body = buf.join('\n').trim();
+    return body.isEmpty ? null : body;
+  }
+
+  /// 纯函数：写入/替换草稿小节（保留其余内容）。
+  static String upsertAiDraft(String text, String markdown) {
+    final body = markdown.trim();
+    final lines = text.split('\n');
+    int? head;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim() == aiDraftHeading) {
+        head = i;
+        break;
+      }
+    }
+    if (head == null) {
+      final b = StringBuffer(text);
+      if (!text.endsWith('\n')) b.writeln();
+      b..writeln()..writeln(aiDraftHeading)..writeln()..writeln(body)..writeln();
+      return b.toString();
+    }
+    var end = lines.length;
+    for (var i = head + 1; i < lines.length; i++) {
+      if (lines[i].startsWith('## ')) {
+        end = i;
+        break;
+      }
+    }
+    final out = <String>[
+      ...lines.sublist(0, head + 1),
+      '',
+      body,
+      '',
+      ...lines.sublist(end),
+    ];
+    return out.join('\n');
+  }
+
+  /// 纯函数：移除草稿小节（含其标题到下一个 `## ` 之前）。
+  static String removeAiDraft(String text) {
+    final lines = text.split('\n');
+    int? head;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim() == aiDraftHeading) {
+        head = i;
+        break;
+      }
+    }
+    if (head == null) return text;
+    var end = lines.length;
+    for (var i = head + 1; i < lines.length; i++) {
+      if (lines[i].startsWith('## ')) {
+        end = i;
+        break;
+      }
+    }
+    // 连同标题上方多余的空气行一起收掉
+    var start = head;
+    while (start > 0 && lines[start - 1].trim().isEmpty) {
+      start--;
+    }
+    return [...lines.sublist(0, start), ...lines.sublist(end)].join('\n');
+  }
+
+  /// 纯函数：草稿正文并进 [intoSection]（无该小节则创建），再移除草稿小节。
+  static String acceptDraftInto(String text, {String intoSection = '定义'}) {
+    final draft = aiDraftBodyOf(text);
+    if (draft == null) return text;
+    final withoutDraft = removeAiDraft(text);
+    return _upsertSection(withoutDraft, intoSection, draft);
+  }
+
+  /// 纯函数：写入/替换 `## <title>` 小节正文。
+  static String _upsertSection(String text, String title, String body) {
+    final lines = text.split('\n');
+    final headLine = '## $title';
+    int? head;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim() == headLine) {
+        head = i;
+        break;
+      }
+    }
+    if (head == null) {
+      final b = StringBuffer(text);
+      if (!text.endsWith('\n')) b.writeln();
+      b..writeln()..writeln(headLine)..writeln()..writeln(body.trim())..writeln();
+      return b.toString();
+    }
+    var end = lines.length;
+    for (var i = head + 1; i < lines.length; i++) {
+      if (lines[i].startsWith('## ')) {
+        end = i;
+        break;
+      }
+    }
+    return [
+      ...lines.sublist(0, head + 1),
+      '',
+      body.trim(),
+      '',
+      ...lines.sublist(end),
+    ].join('\n');
+  }
+
   // ── 渲染与解析 ────────────────────────────────────────────────────────────
 
   /// 文件/文件夹名：`NN-名称`。序号 = 同父下的排序位次（id 序）。

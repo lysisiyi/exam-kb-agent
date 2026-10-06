@@ -145,4 +145,87 @@ void main() {
     expect(kb, isNull);
     expect(warnings, isEmpty);
   });
+
+  group('AI 草稿（K2 编辑器闭环）', () {
+    const base = '''
+---
+id: math1.calc.1.1.1
+name: 极限的定义
+is_leaf: true
+---
+
+# 极限的定义
+
+## 定义
+
+旧的定义内容。
+
+## 陷阱
+
+1. 左右极限不等时不存在。
+''';
+
+    test('upsertAiDraft：无草稿时追加、有草稿时整段替换（保留其余小节）', () {
+      final once = KnowledgeMdStore.upsertAiDraft(base, '草稿第一版');
+      expect(KnowledgeMdStore.aiDraftBodyOf(once), '草稿第一版');
+      expect(once, contains('旧的定义内容。'), reason: '正式内容必须原样保留');
+
+      final twice = KnowledgeMdStore.upsertAiDraft(once, '草稿第二版');
+      expect(KnowledgeMdStore.aiDraftBodyOf(twice), '草稿第二版');
+      expect(twice, isNot(contains('草稿第一版')));
+      expect(twice, contains('## 陷阱'), reason: '草稿之后的小节不能被吞');
+      expect(twice, contains('左右极限不等时不存在。'));
+    });
+
+    test('acceptDraftInto：草稿并进「定义」，草稿小节移除', () {
+      final withDraft = KnowledgeMdStore.upsertAiDraft(base, '新的定义草稿文本');
+      final accepted = KnowledgeMdStore.acceptDraftInto(withDraft);
+      expect(KnowledgeMdStore.aiDraftBodyOf(accepted), isNull);
+      expect(accepted, contains('新的定义草稿文本'));
+      expect(accepted, isNot(contains('旧的定义内容。')), reason: '定义被草稿替换');
+      expect(accepted, contains('## 陷阱'));
+    });
+
+    test('acceptDraftInto：目标小节不存在时新建', () {
+      const noDef = '''
+---
+id: x
+---
+
+# x
+
+## 陷阱
+
+1. 只有陷阱。
+''';
+      final withDraft = KnowledgeMdStore.upsertAiDraft(noDef, '补出来的定义');
+      final accepted = KnowledgeMdStore.acceptDraftInto(withDraft);
+      expect(accepted, contains('## 定义'));
+      expect(accepted, contains('补出来的定义'));
+    });
+
+    test('removeAiDraft：只删草稿，其余原样', () {
+      final withDraft = KnowledgeMdStore.upsertAiDraft(base, '待丢弃');
+      final removed = KnowledgeMdStore.removeAiDraft(withDraft);
+      expect(KnowledgeMdStore.aiDraftBodyOf(removed), isNull);
+      expect(removed, contains('旧的定义内容。'));
+      expect(removed, contains('## 陷阱'));
+      expect(removed, isNot(contains('待丢弃')));
+      expect(KnowledgeMdStore.removeAiDraft(removed), removed, reason: '幂等');
+    });
+
+    test('fileOf：按 frontmatter id 找到文件；写草稿→读回→接纳走真实 IO', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      final f = store.fileOf('math1', 'math1.calc.1.1.1');
+      expect(f, isNotNull);
+      expect(f!.path, endsWith('.md'));
+      expect(store.fileOf('math1', '不存在.id'), isNull);
+      store.writeAiDraft(f, '真实文件草稿');
+      expect(store.draftOf(f), '真实文件草稿');
+      store.acceptAiDraft(f);
+      expect(store.draftOf(f), isNull);
+      expect(f.readAsStringSync(), contains('真实文件草稿'));
+    });
+  });
 }
