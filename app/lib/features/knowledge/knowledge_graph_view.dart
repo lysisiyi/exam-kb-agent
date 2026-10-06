@@ -19,6 +19,8 @@
 /// 建 `TextPainter` 并处理命中测试；用 `Positioned` + 普通 widget 则
 /// 文字、省略号、悬停提示、点击都是现成的。整棵树只有几百个节点，
 /// 这个量级 widget 方案完全撑得住。
+// 【V3 废弃挂载】图谱视图随两栏编辑器重构移出页面（knowledge_graph_layout 的纯布局逻辑仍被测试覆盖）。若确认不需要图谱可整文件删除。
+
 library;
 
 import 'package:flutter/material.dart';

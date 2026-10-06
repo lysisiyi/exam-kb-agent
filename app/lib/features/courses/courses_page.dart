@@ -312,7 +312,11 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
     final canCompanion = _lesson.captureRegion != null;
     return Scaffold(
       appBar: AppBar(title: Text(_lesson.title)),
-      body: Column(
+      body: LayoutBuilder(builder: (context, cons) {
+        // 参考图 ui_lesson_notes.png：宽屏 = 左笔记流 + 右轨（考点命中/伴学
+        // 设置/课堂问答）；窄屏 = 单列（右轨内容折叠到状态区之下）。
+        final wide = cons.maxWidth >= 980;
+        return Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
@@ -356,65 +360,195 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
             ),
           const Divider(height: 20),
           Expanded(
-            child: _notes.isEmpty
-                ? Center(
-                    child: Text('还没有笔记。框选区域后开始伴学，或点「记一下」立即截一帧。',
-                        style: TextStyle(
-                            fontSize: 12.5,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant)))
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
-                    itemCount: _notes.length,
-                    itemBuilder: (context, i) {
-                      final n = _notes[i];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(children: [
-                                  if (n.time != null)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                          color: AppColors.primaryWeak,
-                                          borderRadius:
-                                              BorderRadius.circular(7)),
-                                      child: Text(n.time!,
-                                          style: const TextStyle(
-                                              fontSize: 11.5,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.primaryStrong)),
-                                    ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                      child: Text(n.point,
-                                          style: const TextStyle(
-                                              fontSize: 13.5,
-                                              fontWeight: FontWeight.w700))),
-                                ]),
-                                if (n.formula != null) ...[
-                                  const SizedBox(height: 6),
-                                  Text('- 公式：${n.formula}',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant)),
-                                ],
-                              ]),
-                        ),
-                      );
-                    },
-                  ),
+            child: wide
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _NotesList(notes: _notes)),
+                      const SizedBox(width: 14),
+                      SizedBox(
+                        width: 318,
+                        child: _LessonRail(
+                            lesson: _lesson,
+                            running: _running,
+                            canCompanion: canCompanion),
+                      ),
+                    ],
+                  )
+                : _NotesList(notes: _notes),
           ),
         ],
+        );
+      }),
+    );
+  }
+}
+
+/// 笔记时间戳流（参考图左栏）。
+class _NotesList extends StatelessWidget {
+  final List<LessonNote> notes;
+  const _NotesList({required this.notes});
+
+  @override
+  Widget build(BuildContext context) {
+    if (notes.isEmpty) {
+      return Center(
+          child: Text('还没有笔记。框选区域后开始伴学，或点「记一下」立即截一帧。',
+              style: TextStyle(
+                  fontSize: 12.5,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant)));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
+      itemCount: notes.length,
+      itemBuilder: (context, i) {
+        final n = notes[i];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 10),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    if (n.time != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                            color: AppColors.primaryWeak,
+                            borderRadius: BorderRadius.circular(7)),
+                        child: Text(n.time!,
+                            style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryStrong)),
+                      ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text(n.point,
+                            style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700))),
+                  ]),
+                  if (n.formula != null) ...[
+                    const SizedBox(height: 6),
+                    Text('- 公式：${n.formula}',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant)),
+                  ],
+                ]),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// 右轨（参考图右栏）：伴学设置卡 + 课堂问答卡。
+///
+/// 「本节考点命中」需要笔记→考点的关联（K2 笔记回流），上线前不展示空壳。
+class _LessonRail extends StatelessWidget {
+  final LessonRecord lesson;
+  final bool running;
+  final bool canCompanion;
+  const _LessonRail(
+      {required this.lesson, required this.running, required this.canCompanion});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 24),
+      children: [
+        const _RailCard(
+          title: '🌾 伴学设置',
+          rows: [
+            ('自动记录', '每 5 分钟'),
+            ('全局热键', 'Ctrl+Alt+N「记一下」（随 P2c 接线）'),
+            ('截图隐私', '处理完即焚 ✓'),
+            ('笔记落盘', 'courses/lessons/*.md'),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: AppRadius.rMd,
+            border: Border.all(color: AppColors.line),
+          ),
+          child: Row(children: [
+            Image.asset('assets/pets/zhipu.png',
+                width: 40, fit: BoxFit.contain),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                  '有疑问右键小研「课堂问答」——她会带着本节笔记回答你。',
+                  style: TextStyle(fontSize: 11.5, height: 1.6)),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        if (!canCompanion || running)
+          const SizedBox.shrink()
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text('⏳ 还没开始伴学 —— 先框选区域，再点「开始伴学」。',
+                style: TextStyle(
+                    fontSize: 11.5, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          ),
+      ],
+    );
+  }
+}
+
+/// 右轨通用卡（两列 key-value 行）。
+class _RailCard extends StatelessWidget {
+  final String title;
+  final List<(String, String)> rows;
+  const _RailCard({required this.title, required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.rMd,
+        border: Border.all(color: AppColors.line),
       ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title,
+            style: const TextStyle(
+                fontSize: 12.5, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        for (final (k, v) in rows)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                    width: 88,
+                    child: Text(k,
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.ink2))),
+                Expanded(
+                    child: Text(v,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.ink1))),
+              ],
+            ),
+          ),
+      ]),
     );
   }
 }
