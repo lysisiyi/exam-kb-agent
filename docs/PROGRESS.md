@@ -2167,3 +2167,5 @@ OpenAI 上踩过的是同一个坑）。history 路径上的工具消息守卫**
 | 2026-10-05 | 🚨 **修复「App 无法关闭」幽灵进程（用户实测报告）。** 根因：P2c 的关窗策略无条件 `setPreventClose(true)` 把 ✕ 改成"隐藏窗口"，而唯一找回/退出入口（托盘图标）因 tray_manager 0.7 与 nativeapi 导出冲突**根本没装上**——点 ✕ 后窗口消失、任务栏无图标、无任何恢复路径，只能任务管理器强杀（已代为终止 PID 36304）。修复：`setupTrayAndClosePolicy` 不再拦截关闭，✕ = 正常退出；文件头完整记录翻车过程，并立下纪律：**凡是夺走用户既有退出路径的行为（拦关闭/藏窗口），只有在替代路径真的可用时才能开启**。托盘 spike 完成后的正确恢复写法（仅托盘成功时拦截 + 菜单含「显示/退出」）已写进注释。1124 全绿、analyze 零输出。 |
 
 | 2026-10-05 | 🧪 **练习页按参考图重建（提交 2baa140，测试 1131 全绿）。** 新建 `features/practice/practice_page.dart` 对齐 ui_practice.png：①三入口卡（①课时练习=推荐位，P3 未上线点击弹如实说明；②错题专练/③真题全卷=点「去组卷」展开组卷器）；②组卷器嵌入：`PaperPage` 新增 `presetKind`（入口预选模板）与 `embedded`（隐藏自带页头）参数——嵌入模式直接返回滚动体，外层不能再包 `Column+Expanded`（纵向无界约束下 Expanded 炸布局，踩坑已注释）；③待复核卡：`pendingAiProblemsProvider` 从题库列表现滤 needsReview，计数+题干预览；④历史卡：`paperHistoryProvider` 空态/记录行。测试 7 例（组卷器展开用 TempLibrary 内存库，与 paper_page_test 同模式）。导航「练习」指向新页。 |
+
+| 2026-10-05 | 📐 **界面重构 R3/R4（提交待查，测试 1131 全绿）。** R3：课时页按 ui_lesson_notes.png 两栏重排——宽屏左笔记流 + 右轨 318px（伴学设置/课堂问答卡/未开始提示；「本节考点命中」待 K2 笔记回流，不展示空壳），窄屏单列。R4：四个旧界面文件头打挂载标记（chat_page 移出导航待 P5 删；knowledge_graph_view 随两栏重构移出；entry/ingest 挂宿主标签）——代码保留、不进新界面。 |
