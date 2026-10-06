@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<!-- V3「研伴」UI 参考图源稿：四个画布各 1280×840，浏览器整页截图后按 1680px(2x) 切成四张 PNG。
+     切图脚本: tools/design/split_mockups.py -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>研伴 V3 · UI 参考图</title>
+<style>
+  :root{
+    --bg:#FAF7F2; --card:#FFFFFF; --side:#FFFDF9;
+    --ink:#2D2A26; --ink2:#6B655C; --ink3:#A39B8F;
+    --line:#F0E8DC; --line2:#E7DFD2;
+    --pri:#E8833A; --pri-deep:#D96F24; --pri-soft:#FDF0E2;
+    --green:#5B8C6E; --green-soft:#EAF3ED;
+    --red:#C96A5A; --red-soft:#F9ECE9;
+    --amber:#C08A2D; --amber-soft:#FAF3E3;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scrollbar-width:none}
+  html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}
+  body{font-family:"Microsoft YaHei","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+       color:var(--ink);background:#E3DCD1;}
+  .shot{width:1280px;height:840px;background:var(--bg);position:relative;overflow:hidden;padding:26px 26px 0;}
+  .cap{height:18px;font-size:12px;color:#8D8474;letter-spacing:.06em;margin-bottom:8px;
+       display:flex;justify-content:space-between;}
+  .win{width:1228px;height:788px;background:var(--bg);border:1px solid var(--line2);border-radius:14px;
+       overflow:hidden;box-shadow:0 18px 44px rgba(88,66,36,.16);display:flex;flex-direction:column;}
+  .tbar{height:38px;flex:none;background:#FFFDF9;border-bottom:1px solid var(--line);
+        display:flex;align-items:center;padding:0 14px;gap:8px;}
+  .dot{width:11px;height:11px;border-radius:50%;}
+  .tbar .app{display:flex;align-items:center;gap:7px;margin-left:10px;font-size:13px;font-weight:700;}
+  .tbar .app img{width:22px;height:22px;border-radius:6px;object-fit:cover;object-position:top;}
+  .tbar .app .ver{font-size:10px;color:var(--ink3);font-weight:400;border:1px solid var(--line2);
+        border-radius:99px;padding:1px 7px;}
+  .tbar .ctrl{margin-left:auto;color:#B9B0A2;font-size:12px;letter-spacing:10px;}
+
+  /* ── 布局 ── */
+  .body{flex:1;display:flex;min-height:0;}
+  .nav{width:196px;flex:none;background:var(--side);border-right:1px solid var(--line);
+       display:flex;flex-direction:column;padding:14px 12px 12px;}
+  .nav a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;
+         font-size:13.5px;color:var(--ink2);text-decoration:none;margin-bottom:2px;position:relative;}
+  .nav a .ic{font-size:15px;width:20px;text-align:center;filter:grayscale(.35);opacity:.85;}
+  .nav a.on{background:var(--pri-soft);color:var(--pri-deep);font-weight:700;}
+  .nav a.on::before{content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;
+         border-radius:3px;background:var(--pri);}
+  .nav a.on .ic{filter:none;opacity:1;}
+  .nav .grow{flex:1}
+  .petcard{background:#FFF;border:1px solid var(--line);border-radius:12px;padding:10px;
+           display:flex;align-items:center;gap:9px;box-shadow:0 4px 14px rgba(88,66,36,.06);}
+  .petcard img{width:44px;height:44px;object-fit:contain;object-position:bottom;}
+  .petcard .st{font-size:12.5px;font-weight:700;}
+  .petcard .st .live{display:inline-block;width:7px;height:7px;border-radius:50%;
+           background:var(--green);margin-right:5px;box-shadow:0 0 0 3px var(--green-soft);}
+  .petcard .sub{font-size:10.5px;color:var(--ink3);margin-top:2px;}
+  .main{flex:1;padding:20px 22px;min-width:0;}
+
+  h1{font-size:21px;font-weight:800;letter-spacing:.01em;}
+  .sub2{font-size:12.5px;color:var(--ink3);margin-top:3px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+        box-shadow:0 6px 18px rgba(88,66,36,.05);}
+  .btn{display:inline-flex;align-items:center;gap:6px;border-radius:10px;font-size:12.5px;
+       font-weight:700;padding:8px 14px;border:none;}
+  .btn.pri{background:var(--pri);color:#fff;box-shadow:0 4px 12px rgba(232,131,58,.35);}
+  .btn.ghost{background:#fff;color:var(--ink2);border:1px solid var(--line2);}
+  .chip{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;
+        border-radius:99px;padding:3px 9px;}
+  .chip.g{background:var(--green-soft);color:var(--green);}
+  .chip.o{background:var(--pri-soft);color:var(--pri-deep);}
+  .chip.a{background:var(--amber-soft);color:var(--amber);}
+  .chip.n{background:#F2EDE4;color:var(--ink3);}
+  .formula{font-family:"Cambria Math","STIX Two Math",Georgia,serif;font-style:italic;
+        background:#FDF9F2;border:1px solid var(--line);border-radius:8px;
+        padding:5px 10px;font-size:14px;display:inline-block;}
+  .kp{font-size:10.5px;font-weight:700;color:var(--pri-deep);background:var(--pri-soft);
+      border-radius:99px;padding:3px 9px;}
+  .pet{position:absolute;pointer-events:none;}
+  .bubble{position:absolute;background:#fff;border:1px solid var(--line2);border-radius:12px;
+      box-shadow:0 10px 26px rgba(88,66,36,.14);font-size:12px;padding:9px 12px;line-height:1.55;}
+  .bubble::after{content:"";position:absolute;left:-6px;top:26px;width:10px;height:10px;
+      background:#fff;border-left:1px solid var(--line2);border-bottom:1px solid var(--line2);
+      transform:rotate(45deg);}
+  .bubble.rt::after{left:auto;right:-6px;top:28px;transform:rotate(225deg);}
+  .bubble.dn::after{left:34px;top:auto;bottom:-6px;transform:rotate(135deg);}
+
+  /* ══ shot1 本周条 ══ */
+  .week{margin-top:14px;padding:13px 18px;display:flex;align-items:center;gap:10px;
+      font-size:12.5px;color:var(--ink2);}
+  .week b{color:var(--ink);font-size:13px;}
+  .week .up{margin-left:auto;}
+  /* ══ shot2 时间轴 ══ */
+  .tlbar{margin-top:13px;padding:13px 20px 17px;}
+  .tlbar h4{font-size:12.5px;font-weight:800;margin-bottom:8px;}
+  .tl{position:relative;height:40px;margin-top:6px;}
+  .tl .track{position:absolute;left:0;right:0;top:15px;height:5px;border-radius:5px;background:#F1EAE0;}
+  .tl .done{position:absolute;left:0;top:15px;height:5px;border-radius:5px;width:36%;
+      background:linear-gradient(90deg,var(--pri),#F2A55E);}
+  .tl .dot{position:absolute;top:11px;width:13px;height:13px;border-radius:50%;background:#fff;
+      border:3px solid var(--pri);transform:translateX(-50%);}
+  .tl .now{position:absolute;top:-9px;transform:translateX(-50%);font-size:10.5px;font-weight:700;
+      color:var(--pri-deep);background:var(--pri-soft);border-radius:99px;padding:2px 8px;white-space:nowrap;}
+  .tl .lab{position:absolute;bottom:0;transform:translateX(-50%);font-size:9.5px;color:var(--ink3);white-space:nowrap;}
+  /* ══ shot4 气泡文案变体 ══ */
+  .bubrow{position:absolute;left:56px;bottom:84px;display:flex;flex-direction:column;gap:10px;width:600px;}
+  .bubrow .bb{background:#fff;border:1px solid var(--line2);border-radius:11px;
+      box-shadow:0 8px 20px rgba(88,66,36,.12);font-size:12px;padding:8px 12px;color:var(--ink2);}
+
+  /* ══ shot 1 学习台 ══ */
+  .hello{display:flex;align-items:flex-end;gap:14px;margin-bottom:16px;}
+  .hello .date{font-size:12.5px;color:var(--ink3);padding-bottom:3px;}
+  .hello .streak{margin-left:auto;}
+  .grid2{display:grid;grid-template-columns:1.45fr 1fr;grid-template-rows:150px 150px;gap:14px;}
+  .loop{padding:16px 18px;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+  .loop .tag{font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.08em;}
+  .loop .big{font-size:26px;font-weight:800;margin-top:6px;line-height:1.2;}
+  .loop .desc{font-size:12px;color:var(--ink2);margin-top:5px;}
+  .loop .act{margin-top:auto;display:flex;align-items:center;gap:8px;}
+  .bar{height:6px;border-radius:6px;background:#F1EAE0;overflow:hidden;margin-top:9px;}
+  .bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--pri),#F2A55E);}
+  .hero{background:linear-gradient(135deg,#FFF 55%,var(--pri-soft));}
+  .hero .lesson{font-size:17.5px;font-weight:800;margin-top:6px;}
+  .rhythm{margin-top:14px;padding:14px 18px;}
+  .rhythm h3{font-size:12.5px;font-weight:700;color:var(--ink3);letter-spacing:.1em;margin-bottom:10px;}
+  .r-row{display:flex;align-items:center;gap:12px;padding:7px 0;border-top:1px dashed var(--line);}
+  .r-row:first-of-type{border-top:none;}
+  .r-time{font-size:12px;color:var(--ink3);width:46px;font-weight:600;}
+  .r-name{font-size:13.5px;font-weight:700;width:210px;}
+  .r-meta{font-size:12px;color:var(--ink2);display:flex;gap:8px;align-items:center;}
+
+  /* ══ shot 2 课时笔记 ══ */
+  .crumb{font-size:12px;color:var(--ink3);margin-bottom:10px;}
+  .crumb b{color:var(--ink2);font-weight:600;}
+  .lhead{padding:15px 18px;display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .lhead .tt{font-size:17px;font-weight:800;}
+  .lhead .mt{font-size:11.5px;color:var(--ink3);margin-top:3px;}
+  .lhead .ops{margin-left:auto;display:flex;gap:9px;}
+  .notes{display:flex;gap:14px;}
+  .note-col{flex:1;min-width:0;}
+  .note{padding:13px 15px;margin-bottom:12px;position:relative;}
+  .note .row1{display:flex;align-items:center;gap:8px;}
+  .note .ts{font-size:12px;font-weight:800;color:var(--pri-deep);background:var(--pri-soft);
+      border-radius:7px;padding:2px 8px;}
+  .note .nt{font-size:14.5px;font-weight:700;}
+  .note p{font-size:12.5px;color:var(--ink2);line-height:1.75;margin-top:7px;}
+  .note .frow{margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .note .thumb{position:absolute;right:13px;top:13px;width:56px;height:40px;border-radius:8px;
+      background:linear-gradient(135deg,#F3ECE1,#E9E0D1);border:1px solid var(--line2);
+      display:flex;align-items:center;justify-content:center;font-size:14px;color:#C4B8A5;}
+  .rail{width:318px;flex:none;display:flex;flex-direction:column;gap:12px;}
+  .rail .card{padding:13px 15px;}
+  .rail h4{font-size:12.5px;font-weight:800;margin-bottom:9px;display:flex;align-items:center;gap:6px;}
+  .kprow{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px dashed var(--line);font-size:12px;}
+  .kprow:first-of-type{border-top:none;}
+  .kprow .nm{font-weight:600;}
+  .kprow .ct{margin-left:auto;color:var(--ink3);font-size:11px;}
+  .kprow.dim{opacity:.45;}
+  .cfg{display:flex;justify-content:space-between;font-size:12px;color:var(--ink2);
+      padding:5px 0;border-top:1px dashed var(--line);}
+  .cfg:first-of-type{border-top:none;}
+  .cfg b{color:var(--ink);font-weight:600;}
+
+  /* ══ shot 3 练习 ══ */
+  .entries{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:14px;}
+  .ent{padding:16px 17px;display:flex;flex-direction:column;min-height:172px;}
+  .ent .no{font-size:11px;font-weight:800;color:var(--ink3);letter-spacing:.08em;}
+  .ent .nm{font-size:16.5px;font-weight:800;margin-top:6px;}
+  .ent .ds{font-size:12px;color:var(--ink2);margin-top:7px;line-height:1.7;}
+  .ent .chips{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;}
+  .ent .act{margin-top:auto;padding-top:10px;}
+  .ent.hot{border:1.5px solid #F2C49A;box-shadow:0 8px 22px rgba(232,131,58,.12);}
+  .hist{margin-top:16px;padding:14px 18px;}
+  .hist h3,.todo h3{font-size:12.5px;font-weight:700;color:var(--ink3);letter-spacing:.1em;margin-bottom:6px;}
+  .h-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px dashed var(--line);font-size:12.5px;}
+  .h-row:first-of-type{border-top:none;}
+  .h-d{color:var(--ink3);width:46px;}
+  .h-n{font-weight:700;width:190px;}
+  .h-s{color:var(--ink2);}
+  .h-r{margin-left:auto;display:flex;gap:10px;align-items:center;}
+  .todo{margin-top:14px;padding:13px 16px;border-left:4px solid var(--amber);border-radius:12px;}
+  .t-row{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:7px 0 1px;}
+  .t-row .src{color:var(--ink3);font-size:11px;}
+  .t-row .go{margin-left:auto;}
+
+  /* ══ shot 5 服务商换皮 ══ */
+  .pgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:14px;}
+  .pcard{background:var(--card);border:1px solid var(--line);border-radius:14px;
+      padding:12px 10px 11px;text-align:center;box-shadow:0 6px 18px rgba(88,66,36,.05);}
+  .pcard img{height:150px;width:100%;object-fit:contain;object-position:bottom;}
+  .pcard .nm{font-size:13.5px;font-weight:800;margin-top:7px;}
+  .pcard .md{font-family:Consolas,monospace;font-size:9.5px;color:var(--ink3);margin-top:3px;}
+  .pcard .chip{margin-top:7px;}
+  .pcard.hot{border:1.5px solid #F2C49A;box-shadow:0 8px 22px rgba(232,131,58,.14);}
+  .pnote{margin-top:12px;padding:11px 16px;font-size:12px;color:var(--ink2);line-height:1.75;}
+
+  /* ══ shot 6 知识库 2.0 ══ */
+  .qgrid{display:flex;gap:10px;flex-wrap:wrap;}
+  .qcard{width:200px;background:#fff;border:1px solid var(--line2);border-radius:10px;
+      overflow:hidden;box-shadow:0 4px 12px rgba(88,66,36,.08);}
+  .qcard .qph{height:78px;padding:8px 10px;font-size:10.5px;color:var(--ink2);line-height:1.6;
+      background:repeating-linear-gradient(160deg,#FFFDF8,#FFFDF8 12px,#FBF6EC 12px,#FBF6EC 13px);
+      position:relative;}
+  .qcard .qph .tag{position:absolute;right:7px;top:6px;font-size:8.5px;color:#C4B8A5;}
+  .qcard .qft{display:flex;align-items:center;gap:6px;padding:5px 8px;
+      border-top:1px dashed var(--line);font-size:10px;color:var(--ink3);}
+  .qcard .qft .rt{margin-left:auto;letter-spacing:.5px;}
+  .kbhead{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+  .kbhead h1{font-size:19px;}
+  .kbhead .ops{margin-left:auto;display:flex;gap:8px;align-items:center;}
+  .kbhint{padding:8px 14px;margin-bottom:12px;display:flex;align-items:center;gap:9px;
+      border-left:4px solid var(--pri);border-radius:10px;font-size:12.5px;}
+  .kbcols{display:flex;gap:14px;align-items:flex-start;}
+  .kbt{width:430px;flex:none;padding:11px 12px;}
+  .kbt .tb{font-size:12px;font-weight:700;color:var(--ink3);letter-spacing:.08em;margin:0 4px 8px;}
+  .trow{display:flex;align-items:center;gap:7px;padding:5.5px 8px;border-radius:9px;
+      font-size:12.5px;cursor:default;}
+  .trow:hover{background:#F7F2E9;}
+  .trow.sel{background:var(--pri-soft);}
+  .trow.sel .tn{color:var(--pri-deep);font-weight:700;}
+  .trow .car{width:12px;color:#C4B8A5;font-size:10px;flex:none;}
+  .trow .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .trow .dot.s0{background:#DDD5C8;} .trow .dot.s1{background:#E4B84C;}
+  .trow .dot.s2{background:var(--green);} .trow .dot.s3{background:#7BA7D9;}
+  .trow .tn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .trow .st{font-size:9.5px;color:var(--ink3);flex:none;}
+  .trow .prio{font-size:9.5px;color:var(--amber);flex:none;letter-spacing:1px;}
+  .trow .dep{font-size:9px;color:#9B948F;border:1px dashed var(--line2);border-radius:99px;
+      padding:1px 6px;flex:none;}
+  .trow .grip{color:#D8CFC0;font-size:11px;flex:none;}
+  .kbdet{flex:1;min-width:0;padding:0;}
+  .kbdet .inner{padding:14px 16px;}
+  .kbbc{font-size:11.5px;color:var(--ink3);margin-bottom:8px;}
+  .kbtitle{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:10px;}
+  .kbtitle .nm{font-size:17.5px;font-weight:800;}
+  .kbmeta{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px;}
+  .ksec{border-top:1px solid var(--line);padding:7px 0 5px;}
+  .ksec .sh{font-size:11px;font-weight:800;color:var(--ink3);letter-spacing:.08em;margin-bottom:5px;}
+  .ksec p{font-size:12.5px;color:var(--ink2);line-height:1.75;}
+  .draftbox{border:1.5px dashed #E4C88A;background:var(--amber-soft);border-radius:11px;
+      padding:10px 12px;margin-top:4px;}
+  .draftbox .dh{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;
+      color:var(--amber);margin-bottom:5px;}
+  .draftbox p{font-size:12px;color:var(--ink2);line-height:1.7;}
+  .draftbox .ops{display:flex;gap:7px;margin-top:8px;}
+  .klinks{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;}
+  .klink{background:var(--bg);border:1px solid var(--line);border-radius:10px;
+      padding:7px 11px;font-size:11.5px;color:var(--ink2);}
+  .klink b{color:var(--ink);}
+
+  /* ══ shot 4 桌宠 ══ */
+  .stage{background:linear-gradient(150deg,#EFE9DF,#F8F4ED);width:1228px;height:788px;
+      position:relative;overflow:hidden;display:flex;}
+  .video{position:absolute;left:56px;top:76px;width:640px;height:396px;border-radius:14px;
+      background:#241F19;box-shadow:0 24px 50px rgba(40,28,12,.4);overflow:hidden;}
+  .video .vt{height:34px;display:flex;align-items:center;gap:8px;padding:0 13px;
+      background:#2E2820;color:#CFC5B4;font-size:11.5px;}
+  .video .screen{height:calc(100% - 34px - 46px);display:flex;align-items:center;justify-content:center;}
+  .video .play{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.14);
+      display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;
+      border:1px solid rgba(255,255,255,.25);}
+  .video .cap2{height:46px;background:#1B1712;color:#A99F8D;font-size:12px;display:flex;
+      align-items:center;padding:0 14px;gap:8px;}
+  .petfloat{position:absolute;left:520px;top:40px;width:230px;text-align:center;}
+  .petfloat img{width:150px;filter:drop-shadow(0 14px 22px rgba(88,66,36,.3));}
+  .petmenu{display:flex;justify-content:center;gap:6px;margin-top:2px;}
+  .petmenu span{background:#fff;border:1px solid var(--line2);border-radius:99px;
+      font-size:10.5px;padding:3px 10px;color:var(--ink2);box-shadow:0 3px 8px rgba(88,66,36,.12);}
+  .states{position:absolute;right:52px;top:76px;width:428px;}
+  .states .card{padding:15px 17px;}
+  .states h4{font-size:13px;font-weight:800;margin-bottom:11px;}
+  .sg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;}
+  .st-cell{background:var(--bg);border:1px solid var(--line);border-radius:11px;
+      text-align:center;padding:9px 4px 8px;}
+  .st-cell img{width:58px;height:58px;object-fit:contain;object-position:bottom;}
+  .st-cell .nm{font-size:11px;font-weight:700;margin-top:2px;}
+  .st-cell .en{font-size:9px;color:var(--ink3);letter-spacing:.06em;}
+  .hotkeys{position:absolute;right:52px;top:472px;width:428px;}
+  .hotkeys .card{padding:13px 16px;}
+  .hk{display:flex;justify-content:space-between;align-items:center;font-size:12px;
+      color:var(--ink2);padding:5.5px 0;border-top:1px dashed var(--line);}
+  .hk:first-of-type{border-top:none;}
+  .hk kbd{font-family:Consolas,monospace;font-size:10.5px;background:#F4EFE7;border:1px solid var(--line2);
+      border-bottom-width:2px;border-radius:6px;padding:2px 7px;color:var(--ink);}
+  .stage .tip{position:absolute;left:56px;bottom:40px;font-size:11.5px;color:#8D8474;}
+</style>
+</head>
+<body>
+
+<!-- ════════ shot 1 · 学习台 ════════ -->
+<div class="shot">
+  <div class="cap"><span>参考图 01 · 学习台（V3 首页 · 温暖学习手账风）</span><span>docs/design/ui/ui_dashboard.png</span></div>
+  <div class="win">
+    <div class="tbar">
+      <span class="dot" style="background:#F0B4AC"></span><span class="dot" style="background:#F2D9A7"></span><span class="dot" style="background:#BCD8C2"></span>
+      <span class="app"><img src="../pet/providers/zhipu.png">研伴 <span class="ver">V3 · 网课学习伴侣</span></span>
+      <span class="ctrl">— ▢ ✕</span>
+    </div>
+    <div class="body">
+      <div class="nav">
+        <a class="on" href="#"><span class="ic">🏠</span>学习台</a>
+        <a href="#"><span class="ic">📺</span>网课</a>
+        <a href="#"><span class="ic">🎯</span>练习</a>
+
+        <a href="#"><span class="ic">🧠</span>知识库</a>
+        <a href="#"><span class="ic">🔁</span>复习</a>
+        <a href="#"><span class="ic">📊</span>画像</a>
+        <a href="#"><span class="ic">⚙️</span>设置</a>
+        <div class="grow"></div>
+        <div class="petcard">
+          <img src="../pet/providers/zhipu.png">
+          <div><div class="st"><span class="live"></span>小研 · 伴学中</div>
+          <div class="sub">线代第5讲 · 已记 6 条</div></div>
+        </div>
+      </div>
+      <div class="main">
+        <div class="hello">
+          <h1>早上好，今天也要加油 🌱</h1>
+          <span class="date">10月5日 周一 · 距考研 78 天</span>
+          <span class="streak chip o">🔥 连续 12 天</span>
+        </div>
+        <div class="grid2">
+          <div class="card loop hero">
+            <div class="tag">▶ 继续看课</div>
+            <div class="lesson">线性代数基础班 · 第5讲</div>
+            <div class="lesson" style="font-size:13.5px;font-weight:600;color:var(--ink2);margin-top:2px;">特征值与特征向量</div>
+            <div class="bar"><i style="width:36%"></i></div>
+            <div class="desc" style="margin-top:7px;">32:14 / 90:00 · 小研已记 6 条笔记</div>
+            <div class="act"><button class="btn pri">▶ 继续伴学</button><button class="btn ghost">课时详情</button></div>
+          </div>
+          <div class="card loop">
+            <div class="tag">✍ 今日笔记</div>
+            <div class="big">12 <span style="font-size:12px;color:var(--ink3);font-weight:600">条</span></div>
+            <div class="desc"><span class="chip a">+3 待你确认</span> AI 不确定的会先问你</div>
+          </div>
+          <div class="card loop">
+            <div class="tag">🎯 课时练习</div>
+            <div class="big">8 <span style="font-size:12px;color:var(--ink3);font-weight:600">题</span></div>
+            <div class="desc">第5讲 · 题库匹配 5 + AI 自创 3</div>
+            <div class="act"><button class="btn pri">去练习</button></div>
+          </div>
+          <div class="card loop">
+            <div class="tag">🔁 到期复习</div>
+            <div class="big">15 <span style="font-size:12px;color:var(--ink3);font-weight:600">张</span></div>
+            <div class="desc">预计 25 分钟 · 记忆保持率 92%</div>
+            <div class="act"><button class="btn ghost">开始复习</button></div>
+          </div>
+        </div>
+        <div class="card rhythm">
+          <h3>── 今天的节奏 ──</h3>
+          <div class="r-row"><span class="r-time">09:00</span><span class="r-name">高等数学 · 一元积分</span>
+            <span class="r-meta"><span class="chip g">✓ 记了 6 条</span><span class="chip g">练习 8 题对 6</span><span class="chip n">错 2 题已进错题本</span></span></div>
+          <div class="r-row"><span class="r-time">14:00</span><span class="r-name">线性代数 · 第5讲</span>
+            <span class="r-meta"><span class="chip o">● 伴学中 · 32:14</span><span class="chip n">笔记 6 条</span></span></div>
+          <div class="r-row"><span class="r-time">19:30</span><span class="r-name">到期复习 15 张</span>
+            <span class="r-meta"><span class="chip n">待办 · 小研到点会提醒你</span></span></div>
+        </div>
+        <div class="card week"><b>本周</b> 看课 4.2 小时 · 记笔记 38 条 · 练习 46 题（正确率 78%）· 复习按期率 91%
+          <span class="up chip g">较上周 +12%</span></div>
+        <img class="pet" src="../pet/providers/zhipu.png" style="width:104px;right:8px;bottom:-6px;">
+        <div class="bubble rt" style="right:96px;bottom:66px;">本节「施密特正交化」还没出现，<br>出现了我会马上记下来 ✍</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ shot 2 · 网课 · 课时笔记 ════════ -->
+<div class="shot">
+  <div class="cap"><span>参考图 02 · 网课 · 课时笔记（时间戳流 + 考点关联）</span><span>docs/design/ui/ui_lesson_notes.png</span></div>
+  <div class="win">
+    <div class="tbar">
+      <span class="dot" style="background:#F0B4AC"></span><span class="dot" style="background:#F2D9A7"></span><span class="dot" style="background:#BCD8C2"></span>
+      <span class="app"><img src="../pet/providers/zhipu.png">研伴 <span class="ver">V3 · 网课学习伴侣</span></span>
+      <span class="ctrl">— ▢ ✕</span>
+    </div>
+    <div class="body">
+      <div class="nav">
+        <a href="#"><span class="ic">🏠</span>学习台</a>
+        <a class="on" href="#"><span class="ic">📺</span>网课</a>
+        <a href="#"><span class="ic">🎯</span>练习</a>
+
+        <a href="#"><span class="ic">🧠</span>知识库</a>
+        <a href="#"><span class="ic">🔁</span>复习</a>
+        <a href="#"><span class="ic">📊</span>画像</a>
+        <a href="#"><span class="ic">⚙️</span>设置</a>
+        <div class="grow"></div>
+        <div class="petcard">
+          <img src="../pet/providers/zhipu.png">
+          <div><div class="st"><span class="live"></span>小研 · 伴学中</div>
+          <div class="sub">每 5 分钟记录一次</div></div>
+        </div>
+      </div>
+      <div class="main">
+        <div class="crumb">网课 › 线性代数基础班 › <b>第5讲 特征值与特征向量</b></div>
+        <div class="card lhead">
+          <div>
+            <div class="tt">特征值与特征向量 <span class="chip o">● 伴学中</span></div>
+            <div class="mt">32:14 / 90:00 · 截图区域已框选 · 画面没换不重复调用 AI</div>
+          </div>
+          <div class="ops"><button class="btn ghost">⏸ 暂停伴学</button><button class="btn pri">⚡ 生成本节练习</button></div>
+        </div>
+        <div class="notes">
+          <div class="note-col">
+            <div class="card note">
+              <span class="thumb">🖼</span>
+              <div class="row1"><span class="ts">12:31</span><span class="nt">特征值的定义</span></div>
+              <p>老师强调：先写定义式再变形，不要一上来就凑行列式。</p>
+              <div class="frow"><span class="formula">A<b style="font-style:normal">𝒙</b> = 𝜆<b style="font-style:normal">𝒙</b>&nbsp;&nbsp;(𝒙 ≠ 𝟎)</span></div>
+              <div class="frow"><span class="kp">KP-2.1.3 特征值与特征向量</span><a style="font-size:11px;color:var(--pri-deep);" href="#">匹配 12 题 →</a></div>
+            </div>
+            <div class="card note">
+              <span class="thumb">🖼</span>
+              <div class="row1"><span class="ts">18:05</span><span class="nt">相似对角化的条件</span></div>
+              <p>n 阶矩阵可对角化 ⟺ 有 n 个线性无关的特征向量；重根对应的线性无关向量个数要等于重数。</p>
+              <div class="frow"><span class="formula">𝑷⁻¹𝑨𝑷 = 𝚲</span><span class="kp">KP-2.1.5 相似对角化</span><a style="font-size:11px;color:var(--pri-deep);" href="#">匹配 7 题 →</a></div>
+            </div>
+            <div class="card note" style="border:1.5px solid #EAD3A2;">
+              <div class="row1"><span class="ts">24:40</span><span class="nt">例题：求三阶矩阵的特征值</span><span class="chip a">? 待你确认</span></div>
+              <p>小研对这一段不太确定，点缩略图看截图原话，确认后才会写进正式笔记。</p>
+              <div class="frow"><button class="btn pri" style="padding:5px 11px;font-size:11.5px;">✓ 确认入库</button><button class="btn ghost" style="padding:5px 11px;font-size:11.5px;">忽略</button></div>
+            </div>
+          </div>
+          <div class="rail">
+            <div class="card">
+              <h4>🧠 本节考点命中</h4>
+              <div class="kprow"><span class="kp">KP-2.1.3</span><span class="nm">特征值与特征向量</span><span class="ct">题库 12 题</span></div>
+              <div class="kprow"><span class="kp">KP-2.1.5</span><span class="nm">相似对角化</span><span class="ct">题库 7 题</span></div>
+              <div class="kprow dim"><span class="kp">KP-2.1.6</span><span class="nm">施密特正交化</span><span class="ct">还没讲到</span></div>
+            </div>
+            <div class="card">
+              <h4>🌾 伴学设置</h4>
+              <div class="cfg"><span>自动记录</span><b>每 5 分钟</b></div>
+              <div class="cfg"><span>全局热键</span><b><kbd style="font-family:Consolas,monospace;font-size:10.5px;background:#F4EFE7;border:1px solid var(--line2);border-bottom-width:2px;border-radius:6px;padding:2px 7px;">Ctrl+Alt+N</kbd> 记一下</b></div>
+              <div class="cfg"><span>截图隐私</span><b style="color:var(--green);">✓ 处理完即焚</b></div>
+              <div class="cfg"><span>笔记落盘</span><b>courses/lessons/*.md</b></div>
+            </div>
+            <div class="card" style="padding:12px 15px;display:flex;gap:10px;align-items:center;">
+              <img src="../pet/providers/zhipu.png" style="width:40px;object-fit:contain;">
+              <div style="font-size:11.5px;color:var(--ink2);line-height:1.6;">有疑问随时右键小研「课堂问答」——<br>她会带着本节笔记回答你。</div>
+            </div>
+          </div>
+        </div>
+        <div class="card tlbar">
+          <h4>⏱ 本节时间轴 —— 笔记跟着视频进度走，点任意节点回到那一刻的截图</h4>
+          <div class="tl">
+            <div class="track"></div><div class="done"></div>
+            <div class="dot" style="left:13.9%"></div><div class="lab" style="left:13.9%">12:31 定义</div>
+            <div class="dot" style="left:20.1%"></div><div class="lab" style="left:20.1%">18:05 条件</div>
+            <div class="dot" style="left:27.4%"></div><div class="lab" style="left:27.4%">24:40 例题</div>
+            <span class="now" style="left:35.9%">● 32:14 伴学中</span>
+            <div class="lab" style="left:98%">90:00</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ shot 3 · 练习 ════════ -->
+<div class="shot">
+  <div class="cap"><span>参考图 03 · 练习（课时练习 + 原组卷入口 + AI 自创待复核）</span><span>docs/design/ui/ui_practice.png</span></div>
+  <div class="win">
+    <div class="tbar">
+      <span class="dot" style="background:#F0B4AC"></span><span class="dot" style="background:#F2D9A7"></span><span class="dot" style="background:#BCD8C2"></span>
+      <span class="app"><img src="../pet/providers/zhipu.png">研伴 <span class="ver">V3 · 网课学习伴侣</span></span>
+      <span class="ctrl">— ▢ ✕</span>
+    </div>
+    <div class="body">
+      <div class="nav">
+        <a href="#"><span class="ic">🏠</span>学习台</a>
+        <a href="#"><span class="ic">📺</span>网课</a>
+        <a class="on" href="#"><span class="ic">🎯</span>练习</a>
+
+        <a href="#"><span class="ic">🧠</span>知识库</a>
+        <a href="#"><span class="ic">🔁</span>复习</a>
+        <a href="#"><span class="ic">📊</span>画像</a>
+        <a href="#"><span class="ic">⚙️</span>设置</a>
+        <div class="grow"></div>
+        <div class="petcard">
+          <img src="../pet/providers/zhipu.png">
+          <div><div class="st"><span class="live"></span>小研 · 伴学中</div>
+          <div class="sub">线代第5讲 · 已记 6 条</div></div>
+        </div>
+      </div>
+      <div class="main">
+        <h1>练习</h1>
+        <div class="sub2">练错的题自动归入对应知识点（图像题面），进入 FSRS 复习循环 —— 练习是知识库的上游进水口</div>
+        <div class="entries">
+          <div class="card ent hot">
+            <div class="no">入口 ① · 本节课</div>
+            <div class="nm">课时练习 <span class="chip o">推荐</span></div>
+            <div class="ds">第5讲 特征值与特征向量</div>
+            <div class="chips"><span class="chip n">题库匹配 5 题</span><span class="chip a">AI 自创 3 题</span></div>
+            <div class="act"><button class="btn pri">▶ 开始练习（8 题）</button></div>
+          </div>
+          <div class="card ent">
+            <div class="no">入口 ② · 按需</div>
+            <div class="nm">错题专练</div>
+            <div class="ds">错因「计算失误」积了 12 题，重做正当时</div>
+            <div class="chips"><span class="chip n">原组卷 · 错题专练</span></div>
+            <div class="act"><button class="btn ghost">去组卷</button></div>
+          </div>
+          <div class="card ent">
+            <div class="no">入口 ③ · 按需</div>
+            <div class="nm">真题全卷 / 限时模考</div>
+            <div class="ds">按真题模板整卷抽取，锁定题目、错因对症都保留</div>
+            <div class="chips"><span class="chip n">原组卷 · 真题模板</span></div>
+            <div class="act"><button class="btn ghost">去组卷</button></div>
+          </div>
+        </div>
+        <div class="card todo">
+          <h3>✋ AI 自创题 · 待复核（3）</h3>
+          <div class="t-row"><span class="kp">自创</span>设 A² = A，证明 A 的特征值只能是 0 或 1
+            <span class="src">来自 第5讲 18:05 笔记</span><button class="btn ghost go" style="padding:4px 10px;font-size:11px;">去复核</button></div>
+          <div class="t-row"><span class="kp">自创</span>已知 𝜆=2 是 A 的特征值，求 A⁻¹ 的一个特征值
+            <span class="src">来自 第5讲 12:31 笔记</span><button class="btn ghost go" style="padding:4px 10px;font-size:11px;">去复核</button></div>
+        </div>
+        <div class="card hist">
+          <h3>── 最近练习 ──</h3>
+          <div class="h-row"><span class="h-d">10-04</span><span class="h-n">第4讲 · 课时练习</span>
+            <span class="h-s">8 题</span><span class="chip g">对 6 · 75%</span>
+            <span class="h-r"><span class="chip n">错 2 进错题本</span><a style="font-size:11.5px;color:var(--ink3);" href="#">查看</a></span></div>
+          <div class="h-row"><span class="h-d">10-03</span><span class="h-n">错题专练 · 计算失误</span>
+            <span class="h-s">12 题</span><span class="chip g">对 9 · 75%</span>
+            <span class="h-r"><span class="chip n">错 3 进错题本</span><a style="font-size:11.5px;color:var(--ink3);" href="#">查看</a></span></div>
+          <div class="h-row"><span class="h-d">10-02</span><span class="h-n">2023 数三 · 限时模考</span>
+            <span class="h-s">22 题</span><span class="chip a">对 15 · 68%</span>
+            <span class="h-r"><span class="chip n">错 7 进错题本</span><a style="font-size:11.5px;color:var(--ink3);" href="#">查看</a></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ shot 4 · 桌宠窗口 ════════ -->
+<div class="shot">
+  <div class="cap"><span>参考图 04 · 桌宠「小研」悬浮窗（透明置顶 · 六状态 · 主窗口缩托盘后仍伴学）</span><span>docs/design/ui/ui_pet.png</span></div>
+  <div class="stage">
+    <div class="video">
+      <div class="vt">▶ 哔哩哔哩 — 线性代数基础班 第5讲 特征值与特征向量</div>
+      <div class="screen"><div class="play">▶</div></div>
+      <div class="cap2">「…所以满足 A𝒙=𝜆𝒙 的非零向量 𝒙，我们就把它叫做…」</div>
+    </div>
+    <div class="petfloat">
+      <div class="bubble dn" style="position:static;margin-bottom:10px;text-align:left;">
+        <b>刚记下：</b>特征值的定义 A𝒙=𝜆𝒙<br>
+        <span class="kp">KP-2.1.3</span> <span style="font-size:10.5px;color:var(--green);">✓ 已关联 · 匹配 12 题</span>
+      </div>
+      <img src="../pet/providers/zhipu.png">
+      <div class="petmenu"><span>⏸ 暂停</span><span>💬 课堂问答</span><span>✕ 隐藏</span></div>
+    </div>
+    <div class="bubrow">
+      <div class="bb">✓ 已记入「第5讲」笔记，共 12 条 · 3 条等你确认</div>
+      <div class="bb">⏰ 今天还有 15 张卡片到期，19:30 我会提醒你开始复习</div>
+      <div class="bb">🎉 连续伴学 12 天！本节练习正确率 75%，比上周高 6 个点</div>
+    </div>
+    <div class="states">
+      <div class="card">
+        <h4>小研的六种状态（Rive 状态机）</h4>
+        <div class="sg">
+          <div class="st-cell"><img src="../pet/providers/zhipu.png"><div class="nm">待机</div><div class="en">IDLE</div></div>
+          <div class="st-cell" style="background:var(--pri-soft);border-color:#F2C49A;"><img src="../pet/providers/zhipu.png"><div class="nm" style="color:var(--pri-deep);">伴学中</div><div class="en">WATCHING</div></div>
+          <div class="st-cell"><img src="../pet/providers/zhipu.png" style="opacity:.55;"><div class="nm">思考中</div><div class="en">THINKING</div></div>
+          <div class="st-cell"><img src="../pet/providers/zhipu.png"><div class="nm">说话</div><div class="en">SPEAKING</div></div>
+          <div class="st-cell"><img src="../pet/providers/zhipu.png"><div class="nm">庆祝 🎉</div><div class="en">CELEBRATE</div></div>
+          <div class="st-cell"><img src="../pet/providers/zhipu.png" style="filter:brightness(.62) saturate(.7);"><div class="nm">打盹 💤</div><div class="en">SLEEPY</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="hotkeys">
+      <div class="card">
+        <div class="hk"><span>记一下（立即截屏记录）</span><kbd>Ctrl</kbd><span style="margin:0 -8px;">+</span><kbd>Alt</kbd><span style="margin:0 -8px;">+</span><kbd>N</kbd></div>
+        <div class="hk"><span>双击小研</span><b>打开今日摘要</b></div>
+        <div class="hk"><span>右键小研</span><b>菜单（暂停 / 问答 / 隐藏）</b></div>
+        <div class="hk"><span>主窗口关到托盘</span><b style="color:var(--green);">伴学照常 ✓</b></div>
+      </div>
+    </div>
+    <div class="tip">参考图 04 · 宠物窗口与主窗口是两个进程窗口，大脑在主窗口，宠物只负责"脸"；任一侧崩溃互不连坐。图示以默认桌宠「小研」（智谱 GLM）为例。</div>
+  </div>
+</div>
+
+<!-- ════════ shot 5 · 桌宠随服务商换皮 ════════ -->
+<div class="shot">
+  <div class="cap"><span>参考图 05 · 桌宠随 AI 服务商换皮（接入谁，就换谁）</span><span>docs/design/ui/ui_provider_pets.png</span></div>
+  <div class="win">
+    <div class="tbar">
+      <span class="dot" style="background:#F0B4AC"></span><span class="dot" style="background:#F2D9A7"></span><span class="dot" style="background:#BCD8C2"></span>
+      <span class="app"><img src="../pet/providers/zhipu.png">研伴 <span class="ver">V3 · 网课学习伴侣</span></span>
+      <span class="ctrl">— ▢ ✕</span>
+    </div>
+    <div class="body">
+      <div class="main">
+        <h1>桌宠 = 接入的 AI 服务商 🎭</h1>
+        <div class="sub2">动画状态机只有一套，立绘按服务商换皮 —— 设置页切换服务商后，悬浮窗、学习台侧栏、气泡里的形象同步更换。<b>默认接入智谱 GLM（免费视觉档），默认桌宠「小研」。</b></div>
+        <div class="pgrid">
+          <div class="pcard"><img src="../pet/providers/deepseek.png"><div class="nm">DeepSeek</div><div class="md">deepseek-chat</div><span class="chip n">OpenAI 兼容</span></div>
+          <div class="pcard"><img src="../pet/providers/qwen.png"><div class="nm">通义千问</div><div class="md">qwen-max / qwen-plus</div><span class="chip n">OpenAI 兼容</span></div>
+          <div class="pcard"><img src="../pet/providers/kimi.png"><div class="nm">Kimi</div><div class="md">moonshot 系列</div><span class="chip n">OpenAI 兼容</span></div>
+          <div class="pcard"><img src="../pet/providers/doubao.png"><div class="nm">豆包</div><div class="md">doubao 系列 · 火山方舟</div><span class="chip n">OpenAI 兼容 · 新增</span></div>
+          <div class="pcard hot"><img src="../pet/providers/zhipu.png"><div class="nm" style="color:var(--pri-deep);">智谱 GLM「小研」</div><div class="md">glm-4.6v-flash</div><span class="chip o">免费视觉档 · 默认</span></div>
+          <div class="pcard"><img src="../pet/providers/minimax.png"><div class="nm">MiniMax</div><div class="md">abab / MiniMax 系列</div><span class="chip n">OpenAI 兼容 · 新增</span></div>
+          <div class="pcard"><img src="../pet/providers/chatgpt.png"><div class="nm">ChatGPT</div><div class="md">gpt-4o / gpt-4.1-mini</div><span class="chip n">OpenAI 兼容</span></div>
+          <div class="pcard"><img src="../pet/providers/gemini.png"><div class="nm">Gemini</div><div class="md">gemini-2.0-flash</div><span class="chip n">独立协议</span></div>
+          <div class="pcard"><img src="../pet/providers/grok.png"><div class="nm">Grok</div><div class="md">grok 系列 · x.ai</div><span class="chip n">OpenAI 兼容 · 新增</span></div>
+          <div class="pcard"><img src="../pet/providers/claude.png"><div class="nm">Claude</div><div class="md">claude 系列</div><span class="chip n">独立协议</span></div>
+        </div>
+        <div class="card pnote">🧩 本地 Ollama / 自定义代理 / 未配置 Key → 一律显示默认桌宠「小研」（智谱那只）。
+          <b>Grok、豆包、MiniMax 为 V3 新增预设</b>——三家都走 OpenAI 兼容协议，接入只是注册表里加一行数据。
+          本页立绘为 AI 生成参考图，Rive 正式资产据此重绘（透明底单图见 <b>docs/design/pet/providers/</b>）。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ shot 6 · 知识库 2.0 ════════ -->
+<div class="shot">
+  <div class="cap"><span>参考图 06 · 知识库 2.0（树编辑器 + 可编辑节点详情 + AI 草稿 + 下一步推荐）</span><span>docs/design/ui/ui_knowledge.png</span></div>
+  <div class="win">
+    <div class="tbar">
+      <span class="dot" style="background:#F0B4AC"></span><span class="dot" style="background:#F2D9A7"></span><span class="dot" style="background:#BCD8C2"></span>
+      <span class="app"><img src="../pet/providers/zhipu.png">研伴 <span class="ver">V3 · 网课学习伴侣</span></span>
+      <span class="ctrl">— ▢ ✕</span>
+    </div>
+    <div class="body">
+      <div class="nav">
+        <a href="#"><span class="ic">🏠</span>学习台</a>
+        <a href="#"><span class="ic">📺</span>网课</a>
+        <a href="#"><span class="ic">🎯</span>练习</a>
+
+        <a class="on" href="#"><span class="ic">🧠</span>知识库</a>
+        <a href="#"><span class="ic">🔁</span>复习</a>
+        <a href="#"><span class="ic">📊</span>画像</a>
+        <a href="#"><span class="ic">⚙️</span>设置</a>
+        <div class="grow"></div>
+        <div class="petcard">
+          <img src="../pet/providers/zhipu.png">
+          <div><div class="st"><span class="live"></span>小研 · 伴学中</div>
+          <div class="sub">线代第5讲 · 已记 6 条</div></div>
+        </div>
+      </div>
+      <div class="main">
+        <div class="kbhead">
+          <h1>知识库</h1>
+          <span class="chip o">学科：数据结构 · 考研408 ▾</span>
+          <span class="chip n">骨架 12</span><span class="chip a">草稿 3</span>
+          <span class="chip g">已填 34</span><span class="chip n">已复核 8</span><span class="chip n">未归类题目 5</span>
+          <span class="ops"><button class="btn ghost">🧹 AI 梳理本章 <span class="chip a" style="margin-left:3px;">2 条建议</span></button><button class="btn ghost">📥 导入题目</button><button class="btn pri">＋ 新建学科（向导）</button></span>
+        </div>
+        <div class="card kbhint">▸ <b>下一步建议：02-2 链表</b> —— 前置「顺序表」已掌握 · 优先级 ★★ · 尚未掌握（骨架）　<button class="btn pri" style="padding:4px 11px;font-size:11px;">去看</button><a style="font-size:11px;color:var(--ink3);margin-left:auto;" href="#">为什么是这个？</a></div>
+        <div class="kbcols">
+          <div class="card kbt">
+            <div class="tb">── 数据结构 · 考研408（拖拽整理，id 不变） ──</div>
+            <div class="trow"><span class="grip">⋮⋮</span><span class="car">▾</span><span class="dot s2"></span><span class="tn">01 绪论</span><span class="st">已填</span></div>
+            <div class="trow" style="padding-left:26px;"><span class="grip">⋮⋮</span><span class="car">·</span><span class="dot s2"></span><span class="tn">01-1 什么是数据结构</span><span class="st">已填</span></div>
+            <div class="trow" style="padding-left:26px;"><span class="grip">⋮⋮</span><span class="car">·</span><span class="dot s2"></span><span class="tn">01-2 算法与时间复杂度</span><span class="st">已填</span></div>
+            <div class="trow"><span class="grip">⋮⋮</span><span class="car">▾</span><span class="dot s2"></span><span class="tn">02 线性表</span><span class="st">已填</span></div>
+            <div class="trow sel" style="padding-left:26px;"><span class="grip">⋮⋮</span><span class="car">▾</span><span class="dot s2"></span><span class="tn">02-1 顺序表</span><span class="prio">★★</span><span class="st">已填</span></div>
+            <div class="trow" style="padding-left:44px;"><span class="grip">⋮⋮</span><span class="car">▾</span><span class="dot s1"></span><span class="tn">02-2 链表</span><span class="prio">★★</span><span class="dep">前置: 02-1 ✓</span><span class="st">草稿</span></div>
+            <div class="trow" style="padding-left:62px;"><span class="grip">⋮⋮</span><span class="car">·</span><span class="dot s0"></span><span class="tn">02-2.1 单链表</span><span class="st">骨架</span></div>
+            <div class="trow" style="padding-left:62px;"><span class="grip">⋮⋮</span><span class="car">·</span><span class="dot s0"></span><span class="tn">02-2.2 双链表</span><span class="st">骨架</span></div>
+            <div class="trow" style="padding-left:26px;"><span class="grip">⋮⋮</span><span class="car">·</span><span class="dot s0"></span><span class="tn">02-3 栈与队列</span><span class="dep">前置: 02-2</span><span class="st">骨架</span></div>
+            <div class="trow"><span class="grip">⋮⋮</span><span class="car">▸</span><span class="dot s3"></span><span class="tn">03 串与数组</span><span class="st">已复核</span></div>
+            <div class="trow"><span class="grip">⋮⋮</span><span class="car">▸</span><span class="dot s0"></span><span class="tn">04 树与二叉树</span><span class="st">骨架</span></div>
+          </div>
+          <div class="card kbdet"><div class="inner">
+            <div class="kbbc">数据结构 › 02 线性表 › <b>顺序表</b>　·　…/knowledge/…/02-1 顺序表.md</div>
+            <div class="kbtitle"><span class="nm">顺序表</span><span class="chip g">已填</span><span class="prio" style="color:var(--amber);font-size:12px;">★★</span>
+              <button class="btn ghost" style="margin-left:auto;padding:4px 10px;font-size:11px;">✍ AI 补全此节</button></div>
+            <div class="kbmeta">
+              <span class="kp">别名</span><span class="chip n">顺序存储 ✕</span><span class="chip n">sequential list ✕</span><span class="chip n">＋ 添加别名</span>
+              <span class="kp">前置</span><span class="chip g">数组与内存 · 已掌握 ✓</span>
+            </div>
+            <div class="ksec"><div class="sh">定义</div>
+              <p>用一段<b>地址连续</b>的存储单元依次存放线性表的数据元素；逻辑相邻的元素物理位置也相邻。</p></div>
+            <div class="ksec"><div class="sh">公式</div>
+              <span class="formula">loc(aᵢ) = loc(a₁) + (i−1) × d</span>
+              <span style="font-size:11.5px;color:var(--ink3);margin-left:8px;">随机存取 O(1) 的依据</span></div>
+            <div class="ksec"><div class="sh">陷阱</div>
+              <p>插入/删除平均要移动一半元素——<b>存取快、增删慢</b>。</p></div>
+            <div class="ksec"><div class="sh">来自 网课·第2讲 14:20 的笔记（3 条）</div>
+              <p>静态分配改不了容量，动态分配要算<b>扩容的均摊代价</b>。</p></div>
+            <div class="draftbox">
+              <div class="dh">✨ AI 草稿（待确认） · source: ai · 不会在确认前计入「已填」</div>
+              <p>容量不足 → 申请 2× 空间整体搬迁：单次最坏 O(n)，均摊后每次 O(1)……</p>
+              <div class="ops"><button class="btn pri" style="padding:4px 11px;font-size:11px;">✓ 接纳进「定义」</button><button class="btn ghost" style="padding:4px 11px;font-size:11px;">继续改</button><button class="btn ghost" style="padding:4px 11px;font-size:11px;">丢弃</button></div>
+            </div>
+            <div class="ksec"><div class="sh">本节点题目（2）· 图像题面　<a style="font-size:10.5px;color:var(--pri-deep);" href="#">＋ 导入到此节点</a></div>
+              <div class="qgrid">
+                <div class="qcard"><div class="qph">2. 设 A 为 n 阶矩阵且 A² = A，<br>证明：A 的特征值只能是 0 或 1。<span class="tag">🖼 题面图</span></div>
+                  <div class="qft"><span class="chip g">✓ 对</span><span>练习 10-04</span><span class="rt">★ ★★</span></div></div>
+                <div class="qcard"><div class="qph">3. 已知 λ = 2 是 A 的特征值，<br>求 A⁻¹ 的一个特征值。<span class="tag">🖼 题面图</span></div>
+                  <div class="qft"><span class="chip a">✗ 错 2 次</span><span>计算失误</span><span class="rt">★ ★★</span></div></div>
+              </div>
+              <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+                <span class="klink">📺 关联课时笔记 <b>3</b> 条</span>
+                <span class="klink">🎯 生成节点练习</span>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
