@@ -1,6 +1,9 @@
 /// 全局依赖注入（Riverpod providers）。
 library;
 
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/platform/startup_log.dart';
@@ -8,6 +11,7 @@ import '../data/db/database.dart';
 import '../data/error_causes.dart';
 import '../data/index/index_builder.dart';
 import '../data/knowledge/knowledge_repository.dart';
+import '../data/knowledge_md/knowledge_md_store.dart';
 import '../data/markdown/problem_store.dart';
 import '../domain/fsrs/fsrs_scheduler.dart';
 import '../domain/knowledge/knowledge_point.dart';
@@ -41,9 +45,33 @@ final knowledgeRepositoryProvider = Provider<KnowledgeRepository>(
 );
 
 /// 当前科目的知识点本体。异步载入，带缓存。
+///
+/// ## 数据源优先级（K1）
+///
+/// 1. `<库根>/knowledge/` 下的 Markdown 文件夹（Obsidian 形态，用户可手改）；
+/// 2. 不存在时：载入内置 JSON 资产，并**顺带种子导入**为 Markdown——
+///    导入失败不阻断（下次启动重试），本次仍返回 JSON 数据。
+/// id 在导入时原样保留，题目关联零丢失（D14 硬验收）。
 final knowledgeBaseProvider = FutureProvider<KnowledgeBase>((ref) async {
   final subject = ref.watch(currentSubjectProvider);
-  return ref.watch(knowledgeRepositoryProvider).load(subject);
+  final paths = await ref.watch(libraryPathsProvider.future);
+  final mdStore = KnowledgeMdStore(
+      root: Directory('${paths.root.path}${Platform.pathSeparator}knowledge'));
+  if (mdStore.isImported(subject.id)) {
+    final (kb, warnings) = mdStore.loadTree(subject.id);
+    if (kb != null) return kb;
+    // md 在但读不出：带着警告回落 JSON，绝不静默当一切正常
+    for (final w in warnings) {
+      debugPrint('knowledge_md: $w');
+    }
+  }
+  final kb = await ref.watch(knowledgeRepositoryProvider).load(subject);
+  try {
+    await mdStore.importTree(kb);
+  } catch (e) {
+    debugPrint('knowledge_md 种子导入失败（下次启动重试）: $e');
+  }
+  return kb;
 });
 
 /// 已成功载入的全部科目（数二/数三可能尚未编好）。
