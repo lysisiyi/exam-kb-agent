@@ -33,6 +33,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/layout/breakpoints.dart';
 import '../../core/providers.dart';
+import '../../core/widgets/page_header.dart';
 import '../../core/widgets/state_views.dart';
 import '../../services/profile/mastery_service.dart';
 
@@ -121,6 +122,10 @@ class _Body extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 40),
         children: wide
             ? [
+                const PageHeader(
+                  title: '画像',
+                  subtitle: '最该补的考点、各章掌握度与错因分布——数据全部从复习记录现算',
+                ),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -133,6 +138,10 @@ class _Body extends ConsumerWidget {
                 _Footnote(theme: theme),
               ]
             : [
+                const PageHeader(
+                  title: '画像',
+                  subtitle: '最该补的考点、各章掌握度与错因分布——数据全部从复习记录现算',
+                ),
                 ...left,
                 const SizedBox(height: 14),
                 ...right,

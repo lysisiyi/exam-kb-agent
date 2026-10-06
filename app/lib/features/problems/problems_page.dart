@@ -27,6 +27,7 @@ import '../../core/layout/breakpoints.dart';
 import '../../core/math/math_renderer.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/page_header.dart';
 import '../../core/widgets/state_views.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../data/problem_file.dart';
@@ -94,6 +95,11 @@ class _ProblemsPageState extends ConsumerState<ProblemsPage> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // V3 重设计：题库不再是顶级页，这里是从知识库进来的"全部题目"视图
+        const PageHeader(
+          title: '题目',
+          subtitle: '练错的题都在这里——答错会自动计入错次并进入 FSRS 复习循环',
+        ),
         _Toolbar(
           query: _query,
           view: _view,

@@ -25,6 +25,7 @@ import '../../core/layout/breakpoints.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/page_header.dart';
 import '../../services/library/library_exporter.dart';
 import '../../services/llm/llm_settings.dart';
 import '../../services/llm/provider_registry.dart';
@@ -105,17 +106,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         32,
       ),
       children: [
-        Text('设置', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 4),
-        Text(
-          '数据存在你自己的电脑上。这里可以把它整包带走。',
-          style: TextStyle(
-            fontSize: 13,
-            height: 1.7,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
+        const PageHeader(
+          title: '设置',
+          subtitle: '数据存在你自己的电脑上；AI 调用走你自己的 Key（BYOK）',
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 10),
 
         // ── AI 服务商 ──────────────────────────────────────────────────
         // 之前全应用唯一的配置入口藏在录入页的 AI 按钮里，而对话页/导入页

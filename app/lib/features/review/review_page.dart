@@ -39,6 +39,7 @@ import '../../core/platform/platform_services.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/page_header.dart';
 import '../../data/error_causes.dart';
 import '../../data/markdown/problem_markdown.dart';
 import '../../domain/fsrs/fsrs_scheduler.dart';
@@ -266,9 +267,19 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
   Widget build(BuildContext context) {
     final banner = _reminderBanner(context);
     final body = _buildBody(context);
-    if (banner == null) return body;
+    const header = PageHeader(
+      title: '复习',
+      subtitle: '图片题面 · 双栏解析 · 手写核对——三档打分后进入下一步间隔',
+    );
     return Column(
-      children: [banner, Expanded(child: body)],
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(24, 14, 24, 0),
+          child: header,
+        ),
+        if (banner != null) banner,
+        Expanded(child: body),
+      ],
     );
   }
 
