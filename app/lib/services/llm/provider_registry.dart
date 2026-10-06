@@ -371,6 +371,39 @@ abstract final class LlmProviders {
       requiresApiKey: false,
       note: '完全离线、零成本；但本地小模型标注准确率偏低，会更多进人工确认',
     ),
+    // ── V3 D7：桌宠换皮对应的三个新增预设（均 OpenAI 兼容） ──────────────
+    // suggestedModels 留空：价目表尚未收录这三家的价格，先不进"建议模型"
+    // 下拉（llm_pricing_test 会拦没价格的建议模型），用户可手填模型名。
+    ProviderSpec(
+      id: 'doubao',
+      label: '豆包（火山方舟）',
+      baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+      protocol: LlmProtocol.openAiCompatible,
+      auth: LlmAuthStyle.bearer,
+      defaultModel: 'doubao-seed-1-6-250615',
+      note: '字节跳动火山方舟。模型名用推理接入点 id 或 doubao 系列',
+      helpUrl: 'https://console.volcengine.com/ark',
+    ),
+    ProviderSpec(
+      id: 'minimax',
+      label: 'MiniMax',
+      baseUrl: 'https://api.minimaxi.com/v1',
+      protocol: LlmProtocol.openAiCompatible,
+      auth: LlmAuthStyle.bearer,
+      defaultModel: 'MiniMax-Text-01',
+      note: 'MiniMax 开放平台，文本与视觉系列（abab/MiniMax-Text/VL）',
+      helpUrl: 'https://platform.minimaxi.com/',
+    ),
+    ProviderSpec(
+      id: 'grok',
+      label: 'Grok（x.ai）',
+      baseUrl: 'https://api.x.ai/v1',
+      protocol: LlmProtocol.openAiCompatible,
+      auth: LlmAuthStyle.bearer,
+      defaultModel: 'grok-3-mini',
+      note: 'xAI 的 OpenAI 兼容端点；国内直连通常需要代理',
+      helpUrl: 'https://console.x.ai/',
+    ),
     ProviderSpec(
       id: 'custom',
       label: '自定义 / 代理',
