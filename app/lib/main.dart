@@ -10,6 +10,7 @@ library;
 
 import 'dart:io' show Directory, File, FileMode, Platform;
 
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -26,9 +27,26 @@ import 'core/platform/startup_log.dart';
 import 'core/platform/window_setup.dart';
 import 'core/theme/app_theme.dart';
 import 'data/db/database.dart' show LibraryPaths;
-import 'dev_shell.dart';
 
-Future<void> main() async {
+import 'dev_shell.dart';
+import 'pet/pet_window.dart';
+
+/// 桌宠子窗口走独立分支：desktop_multi_window(0.3.x) 给**每个引擎**都跑
+/// 同一份 main，用 `fromCurrentEngine().arguments` 区分身份
+/// （主窗口的 arguments 为空串）。主流程不受影响。
+Future<void> main(List<String> args) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  String? windowArguments;
+  try {
+    windowArguments = (await WindowController.fromCurrentEngine()).arguments;
+  } catch (_) {
+    windowArguments = null; // 无多窗口插件环境（如 flutter test）按主窗口走
+  }
+  if (windowArguments == 'pet') {
+    runApp(const PetWindow());
+    return;
+  }
+
   // 启动进度探针。见 `_launchProbe` 的说明 —— 它是"应用走到哪一步死了"
   // 这个问题的唯一可靠答案。
   _launchProbe('main() 进入');

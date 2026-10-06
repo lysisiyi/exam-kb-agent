@@ -106,7 +106,7 @@ dependencies:
 
   # ── 桌面系统集成 ────────────────────────────────────────────────
   file_selector: ^1.0.3
-  window_manager: ^0.4.2
+  window_manager: ^0.5.2
   # ⚠️ 刻意**不**依赖 `share_plus`（原为 ^10.0.2）。
   #
   # V1_PLAN 把它列为"导出分享"，但桌面端根本没有"分享到"这个动作 ——
@@ -161,6 +161,7 @@ dependencies:
   katex_dart: ^0.1.1
   screen_capturer: ^0.2.3
   image: ^4.10.1
+  desktop_multi_window: ^0.3.1
 
 dev_dependencies:
   flutter_test:

@@ -6,6 +6,7 @@
 /// P1（截图笔记管道）与 P3（练习生成）上线后逐卡接线。
 library;
 
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -105,7 +106,7 @@ class DashboardPage extends ConsumerWidget {
         ),
       ),
       ),
-      // 桌宠角标：默认「小研」（智谱皮肤）。P2 起这里是真悬浮窗的镜像位。
+      // 桌宠角标：默认「小研」（智谱皮肤）。点击召唤真悬浮窗（P2）。
       Positioned(
         right: 10,
         bottom: 4,
@@ -123,7 +124,18 @@ class DashboardPage extends ConsumerWidget {
               child: const Text('本节「施密特正交化」还没出现，出现了我会马上记 ✍',
                   style: TextStyle(fontSize: 11, height: 1.5)),
             ),
-            Image.asset('assets/pets/zhipu.png', width: 92, fit: BoxFit.contain),
+            GestureDetector(
+              onTap: () async {
+                // 0.3.x 契约：create 传 WindowConfiguration，新引擎跑同一份
+                // main，由 fromCurrentEngine().arguments == 'pet' 分流。
+                final controller = await WindowController.create(
+                    const WindowConfiguration(
+                        arguments: 'pet', hiddenAtLaunch: false));
+                await controller.show();
+              },
+              child: Image.asset('assets/pets/zhipu.png',
+                  width: 92, fit: BoxFit.contain),
+            ),
           ],
         ),
       ),
