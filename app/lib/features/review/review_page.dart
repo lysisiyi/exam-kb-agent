@@ -693,25 +693,46 @@ class _CardBody extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  stemSection,
-                  const SizedBox(height: 22),
-                  analysisSection,
+                  _JournalCard(child: stemSection),
+                  const SizedBox(height: 14),
+                  _JournalCard(child: analysisSection),
                 ],
               ),
             ),
           );
         }
+        // V3 手账风：从「题面 | 竖线 | 解析」改为两张白卡并排 ——
+        // 竖线在暖底上太硬，白卡把"题"与"析"各自装进一张纸里。
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 5, child: stemSection),
-            const SizedBox(width: 24),
-            const VerticalDivider(width: 1, color: AppColors.line),
-            const SizedBox(width: 24),
-            Expanded(flex: 4, child: analysisSection),
+            Expanded(flex: 5, child: _JournalCard(child: stemSection)),
+            const SizedBox(width: 14),
+            Expanded(flex: 4, child: _JournalCard(child: analysisSection)),
           ],
         );
       },
+    );
+  }
+}
+
+/// 手账风白卡：复习页的"一张纸"。圆角 + 暖边 + 轻阴影 + 内边距。
+class _JournalCard extends StatelessWidget {
+  final Widget child;
+  const _JournalCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.rLg,
+        border: Border.all(color: AppColors.line),
+        boxShadow: AppShadows.s1,
+      ),
+      child: child,
     );
   }
 }

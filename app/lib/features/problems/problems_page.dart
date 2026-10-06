@@ -358,10 +358,9 @@ class _List extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: rows.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (_, i) {
         final r = rows[i];
         return _ProblemTile(
@@ -417,11 +416,20 @@ class _ProblemTile extends StatelessWidget {
       options: const MathRenderOptions(fontSize: AppMathSizes.compact),
     );
 
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Row(
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.rMd,
+        border: Border.all(color: AppColors.line),
+        boxShadow: AppShadows.s1,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
@@ -465,6 +473,7 @@ class _ProblemTile extends StatelessWidget {
                     fontSize: 10,
                     color: theme.colorScheme.onSurfaceVariant)),
           ],
+          ),
         ),
       ),
     );
@@ -480,14 +489,15 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(5),
+        // 手账风：全圆角胶囊（原来是 5 的直角小方片）
+        borderRadius: BorderRadius.circular(99),
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
