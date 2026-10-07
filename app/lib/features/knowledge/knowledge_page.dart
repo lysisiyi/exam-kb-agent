@@ -72,9 +72,10 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
                 return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 左：树
+                  // 左：树（白卡，参考图左栏是独立卡片）
                   SizedBox(
                     width: treeWidth,
+                    child: _PaneCard(
                     child: KnowledgeOutlineView(
                       kb: kb,
                       masteryByKpId: masteryByKpId,
@@ -86,13 +87,16 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
                       onMoveNode: (child, parent) =>
                           _moveNode(kb, child, parent),
                     ),
+                    ),
                   ),
-                  const VerticalDivider(width: 1, color: AppColors.line),
+                  const SizedBox(width: 12),
                   // 右：详情（叶子 = 完整详情卡；分支 = 分支摘要）
                   Expanded(
-                    child: selected == null
-                        ? const Center(child: Text('从左边选一个知识点'))
-                        : _NodeDetailPane(kb: kb, node: selected),
+                    child: _PaneCard(
+                      child: selected == null
+                          ? const Center(child: Text('从左边选一个知识点'))
+                          : _NodeDetailPane(kb: kb, node: selected),
+                    ),
                   ),
                 ],
                 );
@@ -218,6 +222,26 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
       if ((l.definition ?? '').trim().isEmpty) return l;
     }
     return leaves.first;
+  }
+}
+
+/// 两栏的通用白卡（参考图的左右面板）：白底 + 暖边 + 大圆角 + 轻阴影。
+class _PaneCard extends StatelessWidget {
+  final Widget child;
+  const _PaneCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadius.rLg,
+        border: Border.all(color: AppColors.line),
+        boxShadow: AppShadows.s1,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
   }
 }
 

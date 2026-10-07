@@ -231,6 +231,9 @@ final petSkinProvider = FutureProvider<String>((ref) async {
 /// 用序号而不是 bool——同一帧可能连按两次，都要各自截。
 final recordHotkeySignal = ValueNotifier<int>(0);
 
+/// 桌宠菜单「开始/暂停伴学」开关信号：序号自增，课时页在每次变化时切换。
+final companionToggleSignal = ValueNotifier<int>(0);
+
 /// 已保存的卷子历史。
 final paperHistoryProvider = FutureProvider<List<PaperRow>>((ref) async {
   final repo = await ref.watch(paperRepositoryProvider.future);

@@ -74,9 +74,12 @@ class KnowledgeLeafDetail extends ConsumerWidget {
     ];
 
     return Container(
-      decoration: const BoxDecoration(
+      // 外层白卡（_PaneCard）已提供纸面，这里用极浅暖底分区块，
+      // 与参考图"卡内分区"的层次一致
+      decoration: BoxDecoration(
         color: AppColors.bg,
         borderRadius: AppRadius.rMd,
+        border: Border.all(color: AppColors.line.withValues(alpha: 0.6)),
       ),
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
       child: Column(

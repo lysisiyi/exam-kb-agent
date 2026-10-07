@@ -12,7 +12,10 @@ import 'dart:io' show Directory, File, FileMode, Platform;
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'core/math/katex_renderer.dart';
 import 'core/math/math_renderer.dart';
@@ -25,9 +28,10 @@ import 'core/platform/platform_services.dart';
 import 'core/platform/platform_services_mock.dart';
 import 'core/platform/startup_log.dart';
 import 'core/platform/window_setup.dart';
+import 'core/providers.dart'
+    show companionToggleSignal, recordHotkeySignal;
 import 'core/theme/app_theme.dart';
 import 'data/db/database.dart' show LibraryPaths;
-
 import 'dev_shell.dart';
 import 'pet/pet_tray.dart';
 import 'pet/pet_window.dart';
@@ -49,6 +53,33 @@ Future<void> main(List<String> args) async {
   }
 
   // 主窗口：关到托盘，伴学不中断（桌宠分支不需要）
+  // 主窗口：接桌宠窗口的动作（pet→main 通道）——
+  // 中键截图=record / 菜单=showMain、toggleCompanion；右键动画纯本地。
+  WindowController.fromCurrentEngine().then((c) {
+    c.setWindowMethodHandler((call) async {
+      switch (call.method) {
+        case 'record':
+          recordHotkeySignal.value++;
+        case 'toggleCompanion':
+          companionToggleSignal.value++;
+        case 'showMain':
+          await windowManager.show();
+          await windowManager.focus();
+      }
+      return null;
+    });
+  }).catchError((_) {}); // 无多窗口环境（测试/非 Windows）：静默跳过
+
+  // 主窗口：全局热键 Ctrl+Alt+N「记一下」→ 发信号（当前课时页监听并截屏）
+  await hotKeyManager.register(
+    HotKey(
+      key: LogicalKeyboardKey.keyN,
+      modifiers: [HotKeyModifier.control, HotKeyModifier.alt],
+      scope: HotKeyScope.system,
+    ),
+    keyDownHandler: (_) => recordHotkeySignal.value++,
+  );
+
   await setupTrayAndClosePolicy();
 
   // 启动进度探针。见 `_launchProbe` 的说明 —— 它是"应用走到哪一步死了"

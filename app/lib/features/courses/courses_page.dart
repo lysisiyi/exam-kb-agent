@@ -186,10 +186,26 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
     super.initState();
     _lesson = widget.lesson;
     _reload();
+    // 全局热键/桌宠中键「记一下」：仅在伴学中且空闲时消费截屏
+    recordHotkeySignal.addListener(_onHotkey);
+    companionToggleSignal.addListener(_onToggleHotkey);
+  }
+
+  void _onHotkey() {
+    if (!mounted || !_running || _busy || _lesson.captureRegion == null) return;
+    _captureOnce();
+  }
+
+  /// 桌宠菜单的「开始 / 暂停伴学」。
+  void _onToggleHotkey() {
+    if (!mounted || _busy || _lesson.captureRegion == null) return;
+    _toggleAuto();
   }
 
   @override
   void dispose() {
+    recordHotkeySignal.removeListener(_onHotkey);
+    companionToggleSignal.removeListener(_onToggleHotkey);
     _timer?.cancel();
     super.dispose();
   }
