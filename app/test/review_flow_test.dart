@@ -479,7 +479,7 @@ void main() {
       }
     }
 
-    testWidgets('答案默认隐藏，揭晓后才出现', (tester) async {
+    testWidgets('列表式：答案默认收起，展开后出现；评分按钮常驻', (tester) async {
       await seedInAsync(tester, [
         const SeedProblem(
           id: 'p-1',
@@ -491,21 +491,26 @@ void main() {
 
       await pumpReview(tester);
 
+      // 题面与折叠头可见
       expect(find.text('求极限'), findsOneWidget);
-      expect(find.text('答案与解析已隐藏'), findsOneWidget);
-      expect(find.text('揭晓答案'), findsOneWidget);
+      expect(find.text('答案与解析'), findsOneWidget);
       expect(find.textContaining('等价无穷小'), findsNothing,
-          reason: '没揭晓就泄漏答案，复习就失去意义了');
-      // 三档打分不该在揭晓前出现
-      expect(find.text('忘了'), findsNothing);
-
-      await tester.tap(find.text('揭晓答案'));
-      await settle(tester);
-
-      expect(find.text('答案与解析已隐藏'), findsNothing);
+          reason: '收起状态不该泄漏答案');
+      // 评分按钮常驻（列表式：可直接打分，也可以先展开核对）
       expect(find.text('忘了'), findsOneWidget);
       expect(find.text('吃力'), findsOneWidget);
       expect(find.text('轻松'), findsOneWidget);
+
+      // 展开 → 解析出现；再收起 → 解析消失
+      // 帧数给够：ExpansionTile 动画 200ms，settle 默认 8 帧只有 160ms。
+      await tester.tap(find.text('答案与解析'));
+      await settle(tester, frames: 20);
+      expect(find.textContaining('等价无穷小'), findsOneWidget);
+      expect(find.text('收起'), findsOneWidget);
+
+      await tester.tap(find.text('答案与解析'));
+      await settle(tester, frames: 20);
+      expect(find.textContaining('等价无穷小'), findsNothing);
     });
 
     testWidgets('打分推进到下一题，并写下 FSRS 状态', (tester) async {
@@ -517,9 +522,9 @@ void main() {
       await pumpReview(tester);
       expect(find.text('第一题题干'), findsOneWidget);
 
-      await tester.tap(find.text('揭晓答案'));
-      await settle(tester);
-      await tester.tap(find.text('轻松'));
+      // 列表式：评分按钮常驻，直接打分（也可以先展开答案再打）。
+      // 两题列表同屏 → 用 .first 点第一张卡（对应键盘 1/2/3 的语义）。
+      await tester.tap(find.text('轻松').first);
       await settle(tester);
 
       // 进到第二题

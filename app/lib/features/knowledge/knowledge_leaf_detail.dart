@@ -133,11 +133,18 @@ class KnowledgeLeafDetail extends ConsumerWidget {
           // ── 定义 ──────────────────────────────────────────────────────
           if (leaf.definition != null && leaf.definition!.isNotEmpty) ...[
             const _SectionTitle('定义'),
-            MathRendering.renderer.renderMarkdown(
-              leaf.definition!,
-              // 与下面的「核心公式」同档（`AppMathSizes.reading`）——
-              // 一段话里的行内公式和下面成行的公式应当一样大
-              options: const MathRenderOptions(fontSize: AppMathSizes.reading),
+            // 中文正文行高 1.85（clreq 建议 1.6–1.75 的上限一带；知识卡
+            // 是逐字读的场景，宁松勿紧）。
+            DefaultTextStyle.merge(
+              style: const TextStyle(
+                  fontSize: KnowledgeSizes.body, height: 1.85),
+              child: MathRendering.renderer.renderMarkdown(
+                leaf.definition!,
+                // 与下面的「核心公式」同档（`AppMathSizes.reading`）——
+                // 一段话里的行内公式和下面成行的公式应当一样大
+                options:
+                    const MathRenderOptions(fontSize: AppMathSizes.reading),
+              ),
             ),
           ],
 

@@ -95,7 +95,6 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
   List<DueCard>? _queue;
 
   int _index = 0;
-  bool _revealed = false;
   Object? _error;
 
   /// 累计已评分数（本次会话）。
@@ -106,9 +105,9 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
   /// ## 为什么必须有这道闸
   ///
   /// 评分要等一次 sqlite 写入（还要写 review_logs）。在 await 期间
-  /// [_revealed] 仍然是 true，于是"可以评分"这个前置条件对**同一张卡**
-  /// 依然成立 —— 而 `CallbackShortcuts` 对长按产生的 `KeyRepeatEvent`
-  /// 同样会触发回调。所以手指在 1/2/3 上多停一会儿就会对同一张卡并发评分：
+  /// 评分按钮仍然是可点的，而 `CallbackShortcuts` 对长按产生的
+  /// `KeyRepeatEvent` 同样会触发回调 —— 手指在 1/2/3 上多停一会儿
+  /// 就会对同一张卡并发评分：
   ///
   /// - 同一次复习写出多条 `review_logs`
   /// - `wrong_count` 被重复累加（用户看到"错了 5 次"但只错了一次）
@@ -171,7 +170,6 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
       setState(() {
         _queue = q;
         _index = 0;
-        _revealed = false;
         _shownAt = DateTime.now();
         _sessionLog.clear();
       });
@@ -188,14 +186,16 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
     return q[_index];
   }
 
-  void _reveal() {
-    if (_revealed) return;
-    setState(() => _revealed = true);
-  }
-
+  /// 键盘 1/2/3：评**第一张未评卡**（列表式下"当前"即队首）。
   Future<void> _grade(Rating rating) async {
     final card = _current;
-    if (card == null || !_revealed || _grading) return;
+    if (card == null) return;
+    await _gradeCard(card, rating);
+  }
+
+  /// 给指定卡片评分（列表式：每题自己的按钮带卡进来）。
+  Future<void> _gradeCard(DueCard card, Rating rating) async {
+    if (_grading) return;
     _grading = true;
     try {
       final elapsed = DateTime.now().difference(_shownAt).inMilliseconds;
@@ -229,7 +229,6 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
       final next = describeDue(result.nextDue);
       setState(() {
         _index++;
-        _revealed = false;
         _graded++;
         _shownAt = DateTime.now();
       });
@@ -258,7 +257,6 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
     if (_grading) return;
     setState(() {
       _index++;
-      _revealed = false;
       _shownAt = DateTime.now();
     });
   }
@@ -324,28 +322,26 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
       return _AllDoneView(onRefresh: _load);
     }
 
-    final card = _current;
-    if (card == null) {
+    if (_current == null) {
       return _SessionDoneView(graded: _graded, log: _sessionLog, onAgain: _load);
     }
 
+    // 列表式（用户定稿）：1/2/3 给**第一张未评卡**打分；
+    // 每张卡自己的按钮对哪张卡生效由卡片带进来。
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.space): _reveal,
         const SingleActivator(LogicalKeyboardKey.digit1): () => _grade(Rating.forgot),
         const SingleActivator(LogicalKeyboardKey.digit2): () => _grade(Rating.hard),
         const SingleActivator(LogicalKeyboardKey.digit3): () => _grade(Rating.easy),
       },
       child: Focus(
         autofocus: true,
-        child: _Session(
-          card: card,
-          grading: _grading,
+        child: _QueueList(
+          cards: _queue!.sublist(_index),
           position: _index + 1,
           total: _queue!.length,
-          revealed: _revealed,
-          onReveal: _reveal,
-          onGrade: _grade,
+          grading: _grading,
+          onGrade: _gradeCard,
           onSkip: _skip,
         ),
       ),
@@ -357,87 +353,65 @@ class _ReviewPageState extends ConsumerState<ReviewPage> {
 // 复习会话
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _Session extends ConsumerWidget {
-  final DueCard card;
+class _QueueList extends StatelessWidget {
+  /// 未评分的卡（按队列序，队首 = 当前）。
+  final List<DueCard> cards;
   final int position;
   final int total;
-  final bool revealed;
 
-  /// 正在写入评分（M4）：写库期间三个评分按钮必须变灰 ——
-  /// 闸门本来就拦得住连点，但拦不住"用户以为没点上"的第二次点击预期。
+  /// 正在写库：全部评分按钮一起变灰（重复点击的闸门在页面状态层）。
   final bool grading;
-  final VoidCallback onReveal;
-  final void Function(Rating) onGrade;
+  final void Function(DueCard card, Rating rating) onGrade;
   final VoidCallback onSkip;
 
-  const _Session({
-    required this.card,
+  const _QueueList({
+    required this.cards,
     required this.position,
     required this.total,
-    required this.revealed,
     required this.grading,
-    required this.onReveal,
     required this.onGrade,
     required this.onSkip,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final bp = BreakpointScope.of(context);
     final compact = bp == LayoutBreakpoint.compact;
 
-    // 主考点显示名字而不是裸 id —— 复习时不该让人去查 id 对应什么
-    final kb = ref.watch(knowledgeBaseProvider).valueOrNull;
-    final kpId = card.problem?.primaryKnowledge?.id;
-    final kpName = kpId == null ? null : (kb?.byId[kpId]?.name ?? kpId);
-
-    // 错因处方。词表**还没加载完时什么都不显示**，而不是显示"未知错因" ——
-    // 把"正在加载"渲染成"数据有问题"是本项目已经修过三次的那类错误。
-    final catalog = ref.watch(errorCauseCatalogProvider).valueOrNull;
-    final causeIds =
-        catalog?.idsOfJson(card.state.errorCauses) ?? const <String>[];
-    final errorCauses = catalog?.resolve(causeIds) ?? const <ErrorCause>[];
-    final unknownCauseIds =
-        catalog == null ? const <String>[] : catalog.unknownIdsOf(causeIds);
-
     return Column(
       children: [
-        _Progress(position: position, total: total, card: card),
+        _Progress(position: position, total: total, card: cards.first),
         const Divider(height: 1),
         Expanded(
           child: Scrollbar(
-            child: SingleChildScrollView(
+            child: ListView.builder(
               padding: EdgeInsets.fromLTRB(
                 compact ? 16 : 28,
-                18,
+                16,
                 compact ? 16 : 28,
-                24,
+                28,
               ),
-              child: Center(
+              itemCount: cards.length,
+              itemBuilder: (context, i) => Center(
                 child: ConstrainedBox(
-                  // 限宽上限提到 1180：宽窗口下卡片内部做「左题右析」双栏，
-                    // 窄窗口回到单列 760（见 _CardBody 的 LayoutBuilder）。
-                    constraints: const BoxConstraints(maxWidth: 1180),
-                  child: _CardBody(
-                    card: card,
-                    revealed: revealed,
-                    kpName: kpName,
-                    errorCauses: errorCauses,
-                    unknownCauseIds: unknownCauseIds,
+                  constraints: const BoxConstraints(maxWidth: 860),
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: _QuestionCard(
+                      key: ValueKey('due-card-${cards[i].problemId}'),
+                      card: cards[i],
+                      isCurrent: i == 0,
+                      position: position + i,
+                      total: total,
+                      grading: grading,
+                      onGrade: (r) => onGrade(cards[i], r),
+                      onSkip: onSkip,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-        const Divider(height: 1),
-        _Actions(
-          revealed: revealed,
-          compact: compact,
-          grading: grading,
-          onReveal: onReveal,
-          onGrade: onGrade,
-          onSkip: onSkip,
         ),
       ],
     );
@@ -497,7 +471,7 @@ class _Progress extends StatelessWidget {
           if (PlatformCapabilities.usesDesktopInteractions) ...[
             const SizedBox(width: 12),
             Text(
-              '空格揭晓 · 1/2/3 打分',
+              '1/2/3 给第一题打分 · 展开看解析',
               style: TextStyle(
                 fontSize: 10.5,
                 color: theme.colorScheme.onSurfaceVariant,
@@ -511,207 +485,313 @@ class _Progress extends StatelessWidget {
 }
 
 /// 题面 + （揭晓后）答案与解析 + 错因处方。
-class _CardBody extends ConsumerWidget {
+/// 每题一张卡（列表式）：题面常驻，「答案与解析」可展开/收起，评分行常驻。
+class _QuestionCard extends ConsumerStatefulWidget {
   final DueCard card;
-  final bool revealed;
 
-  /// 主考点的展示名（本体未载入时退化为 id）。
-  final String? kpName;
+  /// 队首卡：带「跳过这题」与"当前"标。
+  final bool isCurrent;
+  final int position;
+  final int total;
+  final bool grading;
+  final void Function(Rating) onGrade;
+  final VoidCallback onSkip;
 
-  /// 这道题标的错因，已解析（词表未载入时为空）。
-  final List<ErrorCause> errorCauses;
-
-  /// 题目里标了、但当前词表查不到的错因 id（如实列出，不吞掉）。
-  final List<String> unknownCauseIds;
-
-  const _CardBody({
+  const _QuestionCard({
+    super.key,
     required this.card,
-    required this.revealed,
-    this.kpName,
-    this.errorCauses = const [],
-    this.unknownCauseIds = const [],
+    required this.isCurrent,
+    required this.position,
+    required this.total,
+    required this.grading,
+    required this.onGrade,
+    required this.onSkip,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_QuestionCard> createState() => _QuestionCardState();
+}
+
+class _QuestionCardState extends ConsumerState<_QuestionCard> {
+  @override
+  Widget build(BuildContext context) {
+    final card = widget.card;
+    final theme = Theme.of(context);
     final renderer = MathRendering.renderer;
+    final expandController = _expandController;
 
     if (card.problem == null) {
       return _LoadFailedCard(card: card);
     }
     final p = card.problem!;
 
-    // 关键词行（设想 #2）：题面下方只给"认出这道题"所需的最小信息 ——
-    // 考点 + 错因 + 错次。完整处方在揭晓后的右栏里。
+    // 主考点显示名字而不是裸 id —— 复习时不该让人去查 id 对应什么
+    final kb = ref.watch(knowledgeBaseProvider).valueOrNull;
+    final kpId = p.primaryKnowledge?.id;
+    final kpName = kpId == null ? null : (kb?.byId[kpId]?.name ?? kpId);
+
     final keywords = Wrap(
       spacing: 6,
       runSpacing: 5,
       children: [
         if (kpName case final name?) _Chip(text: name, color: AppColors.primary),
-        for (final c in errorCauses) _Chip(text: c.name, color: AppColors.warningInk),
-        for (final u in unknownCauseIds) _Chip(text: u, color: AppColors.ink3),
         if (card.state.wrongCount > 0)
           _Chip(text: '错 ${card.state.wrongCount} 次', color: AppColors.danger),
       ],
     );
 
-    final stemSection = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              p.qtype.label,
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primaryStrong,
+    return _JournalCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── 卡头：第几题 + 题型 + id + 跳过（仅当前张） ────────────────
+          Row(
+            children: [
+              Text(
+                '第 ${widget.position} / ${widget.total} 题',
+                style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryStrong),
               ),
-            ),
-            Text(
-              p.id,
-              style: TextStyle(
-                fontSize: 10.5,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        // 图为主（扫描题）：复习时重做的就是图里的原题，配图直接当题面；
-        // OCR 文本失真多，收进折叠区只作检索核对用。
-        // 否则维持原样：文字题面为主，配图是示意图。
-        if (p.imagesPrimary && p.images.isNotEmpty) ...[
-          ProblemImageList(
-            images: p.images,
-            // 题库路径未就绪时传 null → 每张显示"缺失"占位，不吞也不炸。
-            imagesDirPath:
-                ref.watch(libraryPathsProvider).valueOrNull?.images.path,
-            maxHeight: 420,
+              const SizedBox(width: 10),
+              Text(p.qtype.label,
+                  style: const TextStyle(
+                      fontSize: 11.5, fontWeight: FontWeight.w700)),
+              const SizedBox(width: 8),
+              Text(p.id,
+                  style: TextStyle(
+                      fontSize: 10.5,
+                      color: theme.colorScheme.onSurfaceVariant)),
+              if (widget.isCurrent) ...[
+                const SizedBox(width: 8),
+                const _Chip(text: '当前', color: AppColors.primary),
+              ],
+              const Spacer(),
+              if (widget.isCurrent)
+                TextButton(
+                  onPressed: widget.grading ? null : widget.onSkip,
+                  style: TextButton.styleFrom(
+                      foregroundColor: AppColors.ink3,
+                      minimumSize: const Size(0, 30),
+                      padding: const EdgeInsets.symmetric(horizontal: 8)),
+                  child: const Text('跳过这题', style: TextStyle(fontSize: 11.5)),
+                ),
+            ],
           ),
-          if (p.stem.isNotEmpty) ...[
-            OcrTextDisclosure(stem: p.stem, options: p.options),
-          ],
-        ] else ...[
-          DefaultTextStyle.merge(
-            style: const TextStyle(fontSize: 15, height: 1.85),
-            child: renderer.renderMarkdown(p.stem),
-          ),
-          if (p.images.isNotEmpty) ...[
-            const SizedBox(height: 12),
+          const SizedBox(height: 10),
+
+          // ── 题面 ──────────────────────────────────────────────────────
+          // 图为主（扫描题）：复习时重做的就是图里的原题，配图直接当题面；
+          // OCR 文本失真多，收进折叠区只作检索核对用。
+          if (p.imagesPrimary && p.images.isNotEmpty) ...[
             ProblemImageList(
               images: p.images,
               imagesDirPath:
                   ref.watch(libraryPathsProvider).valueOrNull?.images.path,
+              maxHeight: 420,
             ),
-          ],
-          if (p.options.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            for (var i = 0; i < p.options.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: DefaultTextStyle.merge(
-                  style: const TextStyle(fontSize: 14, height: 1.8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('${String.fromCharCode(65 + i)}. ',
-                          style: const TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w600)),
-                      Expanded(
-                        child: renderer.renderMarkdown(p.options[i]),
-                      ),
-                    ],
+            if (p.stem.isNotEmpty)
+              OcrTextDisclosure(stem: p.stem, options: p.options),
+          ] else ...[
+            DefaultTextStyle.merge(
+              style: const TextStyle(fontSize: 15, height: 1.9),
+              child: renderer.renderMarkdown(p.stem),
+            ),
+            if (p.images.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ProblemImageList(
+                images: p.images,
+                imagesDirPath:
+                    ref.watch(libraryPathsProvider).valueOrNull?.images.path,
+              ),
+            ],
+            if (p.options.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              for (var i = 0; i < p.options.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: DefaultTextStyle.merge(
+                    style: const TextStyle(fontSize: 14, height: 1.8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${String.fromCharCode(65 + i)}. ',
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w600)),
+                        Expanded(child: renderer.renderMarkdown(p.options[i])),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+            ],
           ],
+          if (keywords.children.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            keywords,
+          ],
+          const SizedBox(height: 6),
+
+          // ── 可展开/收起的答案与解析（用户定稿的核心交互） ──────────────
+          // ExpansionTile 内部是 ListTile：必须在其上方有 Material，
+          // 否则会被 _JournalCard 的 DecoratedBox 触发"墨迹不可见"断言。
+          Material(
+            type: MaterialType.transparency,
+            child: Theme(
+            data: theme.copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              controller: expandController,
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 4),
+              iconColor: AppColors.primaryStrong,
+              collapsedIconColor: AppColors.ink3,
+              title: Row(children: [
+                Icon(
+                  expandController.isExpanded
+                      ? Icons.menu_book
+                      : Icons.menu_book_outlined,
+                  size: 16,
+                  color: AppColors.primaryStrong,
+                ),
+                const SizedBox(width: 6),
+                const Text('答案与解析',
+                    style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w700)),
+                const SizedBox(width: 8),
+                Text(
+                  expandController.isExpanded ? '收起' : '点开核对',
+                  style: const TextStyle(fontSize: 11.5, color: AppColors.ink3),
+                ),
+              ]),
+              children: [_AnalysisBlock(card: card)],
+            ),
+            ),
+          ),
+
+          const Divider(height: 18),
+
+          // ── 评分行（常驻；FSRS 输入必须来自人的判断） ──────────────────
+          Row(
+            children: [
+              Text(
+                '做的怎么样？',
+                style: TextStyle(
+                    fontSize: 12, color: theme.colorScheme.onSurfaceVariant),
+              ),
+              const Spacer(),
+              _GradeButton(
+                  label: '忘了',
+                  color: AppColors.danger,
+                  enabled: !widget.grading,
+                  onTap: () => widget.onGrade(Rating.forgot)),
+              const SizedBox(width: 8),
+              _GradeButton(
+                  label: '吃力',
+                  color: AppColors.warningInk,
+                  enabled: !widget.grading,
+                  onTap: () => widget.onGrade(Rating.hard)),
+              const SizedBox(width: 8),
+              _GradeButton(
+                  label: '轻松',
+                  color: AppColors.success,
+                  enabled: !widget.grading,
+                  onTap: () => widget.onGrade(Rating.easy)),
+            ],
+          ),
         ],
-        if (keywords.children.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          keywords,
+      ),
+    );
+  }
+
+  /// 展开状态控制器：展开一次后保持（翻回来看同一张不用再点开）。
+  final ExpansibleController _expandController = ExpansibleController();
+}
+
+/// 答案解析内容（展开后才渲染）：答案 / 解析 / 我的笔记 / 错因处方 / 手写核对。
+class _AnalysisBlock extends ConsumerWidget {
+  final DueCard card;
+  const _AnalysisBlock({required this.card});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final renderer = MathRendering.renderer;
+    final p = card.problem;
+    if (p == null) return const SizedBox.shrink();
+
+    // 错因处方。词表**还没加载完时什么都不显示**，而不是显示"未知错因"。
+    final catalog = ref.watch(errorCauseCatalogProvider).valueOrNull;
+    final causeIds =
+        catalog?.idsOfJson(card.state.errorCauses) ?? const <String>[];
+    final errorCauses = catalog?.resolve(causeIds) ?? const <ErrorCause>[];
+    final unknownCauseIds =
+        catalog == null ? const <String>[] : catalog.unknownIdsOf(causeIds);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (p.answer != null) ...[
+          const _SectionLabel('答案'),
+          DefaultTextStyle.merge(
+            style: const TextStyle(fontSize: 14.5, height: 1.85),
+            child: renderer.renderMarkdown(p.answer!),
+          ),
         ],
+        if (p.solution != null && p.solution!.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const _SectionLabel('解析'),
+          DefaultTextStyle.merge(
+            style: const TextStyle(fontSize: 14, height: 1.85),
+            child: renderer.renderMarkdown(p.solution!),
+          ),
+        ],
+        if (p.note != null && p.note!.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const _SectionLabel('我的笔记'),
+          DefaultTextStyle.merge(
+            style: const TextStyle(fontSize: 13.5, height: 1.85),
+            child: renderer.renderMarkdown(p.note!),
+          ),
+        ],
+        if (errorCauses.isNotEmpty || unknownCauseIds.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const _SectionLabel('错因处方'),
+          ErrorPrescriptionPanel(
+            causes: errorCauses,
+            unknownIds: unknownCauseIds,
+          ),
+        ],
+        if (ref.watch(handwriteCheckEnabledProvider).valueOrNull ?? false)
+          _HandwriteCheckPanel(problem: p),
       ],
     );
+  }
+}
 
-    final analysisSection = !revealed
-        ? const _HiddenAnswer()
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (p.answer != null) ...[
-                const _SectionLabel('答案'),
-                DefaultTextStyle.merge(
-                  style: const TextStyle(fontSize: 14.5, height: 1.85),
-                  child: renderer.renderMarkdown(p.answer!),
-                ),
-                const SizedBox(height: 20),
-              ],
-              if (p.solution != null) ...[
-                const _SectionLabel('解析'),
-                DefaultTextStyle.merge(
-                  style: const TextStyle(fontSize: 14, height: 1.9),
-                  child: renderer.renderMarkdown(p.solution!),
-                ),
-              ],
-              if (p.note != null && p.note!.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                const _SectionLabel('我的笔记'),
-                DefaultTextStyle.merge(
-                  style: const TextStyle(fontSize: 13.5, height: 1.85),
-                  child: renderer.renderMarkdown(p.note!),
-                ),
-              ],
-              // 错因处方放在**最后**：先看完答案与解析，再谈"接下来该怎么补"。
-              if (errorCauses.isNotEmpty || unknownCauseIds.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                const _SectionLabel('错因处方'),
-                ErrorPrescriptionPanel(
-                  causes: errorCauses,
-                  unknownIds: unknownCauseIds,
-                ),
-              ],
-              // 手写核对（V2-3.2）：可选能力，设置里开了才出现 ——
-              // 每次调用真实计费，不该让没打算用的用户看见入口。
-              if (ref.watch(handwriteCheckEnabledProvider).valueOrNull ?? false)
-                _HandwriteCheckPanel(problem: p),
-            ],
-          );
+/// 评分按钮（三档；写库期间统一变灰）。
+class _GradeButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool enabled;
+  final VoidCallback onTap;
 
-    // 左题右析（设想 #2）：≥1100px 双栏，题面常驻、解析揭晓后才出现在
-    // 右栏 —— 评完一张题不用滚回去找题面。窄窗口退化为原来的单列。
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 1100;
-        if (!wide) {
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _JournalCard(child: stemSection),
-                  const SizedBox(height: 14),
-                  _JournalCard(child: analysisSection),
-                ],
-              ),
-            ),
-          );
-        }
-        // V3 手账风：从「题面 | 竖线 | 解析」改为两张白卡并排 ——
-        // 竖线在暖底上太硬，白卡把"题"与"析"各自装进一张纸里。
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 5, child: _JournalCard(child: stemSection)),
-            const SizedBox(width: 14),
-            Expanded(flex: 4, child: _JournalCard(child: analysisSection)),
-          ],
-        );
-      },
+  const _GradeButton({
+    required this.label,
+    required this.color,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      onPressed: enabled ? onTap : null,
+      style: FilledButton.styleFrom(
+        backgroundColor: color,
+        minimumSize: const Size(72, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.rMd),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 13)),
     );
   }
 }
@@ -737,42 +817,6 @@ class _JournalCard extends StatelessWidget {
   }
 }
 
-/// 揭晓前的占位。刻意做得"有点碍事" —— 提醒用户先自己动笔。
-class _HiddenAnswer extends StatelessWidget {
-  const _HiddenAnswer();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 18),
-      decoration: BoxDecoration(
-        color: AppColors.surface2,
-        borderRadius: AppRadius.rMd,
-        border: Border.all(color: AppColors.line),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.visibility_off_outlined, size: 26, color: AppColors.ink4),
-          SizedBox(height: 10),
-          Text(
-            '答案与解析已隐藏',
-            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
-          ),
-          SizedBox(height: 6),
-          Text(
-            '先在草稿纸上做一遍，再揭晓 —— 直接看答案会把'
-            '「看懂了」误当成「会做了」。',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, height: 1.7, color: AppColors.ink3),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Markdown 读不出来的卡片。仍然让用户能打分（否则这张卡会永远卡在队列里）。
 class _LoadFailedCard extends StatelessWidget {
   final DueCard card;
 
@@ -822,210 +866,6 @@ class _LoadFailedCard extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 底部操作区
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _Actions extends StatelessWidget {
-  final bool revealed;
-  final bool compact;
-
-  /// 正在写库 —— 评分按钮变灰。写库期间 `_grade` 的闸门本来就拦得住，
-  /// 但"按钮没反应"和"按钮变灰"是两种体验：前者让用户以为没点上。
-  final bool grading;
-  final VoidCallback onReveal;
-  final void Function(Rating) onGrade;
-  final VoidCallback onSkip;
-
-  const _Actions({
-    required this.revealed,
-    required this.compact,
-    required this.grading,
-    required this.onReveal,
-    required this.onGrade,
-    required this.onSkip,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    final content = revealed
-        ? Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            alignment: WrapAlignment.center,
-            children: [
-              _GradeButton(
-                label: '忘了',
-                hint: '没思路',
-                keyHint: '1',
-                color: AppColors.danger,
-                filled: true,
-                disabled: grading,
-                onTap: () => onGrade(Rating.forgot),
-              ),
-              _GradeButton(
-                label: '吃力',
-                hint: '做出来了但卡住',
-                keyHint: '2',
-                color: const Color(0xFFF08C00),
-                disabled: grading,
-                onTap: () => onGrade(Rating.hard),
-              ),
-              _GradeButton(
-                label: '轻松',
-                hint: '很顺',
-                keyHint: '3',
-                color: const Color(0xFF0CA678),
-                disabled: grading,
-                onTap: () => onGrade(Rating.easy),
-              ),
-            ],
-          )
-        : Wrap(
-            spacing: 10,
-            alignment: WrapAlignment.center,
-            children: [
-              FilledButton.icon(
-                onPressed: onReveal,
-                icon: const Icon(Icons.visibility_outlined, size: 18),
-                label: const Text('揭晓答案'),
-              ),
-              TextButton(
-                onPressed: onSkip,
-                child: const Text('跳过这题'),
-              ),
-            ],
-          );
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, compact ? 12 : 14, 16, compact ? 12 : 16),
-      color: AppColors.surface,
-      child: Column(
-        children: [
-          content,
-          if (revealed) ...[
-            const SizedBox(height: 8),
-            Text(
-              '打分决定下次什么时候再见到它 · 打分后自动跳到下一题',
-              style: TextStyle(
-                fontSize: 11,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _GradeButton extends StatelessWidget {
-  final String label;
-  final String hint;
-  final String keyHint;
-  final Color color;
-  final bool filled;
-
-  /// 写库中禁用 —— 与键盘闸门（`_grading`）同一时刻，两条入口一致。
-  final bool disabled;
-  final VoidCallback onTap;
-
-  const _GradeButton({
-    required this.label,
-    required this.hint,
-    required this.keyHint,
-    required this.color,
-    required this.onTap,
-    this.filled = false,
-    this.disabled = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final child = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: filled ? Colors.white : color,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: filled
-                    ? Colors.white.withValues(alpha: 0.22)
-                    : color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                keyHint,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: filled ? Colors.white : color,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(
-          hint,
-          style: TextStyle(
-            fontSize: 10.5,
-            color: filled
-                ? Colors.white.withValues(alpha: 0.85)
-                : AppColors.ink3,
-          ),
-        ),
-      ],
-    );
-
-    final shape = RoundedRectangleBorder(
-      borderRadius: AppRadius.rMd,
-      side: BorderSide(color: color.withValues(alpha: filled ? 0 : 0.5)),
-    );
-
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 132),
-      child: filled
-          ? FilledButton(
-              onPressed: disabled ? null : onTap,
-              style: FilledButton.styleFrom(
-                backgroundColor: color,
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                shape: shape,
-              ),
-              child: child,
-            )
-          : OutlinedButton(
-              onPressed: disabled ? null : onTap,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: color,
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                shape: shape,
-              ),
-              child: child,
-            ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 空态与结算
-// ─────────────────────────────────────────────────────────────────────────────
-
 /// 队列为空：今天没有到期的卡。
 class _AllDoneView extends ConsumerWidget {
   final VoidCallback onRefresh;
