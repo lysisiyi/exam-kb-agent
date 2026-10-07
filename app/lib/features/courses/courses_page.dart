@@ -434,7 +434,8 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
       return;
     }
     Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => LessonRunnerPage(problemIds: ids)));
+        builder: (_) => LessonRunnerPage(
+                    problemIds: ids, lessonTitle: _lesson.title)));
   }
 
   Future<void> _captureOnce() async {

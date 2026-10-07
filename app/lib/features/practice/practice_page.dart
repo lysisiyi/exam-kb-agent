@@ -17,12 +17,15 @@
 /// 课时练习（P3）与 AI 自创题生成（P3）未上线，按钮如实标注，不放假入口。
 library;
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/page_header.dart';
+import '../../data/db/database.dart';
 import '../paper/paper_page.dart';
 import '../problems/problems_page.dart' show ProblemView;
 
@@ -311,6 +314,39 @@ class _MiniChip extends StatelessWidget {
   }
 }
 
+/// 历史行的右侧：课时练习解析 config 显示「对 X · 错 Y」，组卷显示满分。
+List<Widget> _recordTail(PaperRow r) {
+  try {
+    final cfg = jsonDecode(r.config);
+    if (cfg is Map && cfg['kind'] == 'lesson_practice') {
+      final right = (cfg['right'] as num?)?.toInt() ?? 0;
+      final wrong = (cfg['wrong'] as num?)?.toInt() ?? 0;
+      final allRight = wrong == 0 && right > 0;
+      return [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: allRight ? AppColors.successWeak : AppColors.warningWeak,
+            borderRadius: BorderRadius.circular(99),
+          ),
+          child: Text('对 $right · 错 $wrong',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: allRight ? AppColors.success : AppColors.warningInk)),
+        ),
+        const SizedBox(width: 6),
+        const Text('课时练习',
+            style: TextStyle(fontSize: 10.5, color: AppColors.ink3)),
+      ];
+    }
+  } catch (_) {/* 老记录/坏 config：退化为满分显示 */}
+  return [
+    Text(r.totalScore == null ? r.subject : '满分 ${r.totalScore}',
+        style: const TextStyle(fontSize: 11.5, color: AppColors.ink2)),
+  ];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // AI 自创题 · 待复核（参考图琥珀卡）
 // ─────────────────────────────────────────────────────────────────────────────
@@ -460,9 +496,8 @@ class _HistoryCard extends ConsumerWidget {
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w700))),
                     const SizedBox(width: 10),
-                    Text(r.totalScore == null ? r.subject : '满分 ${r.totalScore}',
-                        style: const TextStyle(
-                            fontSize: 11.5, color: AppColors.ink2)),
+                    // 课时练习记录带对错；组卷记录显示满分/科目
+                    ..._recordTail(r),
                   ]),
                 ),
           ],

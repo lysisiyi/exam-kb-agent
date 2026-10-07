@@ -265,6 +265,41 @@ class PaperRepository {
     return id;
   }
 
+  /// 保存一条**课时练习**记录（P3）。
+  ///
+  /// 与组卷共用 `papers` 表：`config.kind = 'lesson_practice'` 是判别键，
+  /// 历史列表据此显示"对 X 错 Y"而不是满分。id 同样用**微秒**防撞主键
+  /// （见 [save] 的说明）。
+  Future<String> savePractice({
+    required String title,
+    required String subject,
+    required List<String> problemIds,
+    required int rightCount,
+    required int wrongCount,
+    DateTime? now,
+  }) async {
+    final ts = now ?? DateTime.now();
+    final id = 'practice-${ts.microsecondsSinceEpoch}';
+    await db.into(db.papers).insert(
+          PapersCompanion.insert(
+            id: id,
+            title: title,
+            subject: subject,
+            config: jsonEncode({
+              'kind': 'lesson_practice',
+              'right': rightCount,
+              'wrong': wrongCount,
+            }),
+            items: jsonEncode([
+              for (var i = 0; i < problemIds.length; i++)
+                {'problemId': problemIds[i], 'no': i + 1},
+            ]),
+            createdAt: Value(ts),
+          ),
+        );
+    return id;
+  }
+
   /// 删除一份卷子。
   Future<void> delete(String paperId) async {
     await (db.delete(db.papers)..where((t) => t.id.equals(paperId))).go();

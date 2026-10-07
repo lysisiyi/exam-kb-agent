@@ -51,7 +51,12 @@ Future<List<String>> matchProblemsForNotes(WidgetRef ref, List<String> keywords,
 /// 逐题作答页（D9：亮答案 → 自评对/错）。
 class LessonRunnerPage extends ConsumerStatefulWidget {
   final List<String> problemIds;
-  const LessonRunnerPage({super.key, required this.problemIds});
+
+  /// 课时标题（写进练习记录，历史列表可回溯"练的是哪一节"）。
+  final String lessonTitle;
+
+  const LessonRunnerPage(
+      {super.key, required this.problemIds, this.lessonTitle = '课时练习'});
 
   @override
   ConsumerState<LessonRunnerPage> createState() => _LessonRunnerPageState();
@@ -95,11 +100,27 @@ class _LessonRunnerPageState extends ConsumerState<LessonRunnerPage> {
       await repo.recordWrong(id);
     }
     if (_index + 1 >= widget.problemIds.length) {
+      // 收尾：把本轮结果落进 papers（失败不吞——结算页如实显示）
+      String? saveError;
+      try {
+        final repo = await ref.read(paperRepositoryProvider.future);
+        await repo.savePractice(
+          title: '课时练习 · ${widget.lessonTitle}',
+          subject: ref.read(currentSubjectProvider).id,
+          problemIds: widget.problemIds,
+          rightCount: _right.length,
+          wrongCount: _wrong.length,
+        );
+        ref.invalidate(paperHistoryProvider);
+      } catch (e) {
+        saveError = '$e';
+      }
       if (!mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
           builder: (_) => _RunnerDone(
                 right: _right,
                 wrong: _wrong,
+                saveError: saveError,
               )));
       return;
     }
@@ -278,7 +299,12 @@ class _AnswerReveal extends StatelessWidget {
 class _RunnerDone extends StatelessWidget {
   final List<String> right;
   final List<String> wrong;
-  const _RunnerDone({required this.right, required this.wrong});
+
+  /// 记录落 papers 失败时的原因（null = 已保存成功）。
+  final String? saveError;
+
+  const _RunnerDone(
+      {required this.right, required this.wrong, this.saveError});
 
   @override
   Widget build(BuildContext context) {
@@ -304,6 +330,17 @@ class _RunnerDone extends StatelessWidget {
                   fontSize: 12.5,
                   height: 1.7,
                   color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 8),
+            Text(
+              saveError == null
+                  ? '✓ 练习记录已保存（练习页「最近练习」可见）'
+                  : '本次记录没保存上：$saveError',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 11.5,
+                  color: saveError == null
+                      ? AppColors.success
+                      : AppColors.danger)),
             const SizedBox(height: 18),
             FilledButton(
                 onPressed: () => Navigator.of(context)
