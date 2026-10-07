@@ -3,9 +3,9 @@
 > 写给下一个接手开发的 agent。**先读完这份再动代码。**
 > 更新时间：2026-10-05（主链路收口后）。当前测试基线：**1131 全绿**、`flutter analyze` 零输出。
 >
-> ⚠️ **开发工作副本位置：`D:\agent\workspaces\study_V3`**（本交接文档随仓库一同
-> 克隆过去）。请在 study_V3 里开发；`kaoyan-math-agent` 目录保留为完整历史副本，
-> 如需合并改动：`git pull D:\agent\workspaces\kaoyan-math-agent`。
+> ⚠️ **仓库事实源：`kaoyan-math-agent`（唯一开发源）。** `D:\agent\workspaces\study_V3`
+> 是它的镜像副本（在那里 `git pull` 同步即可），**不要在那里开发**——曾双源并行
+> 造成一次分叉丢码（详见 PROGRESS 2026-10-05 收口条目）。
 
 ---
 
