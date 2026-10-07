@@ -22,8 +22,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/knowledge_md/knowledge_md_store.dart';
 import '../../domain/knowledge/knowledge_point.dart';
+import '../../services/knowledge/kb_outline_writer.dart';
 import '../../services/profile/mastery_service.dart';
 import 'knowledge_leaf_detail.dart';
 import 'knowledge_node_style.dart';
@@ -373,8 +376,10 @@ class _EditorHeader extends StatelessWidget {
             icon: Icons.add,
             label: '新建学科（向导）',
             primary: true,
-            onTap: () =>
-                _notYet(context, '建库向导随 K2 上线（当前可手动建 knowledge/ 文件夹）'),
+            onTap: () => showDialog<void>(
+              context: context,
+              builder: (_) => const _NewKbWizardDialog(),
+            ),
           ),
         ],
       ),
@@ -639,6 +644,192 @@ class _Stat extends StatelessWidget {
         Text(label,
             style: const TextStyle(
                 fontSize: KnowledgeSizes.secondary, color: kSecondaryInk)),
+      ],
+    );
+  }
+}
+
+/// 建库向导：课程名 →（AI 骨架 / 空白）→ 预览 → 落盘并切换。
+class _NewKbWizardDialog extends ConsumerStatefulWidget {
+  const _NewKbWizardDialog();
+
+  @override
+  ConsumerState<_NewKbWizardDialog> createState() =>
+      _NewKbWizardDialogState();
+}
+
+class _NewKbWizardDialogState extends ConsumerState<_NewKbWizardDialog> {
+  final _name = TextEditingController();
+  final _note = TextEditingController();
+  bool _busy = false;
+  String? _error;
+  KbOutlineResult? _outline;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  Future<void> _generate() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = '先填课程名');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final client =
+          ref.read(ingestClientProvider) ?? ref.read(chatClientProvider);
+      if (client == null) {
+        setState(() => _error = '先到「设置」里配好 AI 服务商（文本模型即可）');
+        return;
+      }
+      final result = await generateKbOutline(client,
+          courseName: name, note: _note.text.trim());
+      if (result == null) {
+        setState(() => _error = '模型没给出可用目录，换个课程名再试');
+        return;
+      }
+      setState(() => _outline = result);
+    } catch (e) {
+      setState(() => _error = '生成失败：$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _blank() {
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = '先填课程名');
+      return;
+    }
+    // 空白建库 = 一棵最小骨架（章→节→知识点），后面在树里自己长
+    setState(() => _outline = KbOutlineResult(
+          title: name,
+          outline: [
+            const KbOutlineNode(
+              name: '第一章 待填写',
+              children: [
+                KbOutlineNode(
+                    name: '第一节 待填写',
+                    children: [KbOutlineNode(name: '第一个知识点（待填写）')]),
+              ],
+            ),
+          ],
+        ));
+  }
+
+  Future<void> _confirm() async {
+    final outline = _outline;
+    if (outline == null) return;
+    setState(() => _busy = true);
+    try {
+      final store = await ref.read(knowledgeMdStoreProvider.future);
+      final slug = KnowledgeMdStore.slugify(outline.title);
+      final (files, leaves) = store.createFromOutline(
+        slug: slug,
+        title: outline.title,
+        outline: outline.outline,
+      );
+      ref.invalidate(knowledgeBasesProvider);
+      ref.read(currentKnowledgeBaseIdProvider.notifier).state = slug;
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                '已创建「${outline.title}」：$files 个文件 / $leaves 个知识点（骨架待填）')));
+      }
+    } catch (e) {
+      setState(() => _error = '创建失败：$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final outline = _outline;
+    return AlertDialog(
+      title: Text(outline == null ? '新建知识库' : '确认目录骨架'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (outline == null) ...[
+              TextField(
+                controller: _name,
+                autofocus: true,
+                decoration: const InputDecoration(
+                    hintText: '课程名（如：武忠祥高等数学基础班）'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _note,
+                decoration: const InputDecoration(
+                    hintText: '可选：考试科目 / 目标 / 教材（给 AI 的补充说明）'),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'AI 只生成"章 → 节 → 知识点"的目录骨架（不写内容），确认后才落盘；'
+                '也可以空白建库，之后在树里自己添。',
+                style: TextStyle(fontSize: 11.5, height: 1.6, color: AppColors.ink3),
+              ),
+            ] else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 360),
+                child: SingleChildScrollView(
+                  child: SelectableText(
+                    outlinePreview(outline.outline),
+                    style: const TextStyle(
+                        fontFamily: AppFonts.mono,
+                        fontFamilyFallback: AppFonts.monoFallback,
+                        fontSize: 12,
+                        height: 1.7),
+                  ),
+                ),
+              ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!,
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.danger)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: _busy ? null : () => Navigator.of(context).pop(),
+            child: const Text('取消')),
+        if (outline == null) ...[
+          TextButton(
+              onPressed: _busy ? null : _blank, child: const Text('空白建库')),
+          FilledButton(
+            onPressed: _busy ? null : _generate,
+            child: _busy
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('AI 生成骨架'),
+          ),
+        ] else ...[
+          TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => setState(() => _outline = null),
+              child: const Text('返回重来')),
+          FilledButton(
+              onPressed: _busy ? null : _confirm, child: const Text('确认建库')),
+        ],
       ],
     );
   }

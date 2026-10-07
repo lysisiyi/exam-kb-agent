@@ -317,4 +317,58 @@ id: x
           reason: '叶子不能当父级');
     });
   });
+
+  group('建库向导（createFromOutline）', () {
+    test('骨架落盘：id 按 slug 前缀、章下全叶子自动补节、叶子计数', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      final (files, leaves) = store.createFromOutline(
+        slug: 'wzx-test',
+        title: '测试课程',
+        outline: [
+          const KbOutlineNode(name: '第一章 函数', children: [
+            KbOutlineNode(name: '第一节 概念', children: [
+              KbOutlineNode(name: '函数定义'),
+              KbOutlineNode(name: '函数的性质'),
+            ]),
+          ]),
+          const KbOutlineNode(name: '第二章 极限', children: [
+            KbOutlineNode(name: '极限概念'),
+            KbOutlineNode(name: '无穷小量'),
+          ]),
+        ],
+      );
+      expect(leaves, 4);
+      final (kb, warnings) = store.loadTree('wzx-test');
+      expect(warnings, isEmpty);
+      expect(kb, isNotNull);
+      // 第二章下直接挂叶子 → 自动补了一层"极限"节（id 深度 +1）
+      final id2 = kb!.byId['wzx-test.2.1.1'];
+      expect(id2, isNotNull, reason: '自动补节后叶子在第四节深层');
+      expect(id2!.isLeaf, isTrue);
+      expect(kb.byId['wzx-test.1.1']!.isLeaf, isFalse);
+      expect(files, greaterThan(6));
+      // 骨架与来源标注
+      final f = store.fileOf('wzx-test', 'wzx-test.1.1.1')!;
+      final text = f.readAsStringSync();
+      expect(text, contains('status: skeleton'));
+      expect(text, contains('source: outline'));
+    });
+
+    test('slugify：ASCII 名转 slug；纯中文回退时间戳 id', () {
+      expect(KnowledgeMdStore.slugify('Data Structure 408'), 'data-structure-408');
+      expect(KnowledgeMdStore.slugify('数据结构'), startsWith('kb-'));
+    });
+
+    test('重名知识库拒绝创建', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      store.createFromOutline(
+          slug: 'dup',
+          title: 'x',
+          outline: [const KbOutlineNode(name: '第一章')]);
+      expect(
+          () => store.createFromOutline(
+              slug: 'dup', title: 'x', outline: [const KbOutlineNode(name: '第一章')]),
+          throwsStateError);
+    });
+  });
 }

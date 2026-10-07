@@ -320,6 +320,119 @@ class KnowledgeMdStore {
     ].join('\n');
   }
 
+  // ── 建库向导（K2）：从大纲创建整棵新知识库 ──────────────────────────────
+
+  /// 大纲节点（章/节/知识点，任意深度）。
+  ///
+  /// 与 `tools/data/build_kb_from_outline.py` 的输出同构——那个脚本负责
+  /// "仓库外批量生成"，这里负责 App 内向导；两处布局必须一致，
+  /// 否则同一棵树经两条路会长得不一样。
+  static String slugify(String title) {
+    final ascii = title
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '')
+        .toLowerCase();
+    if (ascii.length >= 3) return ascii;
+    return 'kb-${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}';
+  }
+
+  /// 从大纲创建知识库。返回（文件数, 叶子数）。
+  ///
+  /// - 章下**全是叶子**时自动补一层"节"（App 用 id 段数判层级，
+  ///   缺中间层会让章节统计/编号错位——与 Python 生成器同一规则）。
+  /// - 骨架 status=skeleton、source=outline。
+  (int files, int leaves) createFromOutline({
+    required String slug,
+    required String title,
+    required List<KbOutlineNode> outline,
+  }) {
+    final kbDir = subjectDir(slug);
+    if (kbDir.existsSync()) {
+      throw StateError('知识库「$slug」已存在');
+    }
+    kbDir.createSync(recursive: true);
+    File(p.join(kbDir.path, '_subject.md')).writeAsStringSync([
+      '---',
+      'id: $slug',
+      'subject: $slug',
+      'subject_name: $title',
+      'version: 0.1.0+outline',
+      'level: 1',
+      'is_leaf: false',
+      '---',
+      '',
+      '# $title',
+      '',
+    ].join('\n'));
+
+    var files = 1;
+    var leaves = 0;
+    for (var i = 0; i < outline.length; i++) {
+      final (f, l) = _writeOutlineNode(
+          kbDir, _normalizeOutline(outline[i]), i + 1, '$slug.${i + 1}', 2);
+      files += f;
+      leaves += l;
+    }
+    return (files, leaves);
+  }
+
+  /// 章下全是叶子 → 包一层同名节（节名去掉"第X章 "前缀）。
+  static KbOutlineNode _normalizeOutline(KbOutlineNode node) {
+    final kids = node.children;
+    if (kids.isNotEmpty && kids.every((k) => k.children.isEmpty)) {
+      final secName =
+          node.name.replaceFirst(RegExp(r'^第[一二三四五六七八九十]+[章节]\s*'), '');
+      return KbOutlineNode(
+          name: node.name,
+          children: [KbOutlineNode(name: secName, children: kids)]);
+    }
+    return KbOutlineNode(
+        name: node.name,
+        children: [for (final k in kids) _normalizeOutline(k)]);
+  }
+
+  (int, int) _writeOutlineNode(Directory parentDir, KbOutlineNode node, int seq,
+      String nodeId, int depth) {
+    final safe = node.name.replaceAll(RegExp(r'[\/:*?"<>|]'), '_');
+    final isLeaf = node.children.isEmpty;
+    if (isLeaf) {
+      final f = File(p.join(
+          parentDir.path, '${seq.toString().padLeft(2, '0')}-$safe.md'));
+      f.writeAsStringSync(_outlineFrontmatter(nodeId, node.name, depth, true));
+      return (1, 1);
+    }
+    final dir = Directory(
+        p.join(parentDir.path, '${seq.toString().padLeft(2, '0')}-$safe'));
+    dir.createSync(recursive: true);
+    File(p.join(dir.path, '${seq.toString().padLeft(2, '0')}-$safe.md'))
+        .writeAsStringSync(_outlineFrontmatter(nodeId, node.name, depth, false));
+    var files = 1;
+    var leaves = 0;
+    for (var i = 0; i < node.children.length; i++) {
+      final (f, l) = _writeOutlineNode(
+          dir, node.children[i], i + 1, '$nodeId.${i + 1}', depth + 1);
+      files += f;
+      leaves += l;
+    }
+    return (files, leaves);
+  }
+
+  String _outlineFrontmatter(
+          String id, String name, int depth, bool isLeaf) =>
+      [
+        '---',
+        'id: $id',
+        'name: $name',
+        'level: $depth',
+        'is_leaf: ${isLeaf ? 'true' : 'false'}',
+        'status: skeleton',
+        'source: outline',
+        '---',
+        '',
+        '# $name',
+        '',
+      ].join('\n');
+
   // ── 节点编辑（K2 编辑器：增 / 改名 / 删） ────────────────────────────────
 
   /// 在 [parentId] 下新建一个叶子节点。返回写出的文件。
@@ -730,4 +843,13 @@ String appendLessonNote(
   if (!text.endsWith('\n')) b.writeln();
   b..writeln()..writeln(sectionHead)..writeln()..writeln(entry)..writeln();
   return b.toString();
+}
+
+
+/// 大纲节点（建库向导的输入）。
+class KbOutlineNode {
+  final String name;
+  final List<KbOutlineNode> children;
+
+  const KbOutlineNode({required this.name, this.children = const []});
 }
