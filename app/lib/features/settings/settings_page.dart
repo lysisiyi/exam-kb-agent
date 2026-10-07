@@ -112,6 +112,40 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ),
         const SizedBox(height: 10),
 
+        // ── 桌宠 ──────────────────────────────────────────────────────
+        _Section(
+          title: '桌宠',
+          children: [
+            Consumer(builder: (context, ref, _) {
+              final skin =
+                  ref.watch(petSkinProvider).valueOrNull ?? 'zhipu.png';
+              return Row(
+                children: [
+                  Image.asset('assets/pets/$skin',
+                      width: 44, fit: BoxFit.contain),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                      child: Text('小研（默认）', style: TextStyle(fontSize: 13))),
+                  DropdownButton<String>(
+                    value: skin,
+                    items: const [
+                      DropdownMenuItem(value: 'zhipu.png', child: Text('小研 · 智谱')),
+                      DropdownMenuItem(value: 'claude.png', child: Text('Claude 皮')),
+                    ],
+                    onChanged: (v) async {
+                      if (v == null) return;
+                      final db = await ref.read(databaseProvider.future);
+                      await db.writeMeta('pet_skin', v);
+                      ref.invalidate(petSkinProvider);
+                    },
+                  ),
+                ],
+              );
+            }),
+          ],
+        ),
+        const SizedBox(height: 18),
+
         // ── AI 服务商 ──────────────────────────────────────────────────
         // 之前全应用唯一的配置入口藏在录入页的 AI 按钮里，而对话页/导入页
         // 的文案都在说"到设置里填 Key"—— 用户跟着指引走会找不到入口。

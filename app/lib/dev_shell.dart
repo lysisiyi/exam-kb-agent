@@ -114,24 +114,14 @@ class _SidebarFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-            gradient: const LinearGradient(
-              colors: [Color(0xFFC05A17), Color(0xFFE8833A)],
-            ),
-          ),
-          alignment: Alignment.center,
-          child: const Text(
-            '研',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: Consumer(builder: (context, ref, _) {
+            final skin =
+                ref.watch(petSkinProvider).valueOrNull ?? 'zhipu.png';
+            return Image.asset('assets/pets/$skin',
+                width: 30, height: 30, fit: BoxFit.cover);
+          }),
         ),
         const SizedBox(width: 9),
         const Expanded(
@@ -140,11 +130,11 @@ class _SidebarFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '研伴 · V3',
+                '小研 · 待命',
                 style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
               ),
               Text(
-                'P0 · 骨架与设计语言',
+                '研伴 V3 · 随时开始伴学',
                 style: TextStyle(fontSize: 10.5, color: Color(0xFF8F887C)),
               ),
             ],

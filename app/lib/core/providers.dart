@@ -216,6 +216,21 @@ final paperLabelsProvider = FutureProvider<PaperLabels>((ref) async {
   return repo.labels();
 });
 
+/// 桌宠皮肤（meta_entries 的 `pet_skin`，值=assets/pets/ 下的文件名）。
+/// 默认 zhipu（小研）。换皮后 invalidate 它，宠物窗口下次召唤生效。
+final petSkinProvider = FutureProvider<String>((ref) async {
+  final db = await ref.watch(databaseProvider.future);
+  final rows = await db.select(db.metaEntries).get();
+  final meta = {for (final r in rows) r.key: r.value};
+  final v = meta['pet_skin'] ?? '';
+  return v.isEmpty ? 'zhipu.png' : v;
+});
+
+/// 全局热键「记一下」的事件源：hotkey 插件在主窗口收到按键后
+/// 往这里发序号；当前打开的课时页监听它决定是否截屏。
+/// 用序号而不是 bool——同一帧可能连按两次，都要各自截。
+final recordHotkeySignal = ValueNotifier<int>(0);
+
 /// 已保存的卷子历史。
 final paperHistoryProvider = FutureProvider<List<PaperRow>>((ref) async {
   final repo = await ref.watch(paperRepositoryProvider.future);
