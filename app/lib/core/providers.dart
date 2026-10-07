@@ -44,27 +44,63 @@ final knowledgeRepositoryProvider = Provider<KnowledgeRepository>(
   (ref) => KnowledgeRepository.instance,
 );
 
-/// 当前科目的知识点本体。异步载入，带缓存。
+/// 当前知识库 id（= `knowledge/` 下的目录名）。
+///
+/// 「根据不同的课程构建不同的知识库」的落点：切换它即切换整棵知识树。
+/// 默认 `math1`（与 [currentSubjectProvider] 的默认一致，保证既有行为不变）。
+/// 注：组卷/打标等仍按 `currentSubjectProvider`（math1/2/3）走 —— 自定义课程
+/// 库目前只驱动知识库自身的浏览与编辑。
+final currentKnowledgeBaseIdProvider = StateProvider<String>((ref) => 'math1');
+
+/// 全部可用知识库：扫描 `knowledge/` 下含 `_subject.md` 的目录。
+final knowledgeBasesProvider =
+    FutureProvider<List<({String id, String label})>>((ref) async {
+  final paths = await ref.watch(libraryPathsProvider.future);
+  final root = Directory(
+      '${paths.root.path}${Platform.pathSeparator}knowledge');
+  if (!root.existsSync()) return const [];
+  final out = <({String id, String label})>[];
+  for (final d in root.listSync().whereType<Directory>()) {
+    final f = File('${d.path}${Platform.pathSeparator}_subject.md');
+    if (!f.existsSync()) continue;
+    final text = f.readAsStringSync();
+    final label = RegExp(r'^subject_name:\s*(.+)$', multiLine: true)
+            .firstMatch(text)
+            ?.group(1)
+            ?.trim() ??
+        d.path.split(Platform.pathSeparator).last;
+    out.add((id: d.path.split(Platform.pathSeparator).last, label: label));
+  }
+  out.sort((a, b) => a.label.compareTo(b.label));
+  return out;
+});
+
+/// 当前知识库的知识点本体。异步载入，带缓存。
 ///
 /// ## 数据源优先级（K1）
 ///
-/// 1. `<库根>/knowledge/` 下的 Markdown 文件夹（Obsidian 形态，用户可手改）；
-/// 2. 不存在时：载入内置 JSON 资产，并**顺带种子导入**为 Markdown——
-///    导入失败不阻断（下次启动重试），本次仍返回 JSON 数据。
+/// 1. `<库根>/knowledge/<当前库 id>/`（Obsidian 形态，用户/生成器产出的都在这）；
+/// 2. 内置科目（math1/2/3）不存在时：载入内置 JSON 资产并**顺带种子导入**；
+///    自定义课程库没有 JSON 可回退 —— 读不出就明确报错，不静默空白。
 /// id 在导入时原样保留，题目关联零丢失（D14 硬验收）。
 final knowledgeBaseProvider = FutureProvider<KnowledgeBase>((ref) async {
-  final subject = ref.watch(currentSubjectProvider);
+  final id = ref.watch(currentKnowledgeBaseIdProvider);
   final paths = await ref.watch(libraryPathsProvider.future);
   final mdStore = KnowledgeMdStore(
       root: Directory('${paths.root.path}${Platform.pathSeparator}knowledge'));
-  if (mdStore.isImported(subject.id)) {
-    final (kb, warnings) = mdStore.loadTree(subject.id);
+  if (mdStore.isImported(id)) {
+    final (kb, warnings) = mdStore.loadTree(id);
     if (kb != null) return kb;
-    // md 在但读不出：带着警告回落 JSON，绝不静默当一切正常
+    // md 在但读不出：带着警告继续，绝不静默当一切正常
     for (final w in warnings) {
       debugPrint('knowledge_md: $w');
     }
+    if (!const {'math1', 'math2', 'math3'}.contains(id)) {
+      throw StateError('知识库「$id」读不出来（_subject.md 缺失或损坏）');
+    }
   }
+  final subject = Subject.values.firstWhere((s) => s.id == id,
+      orElse: () => Subject.math1);
   final kb = await ref.watch(knowledgeRepositoryProvider).load(subject);
   try {
     await mdStore.importTree(kb);

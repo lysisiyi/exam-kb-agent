@@ -92,13 +92,18 @@ class KnowledgeMdStore {
 
   /// 从文件夹重建 [KnowledgeBase]。文件缺失/坏 frontmatter 的文件**跳过并
   /// 返回警告**（宽容解析纪律），绝不静默丢节点——见返回值第二项。
-  (KnowledgeBase?, List<String>) loadTree(String subject) {
-    final dir = subjectDir(subject);
+  (KnowledgeBase?, List<String>) loadTree(String subject) =>
+      loadTreeAt(subjectDir(subject));
+
+  /// 直接从一个目录加载（多知识库：目录名即库 id，不必在 subjectDirNames 里）。
+  (KnowledgeBase?, List<String>) loadTreeAt(Directory dir) {
+    // 目录名即"科目 id"（多知识库下这就是库 id）
+    final subject = p.basename(dir.path);
     if (!dir.existsSync()) return (null, const []);
     final warnings = <String>[];
     final subjectFile = File(p.join(dir.path, '_subject.md'));
     if (!subjectFile.existsSync()) {
-      return (null, ['缺 _subject.md，科目 $subject 无法加载']);
+      return (null, ['缺 _subject.md，知识库 $subject 无法加载']);
     }
     final sfm = _Frontmatter.parse(subjectFile.readAsStringSync());
 

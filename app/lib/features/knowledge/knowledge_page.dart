@@ -245,6 +245,49 @@ class _PaneCard extends StatelessWidget {
   }
 }
 
+/// 知识库切换器：学科 chip + 下拉（列出 knowledge/ 下全部库）。
+class _KbSwitcher extends ConsumerWidget {
+  final String currentName;
+  const _KbSwitcher({required this.currentName});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentId = ref.watch(currentKnowledgeBaseIdProvider);
+    final bases = ref.watch(knowledgeBasesProvider).valueOrNull ?? const [];
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.primaryWeak,
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Text(currentName,
+            style: const TextStyle(
+                fontSize: KnowledgeSizes.secondary,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primaryStrong)),
+        const Icon(Icons.arrow_drop_down,
+            size: 16, color: AppColors.primaryStrong),
+      ]),
+    );
+    if (bases.length <= 1) return chip; // 只有一个库时不做假入口
+    return PopupMenuButton<String>(
+      tooltip: '切换知识库',
+      onSelected: (id) =>
+          ref.read(currentKnowledgeBaseIdProvider.notifier).state = id,
+      itemBuilder: (_) => [
+        for (final b in bases)
+          CheckedPopupMenuItem(
+            value: b.id,
+            checked: b.id == currentId,
+            child: Text(b.label, style: const TextStyle(fontSize: 13)),
+          ),
+      ],
+      child: chip,
+    );
+  }
+}
+
 /// 页头：知识库 + 学科 chip + 状态 chips + 动作按钮（参考图第一行）。
 class _EditorHeader extends StatelessWidget {
   final KnowledgeBase kb;
@@ -272,19 +315,8 @@ class _EditorHeader extends StatelessWidget {
                         overflow: TextOverflow.ellipsis),
                   ),
                   const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryWeak,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Text(kb.subjectName,
-                        style: const TextStyle(
-                            fontSize: KnowledgeSizes.secondary,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primaryStrong)),
-                  ),
+                  // 知识库切换（多课程 → 多知识库）：点学科 chip 换一棵树。
+                  _KbSwitcher(currentName: kb.subjectName),
                 ]),
                 const SizedBox(height: 6),
                 Wrap(
