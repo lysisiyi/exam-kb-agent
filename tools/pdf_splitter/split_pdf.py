@@ -25,21 +25,139 @@ import time
 from pathlib import Path
 
 import pymupdf
+from PIL import Image
 from rapidocr_onnxruntime import RapidOCR
 
 ANCHOR_FULL = re.compile(r"^(\d{1,4})[.、．]\s*$")          # `12.` 独立成行
 ANCHOR_BARE = re.compile(r"^(\d{1,4})\s*$")                  # `497` 裸数字（做题本红块）
 ANCHOR_WITH_TEXT = re.compile(r"^(\d{1,4})[.、．]\s*(\S.*)$")  # `5.设A为三阶矩阵…`（锚与题干同行）
+# 武忠祥做题本：`【P7例2】以下四个命题…`（讲义页码 + 例题号，含空格容错）
+WZX_ANCHOR = re.compile(r"^[【\[]\s*P\s*(\d{1,4})\s*例\s*(\d{1,4})\s*[】\]]")
 MAX_QNUM = 2000
+
+
+def _inline_rest_ok(rest: str) -> bool:
+    """`N.` 与题干同行时，判定后面那段文本是不是题干。
+
+    ## 为什么只看首字符，不看长度
+
+    这里曾经是 `len(rest) > 4` —— 它的本意是挡掉 `3.5`、`2.8倍` 这类
+    OCR 把小数读成「序号 3 + 内容 5」的假锚点。但这个阈值同时挡掉了
+    **大量真题干**：`7.求lim`（rest=`求lim`，4 字符）、`15.曲线`（2 字符）、
+    `14.设A =`（4 字符）全都不 `> 4` —— 这些页于是被判「无锚点」，
+    整页内容被当成上一题的延续（或直接丢弃）。
+
+    2026-10-07 实测量化：1800gd 86 页只切出 38 题、另 46 个真题干被拒；
+    zy1000 808 题另有 75 个被拒；1800xd 156 题另有 33 个被拒 ——
+    这正是「题库很多题缺失」的直接原因。
+
+    假锚点的真实特征是**首字符是数字**（小数/编号），而不是短。
+    """
+    rest = rest.strip()
+    return bool(rest) and not rest[0].isdigit()
+
+
+def find_anchors_wzx(lines: list, page_w: float, page_h: float):
+    """武忠祥讲义做题本的锚点：`【P7例2】` 行。
+
+    不做单调过滤 —— 题号是「讲义页码 P + 例号」的复合体，例号跨章会重启，
+    `P` 页码也非本题册页码。每个匹配到的标记就是一道新例题。
+    例题号只用于 qid 命名（同页不会重复），引用页码存进 `p_ref`。
+    """
+    out = []
+    for x0, y0, x1, y1, text, conf in lines:
+        if conf < 0.5 or y0 > page_h * 0.94:
+            continue
+        m = WZX_ANCHOR.match(text)
+        if not m:
+            continue
+        p_ref, ex_num = int(m.group(1)), int(m.group(2))
+        if not (0 < ex_num <= MAX_QNUM):
+            continue
+        rest = text[m.end():].strip()
+        out.append({"num": ex_num, "x0": x0, "y": y0, "text": text,
+                    "inline": rest or None, "p_ref": p_ref})
+    return out
+
+
+_TOC_LINE = re.compile(r"第[一二三四五六七八九十百0-9]{1,4}\s*[章节]")
+# ⚠️ 不要放进页脚水印词（关注公众号/免费考研/免费分享/无水印）—— 它们在
+# 正文页的页脚也出现，会把正文页误判成前置页。这里只保留版权/目录实词。
+_FRONT_MARK = re.compile(
+    r"目录|版权|图书在版编目|CIP|出版社|出版发行|ISBN|主编|副主编")
+
+
+def _is_front_matter(lines: list, pno: int) -> bool:
+    """封面 / 版权 / 目录 / 前言页：整页跳过（不产题、不挂延续段）。
+
+    这些页都在书的最前面且带明显的关键词。此前它们会被当成「上一题的
+    延续」挂给下一页首题 —— 题图从页顶切开、题目文本里混进整页目录/版权
+    文字（1800xd 第 1 题、zy1000 第 1 题都被这样污染过）；封面的裸数字
+    还会被 workbook 规则当成题号产假题（660gs_p000_q1700）。
+
+    ⚠️ pno == 0（第 1 页）无条件视为前置页；**不要**扩大到 pno < 2 ——
+    wzx 的第 2 页（pno=1）就是正文首页（例 1/2/3 在那里），曾因此丢 8 题。
+    """
+    if pno == 0:
+        return True
+    if pno >= 6:
+        return False
+    text = " ".join(l[4] for l in lines)
+    if _FRONT_MARK.search(text):
+        return True
+    # 章节标题要**成片**才算目录 —— 正文页正文里也有「第一章」「第一节函数」
+    # 这类标题（wzx 第 2 页就是），单次命中会把整页误杀。
+    return sum(1 for l in lines if _TOC_LINE.search(l[4])) >= 3
+
+
+def _render_clip(doc, pno: int, box, W, H):
+    """按 PDF-pt bbox 渲染单页区域（zoom=3）为 PIL 图。"""
+    x0, y0, x1, y1 = box
+    clip = pymupdf.Rect(max(0, x0), max(0, y0), min(W - 1, x1), min(H - 1, y1))
+    if clip.is_empty or clip.width < 30 or clip.height < 20:
+        return None
+    pix = doc[pno].get_pixmap(matrix=pymupdf.Matrix(3, 3), clip=clip)
+    return Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+
+
+def _stitch(doc, prev_pno: int, pbox, pno: int, cbox, out, W, H) -> bool:
+    """跨页题：上一页延续段 + 当前页首题，纵向拼成一张图。
+
+    题目跨页时，前半在上一页的图里并不存在 —— 早先的实现只把文本并进
+    md、像素直接丢弃（`min(pbox[0], rb[1])` 那个 bbox 合成是坐标混用，
+    并不会把上一页的像素带过来）。这里真正把两段图拼起来，
+    中间加一条 24px 分隔线。
+    """
+    p_img = _render_clip(doc, prev_pno, pbox, W, H)
+    c_img = _render_clip(doc, pno, cbox, W, H)
+    if p_img is None or c_img is None:
+        return False
+    w = max(p_img.width, c_img.width)
+    gap = 24
+    canvas = Image.new("RGB", (w, p_img.height + gap + c_img.height), "white")
+    canvas.paste(p_img, (0, 0))
+    canvas.paste(c_img, (0, p_img.height + gap))
+    canvas.save(str(out))
+    return True
+
+# PDF 目录：旧路径 D:/study/数学/考研数学/ 已不存在（2026-10-05 全量
+# 迁移到「考研数学教材参考」），这里跟着迁。⚠️「660 高数」文件名 `.pdf`
+# 前有一个空格，是真实文件名，别"顺手"去掉。
+_PDF_DIR = "D:/study/数学/考研数学教材参考"
 
 BOOK_DEFAULTS = {
     # tag: (源文件, 样式提示, 页码范围 0-based [start, end))
-    "zy1000": ("D:/study/数学/考研数学/27张宇1000题数二-试题册【公众号：考研小舟】免费分享.pdf",
+    "zy1000": (f"{_PDF_DIR}/27张宇1000题数二-试题册【公众号：考研小舟】免费分享.pdf",
                "worksheet", (0, None)),
-    "660xd": ("D:/study/数学/考研数学/《基础过关660》-线代篇.pdf", "workbook", (0, None)),
-    "660gs": ("D:/study/数学/考研数学/《基础过关660》-高数篇 .pdf", "workbook", (0, None)),
-    "1800xd": ("D:/study/数学/考研数学/【Pad版】26汤家凤《1800题》基础篇-线代（数二）.pdf",
+    "660xd": (f"{_PDF_DIR}/《基础过关660》-线代篇.pdf", "workbook", (0, None)),
+    "660gs": (f"{_PDF_DIR}/《基础过关660》-高数篇 .pdf", "workbook", (0, None)),
+    "1800xd": (f"{_PDF_DIR}/【Pad版】26汤家凤《1800题》基础篇-线代（数二）.pdf",
                "landscape", (0, None)),
+    # 2026-10-05 新增：这两本此前从未切过（题库缺题的主因）
+    "1800gd": (f"{_PDF_DIR}/【Ipad版】26《汤家凤1800题》基础篇-高数（数二）【公众号：考研小舟】.pdf",
+               "landscape", (0, None)),
+    "wzx": (f"{_PDF_DIR}/【A4紧凑】27武忠祥强化辅导讲义做题本.pdf",
+            "wzx", (0, None)),
 }
 
 
@@ -62,6 +180,14 @@ def find_anchors(lines: list, page_w: float, page_h: float, style: str):
     锚点三条件：短数字文本、位于左带（x0 < 24% 页宽）、置信度够。
     单调过滤：同页内题号必须递增（张宇每章重新编号，允许从 <=5 的小号重启）。
     """
+    if style == "wzx":
+        out = find_anchors_wzx(lines, page_w, page_h)
+        if out:
+            return out
+        # 书末「附 26 真题」部分没有【P*例*】标记，用标准 worksheet 锚点
+        # （普通题号 `1.设x→0时…` / `19.(本题满分12分)`）。此前这段被
+        # wzx 专用规则整个漏掉 —— 判据按**页**分流，两种版式共存。
+        style = "worksheet"
     cands = []
     for x0, y0, x1, y1, text, conf in lines:
         if conf < 0.5 or y0 > page_h * 0.94:      # 页脚页码不算
@@ -73,7 +199,7 @@ def find_anchors(lines: list, page_w: float, page_h: float, style: str):
         if style == "workbook":
             m = m_bare
         elif style in ("worksheet", "landscape"):
-            m = m_full or (m_inline if m_inline and len(m_inline.group(2)) > 4 else None)
+            m = m_full or (m_inline if m_inline and _inline_rest_ok(m_inline.group(2)) else None)
             if m_inline and not m_full:
                 inline_rest = m_inline.group(2)
         else:
@@ -126,9 +252,23 @@ def split_page(lines: list, style: str, page_w: float, page_h: float):
                     "lines": cont_lines}
 
     for i, a in enumerate(anchors):
-        y_end = anchors[i + 1]["y"] - 4 if i + 1 < len(anchors) else None
+        # y_end：下一个**真正更靠下**的锚点。wzx 讲义是双栏排版，同一水平线
+        # 左右各有一道题（y 相同），直接取下一个锚点会算出负高度 region
+        # （产出空条目：wzx 曾有 9 个 md 没图也没文本）。
+        y_end = None
+        for b in anchors[i + 1:]:
+            if b["y"] > a["y"] + 8:
+                y_end = b["y"] - 4
+                break
+        # wzx 双栏：本栏图右界收在同高右邻锚点左侧，避免把隔壁栏切进来
+        x1_lim = page_w - 20
+        if style == "wzx":
+            for b in anchors:
+                if abs(b["y"] - a["y"]) <= 8 and b["x0"] > a["x0"]:
+                    x1_lim = min(x1_lim, b["x0"] - 8)
+                    break
         # 做题本：难度/答题区框是天然下界
-        if style in ("workbook", "landscape", "worksheet"):
+        if style in ("workbook", "landscape", "worksheet", "wzx"):
             for x0, y0, x1, y1, text, conf in body:
                 if y0 > a["y"] + 8 and (y_end is None or y0 < y_end) and (
                         text.startswith("难度") or text.startswith("答题区")):
@@ -137,15 +277,19 @@ def split_page(lines: list, style: str, page_w: float, page_h: float):
         if y_end is None:
             in_reg = [l for l in body if l[1] > a["y"] - 2]
             y_end = (max(l[3] for l in in_reg) + 10) if in_reg else a["y"] + 60
-        reg_lines = [l for l in body if a["y"] - 2 <= l[1] < y_end]
-        regions.append((a, (a["x0"] - 16, a["y"] - 6, page_w - 20, y_end), reg_lines))
+        x0_lim = a["x0"] - 16
+        reg_lines = [l for l in body
+                     if a["y"] - 2 <= l[1] < y_end
+                     and l[0] >= x0_lim - 2
+                     and (style != "wzx" or l[2] <= x1_lim + 40)]
+        regions.append((a, (x0_lim, a["y"] - 6, x1_lim, y_end), reg_lines))
     return regions, cont
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tag", required=True, choices=list(BOOK_DEFAULTS))
-    ap.add_argument("--out", default="D:/study/数学/考研数学/split_out")
+    ap.add_argument("--out", default="D:/study/数学/考研数学教材参考/split_out")
     ap.add_argument("--start", type=int, default=None, help="0-based 起始页（调试用）")
     ap.add_argument("--end", type=int, default=None, help="0-based 结束页（不含）")
     args = ap.parse_args()
@@ -165,7 +309,7 @@ def main() -> int:
     end = n_pages if end is None else min(end, n_pages)
     print(f"[{args.tag}] {pdf_path} 共{n_pages}页，处理 [{start},{end})，样式={style}")
 
-    t0, pending_cont = time.time(), None   # pending_cont: (prev_qid, bbox, lines)
+    t0, pending_cont = time.time(), None   # pending_cont: (prev_qid, prev_pno, bbox, lines)
     stats = {"pages": 0, "questions": 0, "conts": 0, "ocr_s": 0.0}
 
     for pno in range(start, end):
@@ -192,32 +336,53 @@ def main() -> int:
             stats["pages"] += 1
             continue
 
+        # 前置页（封面/版权/目录）：整页跳过 —— 不产题也不挂延续段。
+        # 封面上的「1700」这类裸数字曾被子工作本规则当成题号产出假题
+        # （660gs_p000_q1700），目录页内容也曾污染下一页首题（1800xd 第 1 题）。
+        if _is_front_matter(lines, pno):
+            pending_cont = None
+            stats["pages"] += 1
+            continue
+
         regions, cont = split_page(lines, style, W, H)
 
-        # 先把上一页的延续段贴到本页第一题（或独立成图）
+        # 先把上一页的延续段拼到本页第一题（或独立成图）
+        stitched_first = False
         if pending_cont:
-            prev_qid, pbox, plines = pending_cont
+            prev_qid, prev_pno, pbox, plines = pending_cont
             if regions:
                 a0 = regions[0][0]
-                qid = f"{args.tag}_p{pno:03d}_q{a0['num']:03d}"
+                qid_num0 = 1 if style == "wzx" else a0["num"]
+                qid = f"{args.tag}_p{pno:03d}_q{qid_num0:03d}"
                 rb = regions[0][1]
-                regions[0] = (a0, (rb[0], min(pbox[0], rb[1]), rb[2], rb[3]),
-                              plines + regions[0][2])
+                regions[0] = (a0, rb, plines + regions[0][2])
+                stitched_first = _stitch(doc, prev_pno, pbox, pno, rb,
+                                         img_dir / f"{qid}.png", W, H)
             else:
                 qid = prev_qid + "-cont"
-                _save_crop(pg, pbox, img_dir / f"{qid}.png", W, H)
+                _save_crop(doc[prev_pno], pbox, img_dir / f"{qid}.png", W, H)
                 stats["conts"] += 1
             _append_meta(root, prev_qid, qid, pno, plines)
             pending_cont = None
 
-        for a, bbox, reg_lines in regions:
+        for idx, (a, bbox, reg_lines) in enumerate(regions):
             # x 边界按区域内 OCR 行的实际范围取 —— 锚点固定偏移会把
             # 换行文本（比题号更靠左的段落边距）切掉半个字。
             if reg_lines:
                 bbox = (max(4, min(l[0] for l in reg_lines) - 10), bbox[1],
                         min(W - 5, max(l[2] for l in reg_lines) + 14), bbox[3])
-            qid = f"{args.tag}_p{pno:03d}_q{a['num']:03d}"
-            _save_crop(pg, bbox, img_dir / f"{qid}.png", W, H)
+            # wzx 的 qid 用「页内锚点序号」：例号在题型内会重启（同页可能
+            # 有两个「例 1」），用例号当 qid 会互相覆盖（曾 297 题只落 264 个文件）。
+            qid_num = (idx + 1) if style == "wzx" else a["num"]
+            qid = f"{args.tag}_p{pno:03d}_q{qid_num:03d}"
+            if idx == 0 and stitched_first:
+                pass                                   # 图已由 _stitch 写盘
+            elif bbox[3] - bbox[1] < 20 or bbox[2] - bbox[0] < 30:
+                # 区域太小：孤立数字/广告页上的假锚点，不是题
+                # （660gs 书末广告页的「150」曾产出一个空条目）
+                continue
+            else:
+                _save_crop(pg, bbox, img_dir / f"{qid}.png", W, H)
             _write_md(root, args.tag, qid, a, bbox, reg_lines, pno, style)
             stats["questions"] += 1
 
@@ -226,7 +391,7 @@ def main() -> int:
         # （目录/答案册），叠加会把几十页内容灌进一张图，直接丢弃。
         if cont and not regions:
             if pending_cont is None:
-                pending_cont = (last_qid(root, args.tag, pno),
+                pending_cont = (last_qid(root, args.tag, pno), pno,
                                 (cont["x0"], cont["y0"], cont["x1"], cont["y1"]),
                                 cont["lines"])
             else:
@@ -273,13 +438,20 @@ def _write_md(root: Path, tag: str, qid: str, a, bbox, lines, pno, style):
     text = " ".join(l[4] for l in lines if l[4])
     qtype = "fill" if ("__" in text or "____" in text) else "solve"
     src = {"zy1000": "张宇《1000题》数二 试题册", "660xd": "《660题》线代篇（做题本）",
-           "660gs": "《660题》高数篇（做题本）", "1800xd": "汤家凤《1800题》基础篇 线代（数二）"}[tag]
+           "660gs": "《660题》高数篇（做题本）", "1800xd": "汤家凤《1800题》基础篇 线代（数二）",
+           "1800gd": "汤家凤《1800题》基础篇 高数（数二）",
+           "wzx": "武忠祥《强化辅导讲义》做题本"}[tag]
+    # wzx 的 qid 是页内序号，例号要写进 source 才不丢（复习时能对上讲义）
+    if tag == "wzx" and a.get("p_ref"):
+        src = f"{src} P{a['p_ref']}例{a['num']}（第{pno + 1}页）"
+    else:
+        src = f"{src} 第{pno + 1}页"
     md = f"""---
 id: {qid}
 subject: math2
 qtype: {qtype}
 difficulty: 2
-source: {src} 第{pno + 1}页
+source: {src}
 source_type: textbook
 images_primary: true
 images:
