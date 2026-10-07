@@ -15,10 +15,12 @@ import 'package:image/image.dart' as img;
 
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../domain/knowledge/knowledge_point.dart';
 import '../../pet/pet_service.dart';
 import '../../services/companion/course_store.dart';
 import '../../services/companion/note_llm.dart';
 import '../../services/companion/screen_capture.dart';
+import '../../services/practice/ai_problem_writer.dart';
 import '../practice/lesson_runner_page.dart';
 
 final courseStoreProvider = FutureProvider<CourseStore>((ref) async {
@@ -227,6 +229,73 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
     });
   }
 
+  /// AI 自创题（P3）：选关联考点 → 依笔记出 3 题 → 存为「待复核」。
+  Future<void> _generateAiProblems() async {
+    final client = ref.read(ingestClientProvider) ??
+        ref.read(chatClientProvider);
+    if (client == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('先到「设置」里配好 AI 服务商（文本模型即可）。')));
+      return;
+    }
+    final kb = await ref.read(knowledgeBaseProvider.future);
+    if (!mounted) return;
+    final kp = await showModalBottomSheet<KnowledgePoint>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(14),
+              child: Text('这组题关联哪个考点？',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+            ),
+            for (final leaf in kb.leaves)
+              ListTile(
+                dense: true,
+                title: Text(leaf.name, style: const TextStyle(fontSize: 13)),
+                onTap: () => Navigator.pop(context, leaf),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (kp == null || !mounted) return;
+    setState(() => _status = '小研正在出题…');
+    try {
+      final writer = AiProblemWriter(client);
+      final result = await writer.generate(
+        notes: [for (final n in _notes) n.point],
+        kpName: kp.name,
+      );
+      if (result.problems.isEmpty) {
+        setState(() => _status =
+            result.warnings.isEmpty ? '模型没给出可用题目。' : result.warnings.first);
+        return;
+      }
+      final service = await ref.read(problemServiceProvider.future);
+      var saved = 0;
+      final failures = <String>[];
+      for (final p in result.problems) {
+        final draft = p.toDraft(subject: ref.read(currentSubjectProvider).id)
+          ..source = 'AI 自创 · ${_lesson.title}'
+          ..needsReview = true;
+        final outcome = await service.save(draft);
+        if (outcome.ok) {
+          saved++;
+        } else {
+          failures.add(outcome.error ?? '保存失败');
+        }
+      }
+      setState(() => _status = failures.isEmpty
+          ? '已出 $saved 道原创题，存进「练习 › 待复核」等你看过再算正式题。'
+          : '出 $saved 道，另有 ${failures.length} 道没存上：${failures.first}');
+    } catch (e) {
+      setState(() => _status = '出题失败：$e');
+    }
+  }
+
   /// 生成本节练习：笔记要点逐个 FTS 匹配题库，合并去重后进作答页。
   Future<void> _generatePractice() async {
     final keywords = [for (final n in _notes) n.point];
@@ -361,6 +430,13 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
                         : _generatePractice,
                     icon: const Icon(Icons.bolt),
                     label: const Text('生成本节练习')),
+                // P3 AI 自创题轨：选考点 → 依笔记出原创题 → 入库「待复核」
+                OutlinedButton.icon(
+                    onPressed: (_notes.isEmpty || _busy)
+                        ? null
+                        : _generateAiProblems,
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text('AI 自创题')),
                 if (_running)
                   const Chip(label: Text('伴学中'), backgroundColor: AppColors.primaryWeak),
                 if (_busy)
@@ -485,7 +561,6 @@ class _LessonRail extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 24),
       children: [
-        const SizedBox(height: 12),
         const _RailCard(
           title: '🌾 伴学设置',
           rows: [
