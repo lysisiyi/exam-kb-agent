@@ -261,11 +261,16 @@ class _KbSwitcher extends ConsumerWidget {
         borderRadius: BorderRadius.circular(99),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(currentName,
-            style: const TextStyle(
-                fontSize: KnowledgeSizes.secondary,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primaryStrong)),
+        // 文本可省略：chip 处在可压缩的 Flexible 里时必须能收敛宽度
+        Flexible(
+          child: Text(currentName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: KnowledgeSizes.secondary,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryStrong)),
+        ),
         const Icon(Icons.arrow_drop_down,
             size: 16, color: AppColors.primaryStrong),
       ]),
@@ -316,7 +321,9 @@ class _EditorHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   // 知识库切换（多课程 → 多知识库）：点学科 chip 换一棵树。
-                  _KbSwitcher(currentName: kb.subjectName),
+                  // Flexible：学科名可长（"武忠祥高等数学基础班（金榜时代…）"），
+                  // 窄栏（560）下让 chip 先压缩而不是顶穿标题行（9.2px 溢出）。
+                  Flexible(child: _KbSwitcher(currentName: kb.subjectName)),
                 ]),
                 const SizedBox(height: 6),
                 Wrap(
