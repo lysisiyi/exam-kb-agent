@@ -27,6 +27,8 @@ import '../../core/theme/app_theme.dart';
 import '../../data/knowledge_md/knowledge_md_store.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import '../../services/knowledge/kb_outline_writer.dart';
+import '../../services/knowledge/kb_review_writer.dart';
+import '../../services/llm/llm_client.dart' show LlmClient;
 import '../../services/profile/mastery_service.dart';
 import 'knowledge_leaf_detail.dart';
 import 'knowledge_node_style.dart';
@@ -60,7 +62,7 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _EditorHeader(kb: kb),
+            _EditorHeader(kb: kb, onReview: () => _reviewChapter(selected)),
             _NextStepBanner(
               kb: kb,
               onGo: (node) => setState(() => _selectedId = node.id),
@@ -166,6 +168,32 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('已改名为「$name」（id 不变）')));
     }
+  }
+
+  /// AI 梳理本章（K3 v1）：按当前选中节点定位章节范围 → 出整理报告。
+  /// **只建议不动盘**：报告列出重复/零碎/补充/顺序四类观察，用户在编辑
+  /// 器里自己落实（增删改、上移下移、拖拽）。
+  Future<void> _reviewChapter(KnowledgePoint? selected) async {
+    final kb = ref.read(knowledgeBaseProvider).valueOrNull;
+    if (kb == null) return;
+    final scope = reviewScopeOf(kb, selected);
+    if (scope == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('这一层没有可梳理的节点。')));
+      return;
+    }
+    final client =
+        ref.read(ingestClientProvider) ?? ref.read(chatClientProvider);
+    if (client == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('先到「设置」里配好 AI 服务商（文本模型即可）。')));
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _ReviewDialog(scope: scope, client: client),
+    );
   }
 
   /// 同级重排：交换 [node] 与 [other] 的次序 —— 按"整批重写 siblings 的
@@ -325,7 +353,8 @@ class _KbSwitcher extends ConsumerWidget {
 /// 页头：知识库 + 学科 chip + 状态 chips + 动作按钮（参考图第一行）。
 class _EditorHeader extends StatelessWidget {
   final KnowledgeBase kb;
-  const _EditorHeader({required this.kb});
+  final VoidCallback onReview;
+  const _EditorHeader({required this.kb, required this.onReview});
 
   @override
   Widget build(BuildContext context) {
@@ -381,7 +410,7 @@ class _EditorHeader extends StatelessWidget {
           _HeaderAction(
             icon: Icons.cleaning_services_outlined,
             label: 'AI 梳理本章',
-            onTap: () => _notYet(context, 'AI 梳理（重复/缺失检测）随 K3 上线'),
+            onTap: onReview,
           ),
           const SizedBox(width: 8),
           _HeaderAction(
@@ -856,6 +885,70 @@ class _NewKbWizardDialogState extends ConsumerState<_NewKbWizardDialog> {
           FilledButton(
               onPressed: _busy ? null : _confirm, child: const Text('确认建库')),
         ],
+      ],
+    );
+  }
+}
+
+/// 梳理报告对话框：进来自动生成，出报告可选中复制。
+class _ReviewDialog extends StatefulWidget {
+  final KbReviewScope scope;
+  final LlmClient client;
+
+  const _ReviewDialog({required this.scope, required this.client});
+
+  @override
+  State<_ReviewDialog> createState() => _ReviewDialogState();
+}
+
+class _ReviewDialogState extends State<_ReviewDialog> {
+  String? _report;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _run();
+  }
+
+  Future<void> _run() async {
+    try {
+      final text = await reviewChapter(widget.client, widget.scope);
+      if (mounted) setState(() => _report = text);
+    } catch (e) {
+      if (mounted) setState(() => _error = '生成失败：$e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('整理报告 · ${widget.scope.title}'),
+      content: SizedBox(
+        width: 560,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 420),
+          child: _error != null
+              ? Text(_error!,
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.danger))
+              : _report == null
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : SingleChildScrollView(
+                      child: SelectableText(
+                        _report!,
+                        style: const TextStyle(fontSize: 12.5, height: 1.8),
+                      ),
+                    ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('关闭'),
+        ),
       ],
     );
   }
