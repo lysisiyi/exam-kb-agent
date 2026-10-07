@@ -81,12 +81,8 @@ class KnowledgeLeafDetail extends ConsumerWidget {
         borderRadius: AppRadius.rMd,
         border: Border.all(color: AppColors.line.withValues(alpha: 0.6)),
       ),
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 13),
-      child: Stack(
-        // 和纸胶带只作为小面积点缀（露出卡缘的部分被裁掉，像真贴上去）
-        clipBehavior: Clip.hardEdge,
-        children: [
-          Column(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── 标题 ──────────────────────────────────────────────────────
@@ -108,7 +104,7 @@ class KnowledgeLeafDetail extends ConsumerWidget {
                   filled: (leaf.definition ?? '').trim().isNotEmpty),
               if (leaf.examWeight != null) ...[
                 const SizedBox(width: 6),
-                _WeightPill(weight: leaf.examWeight!),
+                _Stars(weight: leaf.examWeight!),
               ],
             ],
           ),
@@ -117,47 +113,51 @@ class KnowledgeLeafDetail extends ConsumerWidget {
             alignment: Alignment.centerRight,
             child: _AiDraftButton(leaf: leaf, crumbs: crumbs),
           ),
-          if (crumbs.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            // caption 默认 ink3（白底 3.2:1，低于 AA）—— 面包屑是要读的
-            Text(crumbs.join(' › '),
-                style: const TextStyle(
-                    fontSize: KnowledgeSizes.secondary,
-                    color: kSecondaryInk)),
-          ],
-          // K1 md 文件形态：一个知识点 = 一个 md 文件。路径按种子树约定
-          // 展示（data 层迁移到 Markdown 后即真实路径）。
-          Text('knowledge/${(crumbs.isNotEmpty ? crumbs.join('/') : leaf.id)}/${leaf.name}.md',
-              style: const TextStyle(
-                  fontFamily: AppFonts.mono,
-                  fontFamilyFallback: AppFonts.monoFallback,
-                  fontSize: KnowledgeSizes.secondary,
-                  color: AppColors.ink3)),
+          // 参考图：面包屑与 md 路径**同一行**（`章节 › 节 · …/x.md`）。
+          // 一行放不下时路径先省略（它比面包屑次要），面包屑保持可读。
+          const SizedBox(height: 4),
+          Row(children: [
+            if (crumbs.isNotEmpty) ...[
+              Flexible(
+                child: Text(crumbs.join(' › '),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: KnowledgeSizes.secondary,
+                        color: kSecondaryInk)),
+              ),
+              const SizedBox(width: 6),
+              const Text('·',
+                  style: TextStyle(
+                      fontSize: KnowledgeSizes.secondary, color: AppColors.ink3)),
+              const SizedBox(width: 6),
+            ],
+            Flexible(
+              child: Text(
+                  '…/knowledge/${(crumbs.isNotEmpty ? crumbs.join('/') : leaf.id)}/${leaf.name}.md',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontFamily: AppFonts.mono,
+                      fontFamilyFallback: AppFonts.monoFallback,
+                      fontSize: KnowledgeSizes.secondary,
+                      color: AppColors.ink3)),
+            ),
+          ]),
 
           // ── 定义 ──────────────────────────────────────────────────────
           if (leaf.definition != null && leaf.definition!.isNotEmpty) ...[
             const _SectionTitle('定义'),
             // 中文正文行高 1.85（clreq 建议 1.6–1.75 的上限一带；知识卡
             // 是逐字读的场景，宁松勿紧）。
-            // 手账"边注线"：定义块左缘一条暖色竖线 + 内缩，
-            // 像笔记本上的页边线，把定义与普通段落区分开。
-            Container(
-              padding: const EdgeInsets.only(left: 10),
-              decoration: const BoxDecoration(
-                border: Border(
-                  left: BorderSide(color: AppColors.primarySoft, width: 3),
-                ),
-              ),
-              child: DefaultTextStyle.merge(
-                style: const TextStyle(
-                    fontSize: KnowledgeSizes.body, height: 1.85),
-                child: MathRendering.renderer.renderMarkdown(
-                  leaf.definition!,
-                  // 与下面的「核心公式」同档（`AppMathSizes.reading`）——
-                  // 一段话里的行内公式和下面成行的公式应当一样大
-                  options:
-                      const MathRenderOptions(fontSize: AppMathSizes.reading),
-                ),
+            DefaultTextStyle.merge(
+              // 中文正文行高 1.85（clreq 建议区间上限一带，逐字读宁松勿紧）
+              style: const TextStyle(
+                  fontSize: KnowledgeSizes.body, height: 1.85),
+              child: MathRendering.renderer.renderMarkdown(
+                leaf.definition!,
+                // 与下面的「核心公式」同档（`AppMathSizes.reading`）——
+                // 一段话里的行内公式和下面成行的公式应当一样大
+                options:
+                    const MathRenderOptions(fontSize: AppMathSizes.reading),
               ),
             ),
           ],
@@ -275,40 +275,6 @@ class KnowledgeLeafDetail extends ConsumerWidget {
             ],
           ],
         ],
-        ),
-          // 两张和纸胶带（微旋转、半透明、柔和色）——手账的"贴纸感"来源。
-          // 露到卡缘外的部分被 Stack 裁掉，像真贴上去。
-          Positioned(
-            left: 22,
-            top: -4,
-            child: Transform.rotate(
-              angle: 0.06,
-              child: Container(
-                width: 64,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 30,
-            top: -5,
-            child: Transform.rotate(
-              angle: -0.05,
-              child: Container(
-                width: 52,
-                height: 15,
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -377,15 +343,22 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(top: 13, bottom: 7),
       child: Row(
         children: [
-          Text(
-            text,
-            style: const TextStyle(
-              fontSize: KnowledgeSizes.secondary,
-              fontWeight: FontWeight.w700,
-              // ink3 在卡片底色（bg）上只有 3.2:1，低于 AA —— 而分节标记
-              // 是"一眼扫到就知道这段是什么"的东西，必须能读清
-              color: kSecondaryInk,
-              letterSpacing: 0.6,
+          // ⚠️ 必须 Flexible 包住：Row 给**非 flex** 子项的是无界主轴约束，
+          // 裸 Text 会按自然宽度排版（曾以 151px 顶穿 128px 的紧约束）；
+          // Flexible 之后 Text 才拿到有界宽度、省略号才会生效。
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: KnowledgeSizes.secondary,
+                fontWeight: FontWeight.w700,
+                // ink3 在卡片底色（bg）上只有 3.2:1，低于 AA —— 而分节标记
+                // 是"一眼扫到就知道这段是什么"的东西，必须能读清
+                color: kSecondaryInk,
+                letterSpacing: 0.6,
+              ),
             ),
           ),
           if (count != null) ...[
@@ -396,21 +369,14 @@ class _SectionTitle extends StatelessWidget {
                   fontSize: KnowledgeSizes.secondary, color: kSecondaryInk),
             ),
           ],
-          const SizedBox(width: 8),
-          // 手账风虚线（替代实线 Divider）：更像方格本上的分隔
-          const Expanded(
-            child: CustomPaint(
-              painter: _DashPainter(),
-              child: SizedBox(height: 1, width: double.infinity),
-            ),
-          ),
+
         ],
       ),
     );
   }
 }
 
-/// 陷阱一条：手账"便签条"（琥珀底 + 左粗边），一条一贴。
+/// 陷阱一条（参考图：纯文本编号行，琥珀色字，无底色）。
 class _TrapItem extends StatelessWidget {
   final int index;
   final String text;
@@ -419,17 +385,8 @@ class _TrapItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 7),
-      padding: const EdgeInsets.fromLTRB(9, 7, 10, 7),
-      decoration: BoxDecoration(
-        color: AppColors.warningWeak,
-        borderRadius: BorderRadius.circular(8),
-        border: const Border(
-          left: BorderSide(color: AppColors.warning, width: 3),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -505,29 +462,24 @@ class _FactRow extends StatelessWidget {
   }
 }
 
-class _WeightPill extends StatelessWidget {
+class _Stars extends StatelessWidget {
   final double weight;
-  const _WeightPill({required this.weight});
+  const _Stars({required this.weight});
 
   @override
   Widget build(BuildContext context) {
-    final color = weight >= 0.85
-        ? AppColors.danger
-        : weight >= 0.6
-            ? AppColors.warning
-            : AppColors.ink3;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
+    // 参考图的"优先级 ★★"：按考频权重映射，暖橙显示（纯装饰性级别提示，
+    // 考频为估算值的口径见「考频与题型」节）。
+    final n = weight >= 0.85 ? 3 : (weight >= 0.6 ? 2 : 1);
+    return Tooltip(
+      message: '优先级 $n（按考频估算）',
       child: Text(
-        '考频 ${weight.toStringAsFixed(2)}',
-        style: TextStyle(
+        '★' * n,
+        style: const TextStyle(
           fontSize: KnowledgeSizes.secondary,
           fontWeight: FontWeight.w700,
-          color: color,
+          color: AppColors.warning,
+          letterSpacing: 1.5,
         ),
       ),
     );
@@ -595,7 +547,30 @@ class _KpProblemsSection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle('相关题目（图像题面）'),
+        Row(children: [
+          // Expanded：标题与「导入到此节点」同排时，标题拿剩余宽度并
+          // 单行省略（_SectionTitle 的文本已 maxLines:1）——窄栏下换行会
+          // 把整行撑高、且曾以单行 151px 溢出 64px 的余量。
+          const Expanded(child: _SectionTitle('本节点题目 · 图像题面')),
+          // 参考图右上角「＋ 导入到此节点」：切到宿主的「图像录入」标签
+          TextButton.icon(
+            onPressed: () {
+              final controller = DefaultTabController.maybeOf(context);
+              if (controller != null) {
+                controller.animateTo(2);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('入口在「知识库 › 图像录入」标签')));
+              }
+            },
+            icon: const Icon(Icons.add, size: 14),
+            style: TextButton.styleFrom(
+                foregroundColor: AppColors.primaryStrong,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                minimumSize: const Size(0, 28)),
+            label: const Text('导入到此节点', style: TextStyle(fontSize: 11.5)),
+          ),
+        ]),
         problemsAsync.when(
           loading: () => Padding(
             padding: const EdgeInsets.only(bottom: 4),
@@ -1101,27 +1076,4 @@ class _DraftBox extends ConsumerWidget {
       ),
     );
   }
-}
-
-
-/// 手账虚线：5px 划、4px 空，暖灰。
-class _DashPainter extends CustomPainter {
-  const _DashPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.ink4.withValues(alpha: 0.55)
-      ..strokeWidth = 1
-      ..strokeCap = StrokeCap.round;
-    var x = 0.0;
-    while (x < size.width) {
-      canvas.drawLine(Offset(x, 0.5),
-          Offset((x + 5).clamp(0, size.width), 0.5), paint);
-      x += 9;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashPainter oldDelegate) => false;
 }
