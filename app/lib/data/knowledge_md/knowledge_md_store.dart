@@ -479,3 +479,44 @@ class _Frontmatter {
     return out;
   }
 }
+
+// ── 笔记回流（K2）：课时笔记归入知识点 ─────────────────────────────────────
+
+/// 把一条课时笔记追加到节点的「## 来自 <课时> 的笔记」小节。
+///
+/// 小节按课时分组（同一课时的多条笔记合并在同一个小节下），
+/// 每条笔记是一个 `- [mm:ss] 要点` 列表项。返回写入后的全文。
+String appendLessonNote(
+    File file, String lessonTitle, String? time, String point) {
+  final text = file.existsSync() ? file.readAsStringSync() : '';
+  final lines = text.split('\n');
+  final sectionHead = '## 来自 $lessonTitle 的笔记';
+  final entry = '- [${time ?? '—'}] $point';
+
+  int? head;
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].trim() == sectionHead) {
+      head = i;
+      break;
+    }
+  }
+  if (head != null) {
+    var end = lines.length;
+    for (var i = head + 1; i < lines.length; i++) {
+      if (lines[i].startsWith('## ')) {
+        end = i;
+        break;
+      }
+    }
+    while (end > head + 1 && lines[end - 1].trim().isEmpty) {
+      end--;
+    }
+    lines.insert(end, entry);
+    return lines.join('\n');
+  }
+
+  final b = StringBuffer(text);
+  if (!text.endsWith('\n')) b.writeln();
+  b..writeln()..writeln(sectionHead)..writeln()..writeln(entry)..writeln();
+  return b.toString();
+}
