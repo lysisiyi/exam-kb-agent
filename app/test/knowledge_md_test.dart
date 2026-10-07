@@ -451,4 +451,25 @@ id: x
       expect(aliases, containsAll(['limit', '重极限', '第三种叫法']));
     });
   });
+
+  group('笔记回流（appendLessonNote）', () {
+    test('维链小节头：[[课时文件|课时名]]；同课时二次归档合并不重复', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      final f = store.fileOf('math1', 'math1.calc.1.1.1')!;
+      store.appendLessonNote(f, '第5讲 特征值', '12:31', '特征值的定义',
+          lessonLink: '05-第5讲 特征值');
+      store.appendLessonNote(f, '第5讲 特征值', '18:05', '相似对角化');
+      final text = f.readAsStringSync();
+      expect(text, contains('## 来自 [[05-第5讲 特征值|第5讲 特征值]] 的笔记'));
+      expect('- [12:31] 特征值的定义'.length, isPositive);
+      expect(text, contains('- [18:05] 相似对角化'),
+          reason: '二次归档进同一小节（维链/纯文本两种头都认）');
+      // 小节数：一个（不是两个）
+      final heads = RegExp(r'^## 来自 .*的笔记$', multiLine: true)
+          .allMatches(text)
+          .length;
+      expect(heads, 1);
+    });
+  });
 }

@@ -25,7 +25,6 @@ import '../../core/providers.dart';
 import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/error_causes.dart';
-import '../../data/knowledge_md/knowledge_md_store.dart';
 import '../../data/problem_file.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import '../../services/llm/llm_client.dart';
@@ -894,12 +893,6 @@ const _kDraftSystemPrompt =
     '你在帮用户完善他的知识库草稿。只依据给定信息起草，不要引入不确定的细节，宁可简短。\n'
     '输出纯 Markdown 正文（不要代码块围栏、不要任何小节标题）、依次是：一段简短定义；'
     '若干条核心公式（每条独立成行，用双美元号包裹）；若干条易错点（用 - 开头）。';
-
-/// 草稿读写通道（按 md 文件夹；找不到文件/未导入时如实返回 null）。
-final knowledgeMdStoreProvider = FutureProvider<KnowledgeMdStore>((ref) async {
-  final paths = await ref.watch(libraryPathsProvider.future);
-  return KnowledgeMdStore(root: Directory('${paths.root.path}/knowledge'));
-});
 
 /// 该知识点 md 里现存的 AI 草稿正文（无草稿/无文件 = null）。
 final kpAiDraftProvider =

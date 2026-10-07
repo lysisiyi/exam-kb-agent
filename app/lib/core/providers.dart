@@ -261,6 +261,13 @@ final bilibiliSessdataProvider = FutureProvider<String>((ref) async {
   return meta['bilibili_sessdata'] ?? '';
 });
 
+/// 知识库 Markdown 通道（K1/K2 共用）：按 md 文件夹读写节点。
+/// 草稿读写、归档、增删改、梳理应用都从这里取 store。
+final knowledgeMdStoreProvider = FutureProvider<KnowledgeMdStore>((ref) async {
+  final paths = await ref.watch(libraryPathsProvider.future);
+  return KnowledgeMdStore(root: Directory('${paths.root.path}/knowledge'));
+});
+
 /// 桌宠皮肤（meta_entries 的 `pet_skin`，值=assets/pets/ 下的文件名）。
 /// 默认 zhipu（小研）。换皮后 invalidate 它，宠物窗口下次召唤生效。
 final petSkinProvider = FutureProvider<String>((ref) async {

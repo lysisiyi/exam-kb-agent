@@ -888,6 +888,61 @@ class KnowledgeMdStore {
       typicalQtypes: qtypes,
     );
   }
+
+  // ── 笔记回流（K2）：课时笔记归入知识点 ─────────────────────────────────────
+
+  /// 把一条课时笔记追加到节点的「## 来自 <课时> 的笔记」小节。
+  ///
+  /// 小节按课时分组（同一课时的多条笔记合并在同一个小节下），
+  /// 每条笔记是一个 `- [mm:ss] 要点` 列表项。返回写入后的全文。
+  String appendLessonNote(File file, String lessonTitle, String? time,
+      String point, {String? lessonLink}) {
+    final text = file.existsSync() ? file.readAsStringSync() : '';
+    final lines = text.split('\n');
+    // Obsidian 维链：[[课时文件名|课时名]] —— 在 Obsidian 里点标题跳回课时
+    final sectionHead = lessonLink == null || lessonLink.isEmpty
+        ? '## 来自 $lessonTitle 的笔记'
+        : '## 来自 [[$lessonLink|$lessonTitle]] 的笔记';
+    final entry = '- [${time ?? '—'}] $point';
+
+    // 定位已有小节：维链与纯文本两种形态都认 —— 同一课时第二次归档
+    // （这次带了/没带 lessonLink）要并进同一个小节，而不是开第二份。
+    // 用"包含"匹配：`## 来自 [[…]] 的笔记` 与 `## 来自 … 的笔记` 都能命中，
+    // 且不依赖 link 目标（纯文本调用拿不到文件名）。
+    int? head;
+    for (var i = 0; i < lines.length; i++) {
+      final t = lines[i].trim();
+      if (t.startsWith('## 来自 ') &&
+          t.endsWith(' 的笔记') &&
+          t.contains(lessonTitle)) {
+        head = i;
+        break;
+      }
+    }
+    if (head != null) {
+      var end = lines.length;
+      for (var i = head + 1; i < lines.length; i++) {
+        if (lines[i].startsWith('## ')) {
+          end = i;
+          break;
+        }
+      }
+      while (end > head + 1 && lines[end - 1].trim().isEmpty) {
+        end--;
+      }
+      lines.insert(end, entry);
+      final out = lines.join('\n');
+      file.writeAsStringSync(out);
+      return out;
+    }
+
+    final b = StringBuffer(text);
+    if (!text.endsWith('\n')) b.writeln();
+    b..writeln()..writeln(sectionHead)..writeln()..writeln(entry)..writeln();
+    final out = b.toString();
+    file.writeAsStringSync(out);
+    return out;
+  }
 }
 
 /// 极简宽容 frontmatter（值可带引号；列表项 `key:\n  - "x"` 摊平为逗号串）。
@@ -917,47 +972,6 @@ class _Frontmatter {
     }
     return out;
   }
-}
-
-// ── 笔记回流（K2）：课时笔记归入知识点 ─────────────────────────────────────
-
-/// 把一条课时笔记追加到节点的「## 来自 <课时> 的笔记」小节。
-///
-/// 小节按课时分组（同一课时的多条笔记合并在同一个小节下），
-/// 每条笔记是一个 `- [mm:ss] 要点` 列表项。返回写入后的全文。
-String appendLessonNote(
-    File file, String lessonTitle, String? time, String point) {
-  final text = file.existsSync() ? file.readAsStringSync() : '';
-  final lines = text.split('\n');
-  final sectionHead = '## 来自 $lessonTitle 的笔记';
-  final entry = '- [${time ?? '—'}] $point';
-
-  int? head;
-  for (var i = 0; i < lines.length; i++) {
-    if (lines[i].trim() == sectionHead) {
-      head = i;
-      break;
-    }
-  }
-  if (head != null) {
-    var end = lines.length;
-    for (var i = head + 1; i < lines.length; i++) {
-      if (lines[i].startsWith('## ')) {
-        end = i;
-        break;
-      }
-    }
-    while (end > head + 1 && lines[end - 1].trim().isEmpty) {
-      end--;
-    }
-    lines.insert(end, entry);
-    return lines.join('\n');
-  }
-
-  final b = StringBuffer(text);
-  if (!text.endsWith('\n')) b.writeln();
-  b..writeln()..writeln(sectionHead)..writeln()..writeln(entry)..writeln();
-  return b.toString();
 }
 
 

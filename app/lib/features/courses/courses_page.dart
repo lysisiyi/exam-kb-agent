@@ -12,8 +12,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as p;
 
 import '../../core/providers.dart';
+import '../../core/theme/app_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import '../../pet/pet_service.dart';
@@ -245,6 +247,57 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
           captureRegion: rect.toString());
       _status = '截图区域已保存：${rect.w}×${rect.h}';
     });
+  }
+
+  /// 直接编辑课时 md 原文（保存写回文件——事实源；Obsidian 那边同理）。
+  Future<void> _editRawMarkdown() async {
+    if (!_lesson.file.existsSync()) {
+      setState(() => _status = '课时文件还没落盘。');
+      return;
+    }
+    final controller =
+        TextEditingController(text: _lesson.file.readAsStringSync());
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('编辑课时 md 原文'),
+        content: SizedBox(
+          width: 640,
+          height: 460,
+          child: TextField(
+            controller: controller,
+            maxLines: null,
+            expands: true,
+            style: const TextStyle(
+                fontFamily: AppFonts.mono,
+                fontFamilyFallback: AppFonts.monoFallback,
+                fontSize: 12.5,
+                height: 1.6),
+            decoration: const InputDecoration(
+                hintText: r'# 课时标题 / ## 12:31 要点 / $$公式$$'),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('保存')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      _lesson.file.writeAsStringSync(controller.text);
+      await _reload();
+      if (mounted) {
+        setState(() =>
+            _status = '已保存 md 原文（${_notes.length} 条笔记可解析）');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _status = '保存失败：$e');
+    }
   }
 
   /// P4 B站字幕轨：粘贴链接/BV → 选分P → 拉 CC 字幕 → 分窗总结落笔记。
@@ -570,6 +623,11 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
                     onPressed: _busy ? null : _importBilibili,
                     icon: const Icon(Icons.subtitles_outlined),
                     label: const Text('B站字幕生成笔记')),
+                // 事实源直编：整个课时 md 原文编辑器（Obsidian 亦可在外部改）
+                OutlinedButton.icon(
+                    onPressed: _busy ? null : _editRawMarkdown,
+                    icon: const Icon(Icons.edit_note),
+                    label: const Text('编辑 md 原文')),
                 if (_running)
                   const Chip(label: Text('伴学中'), backgroundColor: AppColors.primaryWeak),
                 if (_busy)
@@ -595,7 +653,7 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
                 ? Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(child: _NotesList(notes: _notes)),
+                      Expanded(child: _NotesList(notes: _notes, lesson: _lesson)),
                       const SizedBox(width: 14),
                       SizedBox(
                         width: 318,
@@ -606,7 +664,7 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
                       ),
                     ],
                   )
-                : _NotesList(notes: _notes),
+                : _NotesList(notes: _notes, lesson: _lesson),
           ),
         ],
         );
@@ -616,12 +674,13 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
 }
 
 /// 笔记时间戳流（参考图左栏）。
-class _NotesList extends StatelessWidget {
+class _NotesList extends ConsumerWidget {
   final List<LessonNote> notes;
-  const _NotesList({required this.notes});
+  final LessonRecord lesson;
+  const _NotesList({required this.notes, required this.lesson});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (notes.isEmpty) {
       return Center(
           child: Text('还没有笔记。框选区域后开始伴学，或点「记一下」立即截一帧。',
@@ -661,11 +720,40 @@ class _NotesList extends StatelessWidget {
                             style: const TextStyle(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w700))),
+                    // K2 笔记回流：归入知识点（写入该节点 md）
+                    IconButton(
+                      tooltip: '归入知识点',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.archive_outlined,
+                          size: 17, color: AppColors.ink3),
+                      onPressed: () => _archiveNote(context, ref, n),
+                    ),
+                    // 编辑/删除（md 是事实源：改动直接写回课时文件）
+                    PopupMenuButton<String>(
+                      tooltip: '编辑这条笔记',
+                      padding: EdgeInsets.zero,
+                      iconSize: 16,
+                      icon: const Icon(Icons.more_horiz, color: AppColors.ink3),
+                      onSelected: (v) {
+                        if (v == 'edit') {
+                          _editNote(context, ref, n, i);
+                        } else if (v == 'delete') {
+                          _deleteNote(context, ref, i);
+                        }
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(value: 'edit', child: Text('编辑')),
+                        PopupMenuItem(value: 'delete', child: Text('删除')),
+                      ],
+                    ),
                   ]),
                   if (n.formula != null) ...[
                     const SizedBox(height: 6),
-                    Text('- 公式：${n.formula}',
+                    // Obsidian 数学块在课时 md 里原样存着；这里给个等宽预览
+                    Text(r'$$' '${n.formula}' r'$$',
                         style: TextStyle(
+                            fontFamily: AppFonts.mono,
+                            fontFamilyFallback: AppFonts.monoFallback,
                             fontSize: 12,
                             color: Theme.of(context)
                                 .colorScheme
@@ -676,6 +764,144 @@ class _NotesList extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+extension _NoteActions on _NotesList {
+  Future<void> _editNote(
+      BuildContext context, WidgetRef ref, LessonNote n, int index) async {
+    final timeCtl = TextEditingController(text: n.time ?? '');
+    final pointCtl = TextEditingController(text: n.point);
+    final formulaCtl = TextEditingController(text: n.formula ?? '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('编辑这条笔记'),
+        content: SizedBox(
+          width: 460,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(
+              controller: timeCtl,
+              decoration: const InputDecoration(hintText: '时间 mm:ss（可留空）'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: pointCtl,
+              decoration: const InputDecoration(hintText: '要点'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: formulaCtl,
+              decoration: const InputDecoration(hintText: '公式（LaTeX，可留空）'),
+            ),
+            const SizedBox(height: 6),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('直接改的就是课时 md 里的那条小节（事实源）。',
+                  style: TextStyle(fontSize: 11, color: AppColors.ink3)),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('保存')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    final store = await ref.read(courseStoreProvider.future);
+    final updated = await store.updateNote(
+      lesson.file,
+      index,
+      LessonNote(
+        time: timeCtl.text.trim().isEmpty ? null : timeCtl.text.trim(),
+        point: pointCtl.text.trim(),
+        formula: formulaCtl.text.trim().isEmpty ? null : formulaCtl.text.trim(),
+      ),
+    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(updated ? '已保存到课时 md' : '保存失败：条目不存在')));
+    }
+  }
+
+  Future<void> _deleteNote(
+      BuildContext context, WidgetRef ref, int index) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除这条笔记？'),
+        content: const Text('会从课时 md 里移除这条小节（事实源改动，不可撤销）。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('删除')),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    final store = await ref.read(courseStoreProvider.future);
+    await store.deleteNote(lesson.file, index);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已从课时 md 删除')));
+    }
+  }
+
+  /// K2 笔记回流：选一个知识节点 → 写进它 md 的「来自 <课时>」小节。
+  Future<void> _archiveNote(
+      BuildContext context, WidgetRef ref, LessonNote n) async {
+    final kb = await ref.read(knowledgeBaseProvider.future);
+    if (!context.mounted) return;
+    final picked = await showModalBottomSheet<KnowledgePoint>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(14),
+              child: Text('归入哪个知识点？',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+            ),
+            for (final leaf in kb.leaves)
+              ListTile(
+                dense: true,
+                title: Text(leaf.name, style: const TextStyle(fontSize: 13)),
+                subtitle: leaf.definition == null
+                    ? const Text('骨架', style: TextStyle(fontSize: 11))
+                    : null,
+                onTap: () => Navigator.pop(context, leaf),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !context.mounted) return;
+    final store = await ref.read(knowledgeMdStoreProvider.future);
+    if (!context.mounted) return;
+    final subject = ref.read(currentKnowledgeBaseIdProvider);
+    final file = store.fileOf(subject, picked.id);
+    if (file == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('找不到该知识点的 md 文件（K1 导入后才有）。')));
+      return;
+    }
+    store.appendLessonNote(file, lesson.title, n.time, n.point,
+        lessonLink: p.basenameWithoutExtension(lesson.file.path));
+    ref.invalidate(knowledgeBaseProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('已归入「${picked.name}」——知识节点里有指向本课时的链接。')));
+    }
   }
 }
 

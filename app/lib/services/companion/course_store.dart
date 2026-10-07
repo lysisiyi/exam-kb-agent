@@ -195,13 +195,37 @@ class CourseStore {
       final time = m.group(1);
       var point = m.group(2)?.trim() ?? '';
       if (point.isEmpty || point.startsWith('AI 草稿')) continue;
-      // 小节体里的公式行 `- 公式：...` 归进该条笔记
+      // 公式两种写法都认：Obsidian 数学块 `$$...$$`（新格式）与
+      // 旧版 `- 公式：...`（存量数据继续可读）。
       String? formula;
       final tail = body.substring(m.end);
       final next = re.allMatches(body).where((x) => x.start >= m.end).toList();
       final sectionBody = tail.substring(0, next.isEmpty ? tail.length : next.first.start - m.end);
-      final fm2 = RegExp(r'公式[:：]\s*(.+)').firstMatch(sectionBody);
-      if (fm2 != null) formula = fm2.group(1)?.trim();
+      // 三种写法都认：单行 `$$x$$`、多行块（`$$` 独占一行 + 内容 + `$$`）、
+      // 旧版 `- 公式：x`。写的新格式是多行块（Obsidian 数学块的标准形态）。
+      final mathInline =
+          RegExp(r'^\s*\$\$(.+?)\$\$\s*$', multiLine: true).firstMatch(sectionBody);
+      if (mathInline != null) {
+        formula = mathInline.group(1)?.trim();
+      } else {
+        final bodyLines = sectionBody.split('\n');
+        for (var li = 0; li < bodyLines.length; li++) {
+          if (bodyLines[li].trim() != r'$$') continue;
+          final buf = <String>[];
+          for (var lj = li + 1; lj < bodyLines.length; lj++) {
+            if (bodyLines[lj].trim() == r'$$') {
+              formula = buf.join('\n').trim();
+              break;
+            }
+            buf.add(bodyLines[lj]);
+          }
+          if (formula != null) break;
+        }
+        if (formula == null) {
+          final fm2 = RegExp(r'公式[:：]\s*(.+)').firstMatch(sectionBody);
+          if (fm2 != null) formula = fm2.group(1)?.trim();
+        }
+      }
       if (point.endsWith('：') || point.endsWith(':')) {
         point = point.substring(0, point.length - 1);
       }
@@ -226,9 +250,61 @@ class CourseStore {
       buf.writeln('## ${note.point}');
     }
     if (note.formula != null && note.formula!.isNotEmpty) {
-      buf.writeln('- 公式：${note.formula}');
+      // Obsidian 数学块：任何 md 工具（Obsidian/Typora/思源）都能渲染
+      buf..writeln(r'$$')..writeln(note.formula!.trim())..writeln(r'$$');
     }
     lesson.file.writeAsStringSync(buf.toString());
+    return true;
+  }
+
+  /// 小节范围：`## ` 标题行到下一个标题（不含尾部空行的归属）。
+  static List<({int start, int end})> _sectionRanges(String body) {
+    final re = RegExp(r'^##\s+.*$', multiLine: true);
+    final starts = [for (final m in re.allMatches(body)) m.start];
+    return [
+      for (var i = 0; i < starts.length; i++)
+        (
+          start: starts[i],
+          end: i + 1 < starts.length ? starts[i + 1] : body.length,
+        ),
+    ];
+  }
+
+  /// 就地编辑第 [index] 条笔记（时间/要点/公式）。返回是否成功。
+  Future<bool> updateNote(File file, int index, LessonNote note) async {
+    if (!file.existsSync()) return false;
+    final body = file.readAsStringSync();
+    final ranges = _sectionRanges(body);
+    if (index < 0 || index >= ranges.length) return false;
+    final r = ranges[index];
+    final buf = StringBuffer();
+    buf.writeln(note.time == null
+        ? '## ${note.point}'
+        : '## ${note.time} ${note.point}');
+    if (note.formula != null && note.formula!.trim().isNotEmpty) {
+      buf..writeln()..writeln(r'$$')..writeln(note.formula!.trim())..writeln(r'$$');
+    }
+    buf.writeln();
+    file.writeAsStringSync(
+        body.substring(0, r.start) + buf.toString() + body.substring(r.end));
+    return true;
+  }
+
+  /// 删除第 [index] 条笔记（连同其小节体与上方空行）。返回是否成功。
+  Future<bool> deleteNote(File file, int index) async {
+    if (!file.existsSync()) return false;
+    final body = file.readAsStringSync();
+    final ranges = _sectionRanges(body);
+    if (index < 0 || index >= ranges.length) return false;
+    final r = ranges[index];
+    // 只收**一层**空行：把标题上方那个空行连同条目带走；逐行收会把
+    // 上一行行尾的换行也吃掉，两行文字被粘在一起
+    // （探针实测：`# 第1讲## 02:30 乙改`）。
+    var start = r.start;
+    if (start >= 2 && body[start - 1] == '\n' && body[start - 2] == '\n') {
+      start -= 1;
+    }
+    file.writeAsStringSync(body.substring(0, start) + body.substring(r.end));
     return true;
   }
 }

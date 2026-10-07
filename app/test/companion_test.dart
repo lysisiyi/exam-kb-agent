@@ -137,4 +137,55 @@ void main() {
       expect(parseCompanionNotes('模型抽风说了一堆人话'), isEmpty);
     });
   });
+
+  group('笔记可编辑（Obsidian 化）', () {
+    test('appendNote 写数学块；parseNotes 回读公式', () async {
+      final store = CourseStore(coursesDir: Directory('${tmp.path}/courses'));
+      final course = await store.createCourse(title: '课');
+      final lesson = await store.createLesson(course, '第1讲');
+      await store.appendNote(lesson,
+          const LessonNote(time: '12:31', point: '特征值', formula: r'Ax=\lambda x'));
+      final raw = lesson.file.readAsStringSync();
+      expect(raw, contains(r'$$'), reason: 'Obsidian 数学块');
+      expect(raw, contains(r'Ax=\lambda x'));
+      final notes = CourseStore.parseNotes(raw);
+      expect(notes.single.formula, r'Ax=\lambda x');
+    });
+
+    test('旧版 `- 公式：x` 仍可解析（存量兼容）', () {
+      const legacy = '''
+# x
+
+## 12:31 旧笔记
+- 公式：x^2+y^2
+''';
+      final notes = CourseStore.parseNotes(legacy);
+      expect(notes.single.formula, 'x^2+y^2');
+    });
+
+    test('updateNote：改写指定条目；deleteNote：整段移除且不留空页', () async {
+      final store = CourseStore(coursesDir: Directory('${tmp.path}/courses'));
+      final course = await store.createCourse(title: '课');
+      final lesson = await store.createLesson(course, '第1讲');
+      await store.appendNote(lesson, const LessonNote(time: '01:00', point: '甲'));
+      await store.appendNote(lesson, const LessonNote(time: '02:00', point: '乙'));
+
+      expect(
+          await store.updateNote(lesson.file, 1,
+              const LessonNote(time: '02:30', point: '乙（改）', formula: 'z=1')),
+          isTrue);
+      var notes = CourseStore.parseNotes(lesson.file.readAsStringSync());
+      expect(notes.length, 2);
+      expect(notes[1].time, '02:30');
+      expect(notes[1].point, '乙（改）');
+      expect(notes[1].formula, 'z=1');
+
+      expect(await store.deleteNote(lesson.file, 0), isTrue);
+      notes = CourseStore.parseNotes(lesson.file.readAsStringSync());
+      expect(notes.length, 1);
+      expect(notes.single.point, '乙（改）');
+
+      expect(await store.deleteNote(lesson.file, 5), isFalse, reason: '越界如实失败');
+    });
+  });
 }
