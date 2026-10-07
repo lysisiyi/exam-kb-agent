@@ -2177,3 +2177,5 @@ OpenAI 上踩过的是同一个坑）。history 路径上的工具消息守卫**
 | 2026-10-05 | ✨ **P3 AI 自创题轨完成（提交 0a34980，测试 1134 全绿）。** 课时页「AI 自创题」→ 选关联考点 → `AiProblemWriter`（prompt 硬约束：原创不得逐字改编教材/真题、答案自洽可验证；解析复用 IngestExtractor 同一 JSON 契约）出 3 题 → `ProblemService.save`（source=「AI 自创 · 课时名」、needsReview=true）→ 练习页「待复核」卡立即可见。**P3 两轨至此齐了**（题库匹配 + AI 自创，均有人工门）。踩坑补记：cwd 在双仓间漂移使相对路径编辑落到了镜像（已 cp 回事实源复验）；可靠做法=操作前 `pwd`，写文件用绝对路径。 |
 
 | 2026-10-05 | 🖐️ **K2 拖拽整理落地（提交待查，1137 全绿）。** `moveNode`：叶子单文件移动、分支连文件夹携子树整体移动、改 parent_id 而 **id 不变**；三类拒绝有各自文案（自身/后代成环、叶子作父级、同名文件夹冲突）。UI：树行 LongPressDraggable→DragTarget（长按拖起显示「移动到 → 节点名」浮标、合法目标描边高亮、非法自动拒收）；把手 tooltip 从"随 K2 接线"改为如实说明。显示顺序按 id 排序（非文件名前缀），移动无需重排。**K2 编辑器至此=增删改+拖拽移动齐**；拖拽"同级重排"未做（需 order 字段，登记）。 |
+
+| 2026-10-05 | 🖱️ **桌宠三键交互 + 知识库卡片化（提交待查，1139 全绿、Release 构建通过）。** 桌宠（应用外可用；主窗口是大脑）：左键点击=菜单（显示主窗口/开始暂停伴学/隐藏/关闭）、左键拖动=移窗、**右键=动画**（0.65s 缩放+摆动+气泡台词）、**中键=截图记录**（pet→main `invokeMethod('record')` → recordHotkeySignal → 课时页伴学管道消费；菜单项复用同通道 `toggleCompanion`/`showMain`）。主窗口 `setWindowMethodHandler` 接三动作，无多窗口环境静默跳过。**补回两处重置丢码**：hotkey_manager（pubspec+注册+课时页监听）、companionToggle 信号。知识库卡片化：左右两栏各包 `_PaneCard`（白底+暖边+rLg+轻阴影），详情卡内浅暖底分区（卡中卡层次，贴近 ui_knowledge.png）。 |
