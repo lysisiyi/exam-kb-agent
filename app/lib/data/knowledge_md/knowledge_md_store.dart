@@ -436,6 +436,77 @@ class KnowledgeMdStore {
     return removed;
   }
 
+  /// 拖拽移动：把 [file] 挂到 [newParentId] 下（id 不变，改 parent_id + 移文件）。
+  ///
+  /// - 叶子 = 单文件移动；分支 = 连同其文件夹一起移动（文件夹里还有子树）。
+  /// - 禁止移到自身/后代（环）与叶子节点下（叶子不承载子级）。
+  /// - 显示顺序按 **id 排序**（不是文件名序号），移动后无需重排前缀。
+  File moveNode(File file, String newParentId) {
+    final text = file.readAsStringSync();
+    final fm = _Frontmatter.parse(text);
+    final id = fm['id'] ?? '';
+    if (id.isEmpty) throw StateError('文件缺 id，拒绝移动');
+    if (newParentId == id || newParentId.startsWith('$id.')) {
+      throw StateError('不能移动到自身或自己的后代下');
+    }
+    final root = _subjectRootOf(file);
+    if (root == null) throw StateError('找不到科目根（_subject.md）');
+    // 科目 id 反查（目录名 → subject）
+    final dirName = p.basename(root.path);
+    final subject = subjectDirNames.entries
+        .firstWhere((e) => e.value == dirName,
+            orElse: () => const MapEntry('', ''))
+        .key;
+
+    final parentFile =
+        subject.isEmpty ? null : fileOf(subject, newParentId);
+    if (subject.isNotEmpty && parentFile == null && newParentId != subject) {
+      throw StateError('目标父节点不存在：$newParentId');
+    }
+    // 新父目录：根 → 科目目录；分支 → 其文件夹
+    final Directory newParentDir;
+    if (parentFile == null) {
+      newParentDir = root;
+    } else {
+      final pfm = _Frontmatter.parse(parentFile.readAsStringSync());
+      if (pfm['is_leaf'] == 'true') {
+        throw StateError('叶子节点不能作为父级（先把它改成骨架分支）');
+      }
+      newParentDir = parentFile.parent;
+    }
+
+    final newText = text.replaceFirst(
+        RegExp(r'^parent_id:.*$', multiLine: true),
+        'parent_id: $newParentId');
+
+    if (fm['is_leaf'] == 'true') {
+      // 叶子：写回 frontmatter 后移动到新目录
+      file.writeAsStringSync(newText);
+      final base = p.basename(file.path);
+      var target = File(p.join(newParentDir.path, base));
+      var seq = 1;
+      while (target.existsSync()) {
+        final safe = base.replaceFirst(RegExp(r'^\d+-'), '');
+        target = File(p.join(newParentDir.path,
+            '${(seq + 99).toString().padLeft(2, '0')}-$safe'));
+        seq++;
+      }
+      file.renameSync(target.path);
+      return target;
+    }
+    // 分支：文件夹连同子树整体移动，再改文件夹内自己那份 md
+    final oldDir = file.parent;
+    final newDir = Directory(p.join(newParentDir.path, p.basename(oldDir.path)));
+    if (newDir.existsSync()) {
+      throw StateError('目标下已有同名文件夹：${p.basename(oldDir.path)}');
+    }
+    // 先把 parent_id 写进旧位置的 md（随文件夹一起搬走）
+    file.writeAsStringSync(newText);
+    if (p.equals(oldDir.path, newParentDir.path)) return file;
+    oldDir.renameSync(newDir.path);
+    return File(p.join(newDir.path, p.basename(file.path)));
+  }
+
   /// 上溯到科目根目录（找含 _subject.md 的那一级）。
   Directory? _subjectRootOf(File file) {
     var d = file.parent;

@@ -36,6 +36,9 @@ class KnowledgeOutlineView extends StatefulWidget {
   final void Function(KnowledgePoint node)? onRename;
   final void Function(KnowledgePoint node)? onDelete;
 
+  /// 拖拽整理：把 [child] 挂到 [newParent] 下（id 不变）。
+  final void Function(KnowledgePoint child, KnowledgePoint newParent)? onMoveNode;
+
   const KnowledgeOutlineView({
     super.key,
     required this.kb,
@@ -45,6 +48,7 @@ class KnowledgeOutlineView extends StatefulWidget {
     this.onCreateChild,
     this.onRename,
     this.onDelete,
+    this.onMoveNode,
   });
 
   @override
@@ -141,6 +145,8 @@ class _KnowledgeOutlineViewState extends State<KnowledgeOutlineView> {
                 onDelete: widget.onDelete == null
                     ? null
                     : () => widget.onDelete!(r.node),
+                onMoveNode: widget.onMoveNode,
+                allNodes: widget.kb,
                 onTap: () {
                   widget.onSelect?.call(r.node);
                   if (!r.node.isLeaf) _toggle(r.node.id);
@@ -218,6 +224,10 @@ class _OutlineRowTile extends StatelessWidget {
   final VoidCallback? onCreateChild;
   final VoidCallback? onRename;
   final VoidCallback? onDelete;
+  final void Function(KnowledgePoint child, KnowledgePoint newParent)? onMoveNode;
+
+  /// 环检查用：目标不能是自身或后代。
+  final KnowledgeBase? allNodes;
 
     /// 该考点的错题数（0 = 没有题，徽标不显示）。
   final int problemCount;
@@ -232,6 +242,8 @@ class _OutlineRowTile extends StatelessWidget {
     this.onCreateChild,
     this.onRename,
     this.onDelete,
+    this.onMoveNode,
+    this.allNodes,
   });
 
   @override
@@ -242,7 +254,8 @@ class _OutlineRowTile extends StatelessWidget {
     final theme = nodeThemeOf(kind);
     final isBranch = !node.isLeaf;
 
-    return Material(
+    final canDrag = onMoveNode != null && node.id != 'math1';
+    final tile = Material(
       type: MaterialType.transparency,
       child: InkWell(
         onTap: onTap,
@@ -266,7 +279,7 @@ class _OutlineRowTile extends StatelessWidget {
                 // 拖拽把手（参考图的 ⋮⋮）。K2 编辑器接线前只是视觉占位，
                 // tooltip 如实说明。
                 const Tooltip(
-                  message: '拖拽整理（随 K2 编辑器接线）',
+                  message: '拖拽整理：长按本行，拖到目标节点上',
                   child: Icon(Icons.drag_indicator,
                       size: 13, color: AppColors.ink4),
                 ),
@@ -421,6 +434,50 @@ class _OutlineRowTile extends StatelessWidget {
               );
             }),
           ),
+        ),
+      ),
+    );
+    if (!canDrag) return tile;
+
+    // 拖拽整理（树头承诺的"拖拽整理，id 不变"）：
+    // 长按拖起本行 → 拖到某个分支行上 = 挂到它下面；拖到空处取消。
+    return LongPressDraggable<String>(
+      data: node.id,
+      feedback: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: AppShadows.s2,
+          ),
+          child: Text('移动到 → ${node.name}',
+              style: const TextStyle(fontSize: 12, color: Colors.white)),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.4, child: tile),
+      child: DragTarget<String>(
+        onWillAcceptWithDetails: (d) {
+          final draggedId = d.data;
+          if (draggedId == node.id) return false;
+          if (draggedId.startsWith('${node.id}.')) return false; // 不能进后代
+          if (node.isLeaf) return false; // 叶子不能当父级
+          return true;
+        },
+        onAcceptWithDetails: (d) {
+          final kb = allNodes;
+          final child = kb?.byId[d.data];
+          if (child != null) onMoveNode!(child, node);
+        },
+        builder: (context, candidates, _) => DecoratedBox(
+          decoration: candidates.isNotEmpty
+              ? BoxDecoration(
+                  borderRadius: AppRadius.rSm,
+                  border: Border.all(color: AppColors.primary, width: 1.5),
+                )
+              : const BoxDecoration(),
+          child: tile,
         ),
       ),
     );

@@ -277,4 +277,44 @@ id: x
       expect(kb.byId.containsKey('math1.calc.1'), isTrue, reason: '不误伤旁支');
     });
   });
+
+  group('拖拽移动（moveNode）', () {
+    test('叶子换父：文件移动、parent_id 更新、id 不变、可回读', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      final leaf = store.fileOf('math1', 'math1.calc.1.1.1')!;
+      final moved = store.moveNode(leaf, 'math1.calc.1');
+      expect(moved.existsSync(), isTrue);
+      expect(moved.path, isNot(leaf.path));
+      final text = moved.readAsStringSync();
+      expect(text, contains('id: math1.calc.1.1.1'), reason: 'id 不变');
+      expect(text, contains('parent_id: math1.calc.1'));
+      final (kb, _) = store.loadTree('math1');
+      final n = kb!.byId['math1.calc.1.1.1']!;
+      expect(n.parentId, 'math1.calc.1');
+    });
+
+    test('分支连文件夹一起移；其后代仍挂在它下面', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      final branch = store.fileOf('math1', 'math1.calc.1.1')!;
+      final moved = store.moveNode(branch, 'math1.calc.1');
+      expect(moved.existsSync(), isTrue);
+      final (kb, _) = store.loadTree('math1');
+      expect(kb!.byId['math1.calc.1.1']!.parentId, 'math1.calc.1');
+      expect(kb.byId['math1.calc.1.1.1']!.parentId, 'math1.calc.1.1',
+          reason: '后代关系不变');
+    });
+
+    test('拒绝：移到自身/后代下、叶子作为父级', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      final branch = store.fileOf('math1', 'math1.calc.1.1')!;
+      expect(() => store.moveNode(branch, 'math1.calc.1.1'), throwsStateError);
+      expect(() => store.moveNode(branch, 'math1.calc.1.1.1'), throwsStateError);
+      final leaf = store.fileOf('math1', 'math1.calc.1.1.1')!;
+      expect(() => store.moveNode(leaf, 'math1.calc.1.1.2'), throwsStateError,
+          reason: '叶子不能当父级');
+    });
+  });
 }

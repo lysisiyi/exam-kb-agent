@@ -83,6 +83,8 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
                       onCreateChild: (n) => _createChild(kb, n),
                       onRename: (n) => _rename(kb, n),
                       onDelete: (n) => _delete(kb, n),
+                      onMoveNode: (child, parent) =>
+                          _moveNode(kb, child, parent),
                     ),
                   ),
                   const VerticalDivider(width: 1, color: AppColors.line),
@@ -154,6 +156,27 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
     if (mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('已改名为「$name」（id 不变）')));
+    }
+  }
+
+  /// 拖拽整理：把 [child] 挂到 [newParent] 下（id 不变，文件移动）。
+  Future<void> _moveNode(
+      KnowledgeBase kb, KnowledgePoint child, KnowledgePoint newParent) async {
+    final store = await ref.read(knowledgeMdStoreProvider.future);
+    final file = store.fileOf(kb.subject, child.id);
+    if (file == null) return;
+    try {
+      store.moveNode(file, newParent.id);
+      ref.invalidate(knowledgeBaseProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('已把「${child.name}」移到「${newParent.name}」下（id 不变）')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('移动失败：$e')));
+      }
     }
   }
 
