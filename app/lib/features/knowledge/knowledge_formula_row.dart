@@ -262,18 +262,25 @@ class KnowledgeFormulaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 序号列：拆出来的续行留空，读者一眼看出"这几行是同一组"
-          SizedBox(
-            width: 20,
-            child: index == null
-                ? const SizedBox.shrink()
-                : Padding(
-                    padding: const EdgeInsets.only(top: 1),
+    final numbered = index != null;
+
+    final body = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // 手账「编号圆章」：圆形底 + 序号；续行/别名公式留空位，读者一眼
+        // 看出"这几行是同一组"。
+        SizedBox(
+          width: 28,
+          child: numbered
+              ? Center(
+                  child: Container(
+                    width: 21,
+                    height: 21,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primaryWeak,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
                     child: Text(
                       '$index',
                       style: const TextStyle(
@@ -284,12 +291,38 @@ class KnowledgeFormulaRow extends StatelessWidget {
                       ),
                     ),
                   ),
-          ),
-          Expanded(
-            child: FittedFormula(tex: tex, fontSize: fontSize),
-          ),
-          _CopyButton(tex: tex),
-        ],
+                )
+              : const SizedBox.shrink(),
+        ),
+        const SizedBox(width: 6),
+        Expanded(child: FittedFormula(tex: tex, fontSize: fontSize)),
+        _CopyButton(tex: tex),
+      ],
+    );
+
+    // 别名公式（无编号）：轻量排，不套卡 —— 别名是一组小标签，
+    // 每条都套卡会变成十几张白卡铺满屏。
+    if (!numbered) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 7, left: 4),
+        child: body,
+      );
+    }
+
+    // 核心公式：手账公式卡（白底 + 暖边 + 圆角 + 轻阴影）。
+    // 按 LaTeX 显示式惯例：独立成块、四周留白（8/8），比行内版更"重"。
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(6, 9, 6, 9),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.line),
+          boxShadow: AppShadows.s1,
+        ),
+        child: body,
       ),
     );
   }

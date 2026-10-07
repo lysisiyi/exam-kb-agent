@@ -81,8 +81,12 @@ class KnowledgeLeafDetail extends ConsumerWidget {
         borderRadius: AppRadius.rMd,
         border: Border.all(color: AppColors.line.withValues(alpha: 0.6)),
       ),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
-      child: Column(
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 13),
+      child: Stack(
+        // 和纸胶带只作为小面积点缀（露出卡缘的部分被裁掉，像真贴上去）
+        clipBehavior: Clip.hardEdge,
+        children: [
+          Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ── 标题 ──────────────────────────────────────────────────────
@@ -135,15 +139,25 @@ class KnowledgeLeafDetail extends ConsumerWidget {
             const _SectionTitle('定义'),
             // 中文正文行高 1.85（clreq 建议 1.6–1.75 的上限一带；知识卡
             // 是逐字读的场景，宁松勿紧）。
-            DefaultTextStyle.merge(
-              style: const TextStyle(
-                  fontSize: KnowledgeSizes.body, height: 1.85),
-              child: MathRendering.renderer.renderMarkdown(
-                leaf.definition!,
-                // 与下面的「核心公式」同档（`AppMathSizes.reading`）——
-                // 一段话里的行内公式和下面成行的公式应当一样大
-                options:
-                    const MathRenderOptions(fontSize: AppMathSizes.reading),
+            // 手账"边注线"：定义块左缘一条暖色竖线 + 内缩，
+            // 像笔记本上的页边线，把定义与普通段落区分开。
+            Container(
+              padding: const EdgeInsets.only(left: 10),
+              decoration: const BoxDecoration(
+                border: Border(
+                  left: BorderSide(color: AppColors.primarySoft, width: 3),
+                ),
+              ),
+              child: DefaultTextStyle.merge(
+                style: const TextStyle(
+                    fontSize: KnowledgeSizes.body, height: 1.85),
+                child: MathRendering.renderer.renderMarkdown(
+                  leaf.definition!,
+                  // 与下面的「核心公式」同档（`AppMathSizes.reading`）——
+                  // 一段话里的行内公式和下面成行的公式应当一样大
+                  options:
+                      const MathRenderOptions(fontSize: AppMathSizes.reading),
+                ),
               ),
             ),
           ],
@@ -261,6 +275,40 @@ class KnowledgeLeafDetail extends ConsumerWidget {
             ],
           ],
         ],
+        ),
+          // 两张和纸胶带（微旋转、半透明、柔和色）——手账的"贴纸感"来源。
+          // 露到卡缘外的部分被 Stack 裁掉，像真贴上去。
+          Positioned(
+            left: 22,
+            top: -4,
+            child: Transform.rotate(
+              angle: 0.06,
+              child: Container(
+                width: 64,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 30,
+            top: -5,
+            child: Transform.rotate(
+              angle: -0.05,
+              child: Container(
+                width: 52,
+                height: 15,
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -349,14 +397,20 @@ class _SectionTitle extends StatelessWidget {
             ),
           ],
           const SizedBox(width: 8),
-          const Expanded(child: Divider(height: 1, thickness: 1)),
+          // 手账风虚线（替代实线 Divider）：更像方格本上的分隔
+          const Expanded(
+            child: CustomPaint(
+              painter: _DashPainter(),
+              child: SizedBox(height: 1, width: double.infinity),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-/// 陷阱一条。
+/// 陷阱一条：手账"便签条"（琥珀底 + 左粗边），一条一贴。
 class _TrapItem extends StatelessWidget {
   final int index;
   final String text;
@@ -365,8 +419,17 @@ class _TrapItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.fromLTRB(9, 7, 10, 7),
+      decoration: BoxDecoration(
+        color: AppColors.warningWeak,
+        borderRadius: BorderRadius.circular(8),
+        border: const Border(
+          left: BorderSide(color: AppColors.warning, width: 3),
+        ),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1038,4 +1101,27 @@ class _DraftBox extends ConsumerWidget {
       ),
     );
   }
+}
+
+
+/// 手账虚线：5px 划、4px 空，暖灰。
+class _DashPainter extends CustomPainter {
+  const _DashPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.ink4.withValues(alpha: 0.55)
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.round;
+    var x = 0.0;
+    while (x < size.width) {
+      canvas.drawLine(Offset(x, 0.5),
+          Offset((x + 5).clamp(0, size.width), 0.5), paint);
+      x += 9;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashPainter oldDelegate) => false;
 }
