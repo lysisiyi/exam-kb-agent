@@ -1,7 +1,7 @@
 # 研伴 V3 · 开发交接文档
 
 > 写给下一个接手开发的 agent。**先读完这份再动代码。**
-> 更新时间：2026-10-05（主链路收口后）。当前测试基线：**1131 全绿**、`flutter analyze` 零输出。
+> 更新时间：2026-10-05（K3 v1 收口后）。当前测试基线：**1160 全绿**、`flutter analyze` 零输出。
 >
 > ⚠️ **仓库事实源：`kaoyan-math-agent`（唯一开发源）。** `D:\agent\workspaces\study_V3`
 > 是它的镜像副本（在那里 `git pull` 同步即可），**不要在那里开发**——曾双源并行
@@ -164,6 +164,11 @@ app/lib/
 | 测试目录 | `flutter test` 在仓库根跑报 "No pubspec.yaml" | 必须先 `cd app` |
 | 脆断言 `.first` | 新增 Wrap/Widget 后抓错对象 | 加显式 `ValueKey` 后改测试定位 |
 | CRLF 警告 | `warning: CRLF will be replaced by LF` | 无害，忽略 |
+| 相对路径写文件 | 两个仓库（kaoyan ↔ study_V3）之间 cwd 漂移，`cat >`/python 相对路径会把文件写进镜像仓库（本轮发生两次） | **任何写操作前 `pwd` 确认；写文件一律绝对路径**；发现写错用 `mv` 挪回事实源 |
+| bash heredoc `
+` | 经工具链穿透成真换行，打断 Dart/Python 字符串字面量（打断过 store/测试多处） | 补丁脚本里避免在**生成 Dart 源码**的字符串中写转义换行；已写坏用 Edit 工具定位修复 |
+| Row 的非 flex 子项 | 拿到**无界主轴约束**：Text 按自然宽度排版、ellipsis 永不生效，窄栏必溢出 | 需要压缩的文本一律 `Flexible` 包住（见 _SectionTitle 注释） |
+| 校验器空判 | "0 孤儿"在全 null（生成器漏 parent_id）时**空判通过**，界面却是平树 | 校验要同时验"有没有检查对象"（verify_kb 已有扁平整树检测） |
 | 沙箱无 GUI | 截屏/窗口/多窗口全部测不了 | 真机事项列清单交作者（见 5.5） |
 
 ## 7. 资产与命令速查
