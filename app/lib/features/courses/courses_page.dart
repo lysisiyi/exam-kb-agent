@@ -19,6 +19,7 @@ import '../../pet/pet_service.dart';
 import '../../services/companion/course_store.dart';
 import '../../services/companion/note_llm.dart';
 import '../../services/companion/screen_capture.dart';
+import '../practice/lesson_runner_page.dart';
 
 final courseStoreProvider = FutureProvider<CourseStore>((ref) async {
   final paths = await ref.watch(libraryPathsProvider.future);
@@ -226,6 +227,20 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
     });
   }
 
+  /// 生成本节练习：笔记要点逐个 FTS 匹配题库，合并去重后进作答页。
+  Future<void> _generatePractice() async {
+    final keywords = [for (final n in _notes) n.point];
+    final ids = await matchProblemsForNotes(ref, keywords);
+    if (!mounted) return;
+    if (ids.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('题库里没匹配到相关题目。')));
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => LessonRunnerPage(problemIds: ids)));
+  }
+
   Future<void> _captureOnce() async {
     if (_busy) return;
     setState(() {
@@ -339,6 +354,13 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
                     onPressed: (_busy || !canCompanion) ? null : _captureOnce,
                     icon: const Icon(Icons.camera_alt),
                     label: const Text('记一下')),
+                // P3 主链路：本节笔记要点 FTS 匹配题库 → 逐题作答（自主判分）
+                OutlinedButton.icon(
+                    onPressed: (_notes.isEmpty || _busy)
+                        ? null
+                        : _generatePractice,
+                    icon: const Icon(Icons.bolt),
+                    label: const Text('生成本节练习')),
                 if (_running)
                   const Chip(label: Text('伴学中'), backgroundColor: AppColors.primaryWeak),
                 if (_busy)
@@ -463,6 +485,7 @@ class _LessonRail extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 4, 0, 24),
       children: [
+        const SizedBox(height: 12),
         const _RailCard(
           title: '🌾 伴学设置',
           rows: [
