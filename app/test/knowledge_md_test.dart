@@ -228,4 +228,53 @@ id: x
       expect(f.readAsStringSync(), contains('真实文件草稿'));
     });
   });
+
+  group('节点编辑（K2 增/改/删）', () {
+    test('createChildNode：id 递增、frontmatter 完整、可回读', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      final f = store.createChildNode(
+          'math1', 'math1.calc.limit', '新的知识点');
+      expect(f.existsSync(), isTrue);
+      final (kb, _) = store.loadTree('math1');
+      final created =
+          kb!.nodes.where((n) => n.id.startsWith('math1.calc.limit.')).toList();
+      // 种子 limit 下无子节点 → 新 id 为 .1
+      expect(created.any((n) => n.name == '新的知识点'), isTrue);
+      expect(created.firstWhere((n) => n.name == '新的知识点').id,
+          'math1.calc.limit.1');
+      expect(created.firstWhere((n) => n.name == '新的知识点').isLeaf, isTrue);
+    });
+
+    test('renameNode：name/标题/文件名一起改，id 不动', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      final f = store.fileOf('math1', 'math1.calc.1.1.1')!;
+      final oldPath = f.path;
+      store.renameNode(f, '极限的定义（修订）');
+      final renamed = File(oldPath.replaceFirst('极限的定义.md', '极限的定义（修订）.md'));
+      expect(renamed.existsSync(), isTrue);
+      final text = renamed.readAsStringSync();
+      expect(text, contains('name: 极限的定义（修订）'));
+      expect(text, contains('# 极限的定义（修订）'));
+      expect(text, contains('id: math1.calc.1.1.1'), reason: 'id 必须原样');
+      final (kb, _) = store.loadTree('math1');
+      expect(kb!.byId['math1.calc.1.1.1']!.name, '极限的定义（修订）');
+    });
+
+    test('deleteNode：有子节点时拒绝；递归删除清整棵子树', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      final parentFile = store.fileOf('math1', 'math1.calc.1.1')!;
+      expect(() => store.deleteNode(parentFile), throwsStateError,
+          reason: '有子节点且未递归 → 拒绝');
+
+      final removed = store.deleteNode(parentFile, recursive: true);
+      expect(removed, greaterThan(1), reason: '含子树');
+      final (kb, _) = store.loadTree('math1');
+      expect(kb!.byId.containsKey('math1.calc.1.1'), isFalse);
+      expect(kb.byId.containsKey('math1.calc.1.1.1'), isFalse, reason: '子树也要走');
+      expect(kb.byId.containsKey('math1.calc.1'), isTrue, reason: '不误伤旁支');
+    });
+  });
 }

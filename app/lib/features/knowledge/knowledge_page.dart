@@ -80,6 +80,9 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
                       masteryByKpId: masteryByKpId,
                       selectedId: selected?.id,
                       onSelect: (n) => setState(() => _selectedId = n.id),
+                      onCreateChild: (n) => _createChild(kb, n),
+                      onRename: (n) => _rename(kb, n),
+                      onDelete: (n) => _delete(kb, n),
                     ),
                   ),
                   const VerticalDivider(width: 1, color: AppColors.line),
@@ -97,6 +100,91 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
         );
       },
     );
+  }
+
+  // ── K2 编辑动作（写 md 文件；id 永不变） ──────────────────────────────
+
+  Future<String?> _askName(BuildContext context, String title,
+      {String? initial}) async {
+    final controller = TextEditingController(text: initial ?? '');
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: TextField(controller: controller, autofocus: true),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: const Text('确定')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _createChild(KnowledgeBase kb, KnowledgePoint parent) async {
+    final name = await _askName(context, '在「${parent.name}」下新建节点');
+    if (name == null || name.isEmpty || !mounted) return;
+    try {
+      final store = await ref.read(knowledgeMdStoreProvider.future);
+      final f = store.createChildNode(kb.subject, parent.id, name);
+      ref.invalidate(knowledgeBaseProvider);
+      // 新建后不强制选中（下轮重建 KB 时按 id 找得到）；保持当前选择
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('已创建 ${f.path.split(RegExp(r'[\/]')).last}')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('创建失败：$e')));
+      }
+    }
+  }
+
+  Future<void> _rename(KnowledgeBase kb, KnowledgePoint node) async {
+    final name = await _askName(context, '重命名「${node.name}」', initial: node.name);
+    if (name == null || name.isEmpty || name == node.name || !mounted) return;
+    final store = await ref.read(knowledgeMdStoreProvider.future);
+    final file = store.fileOf(kb.subject, node.id);
+    if (file == null) return;
+    store.renameNode(file, name);
+    ref.invalidate(knowledgeBaseProvider);
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已改名为「$name」（id 不变）')));
+    }
+  }
+
+  Future<void> _delete(KnowledgeBase kb, KnowledgePoint node) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('删除「${node.name}」？'),
+        content: const Text('连同其子树一起删除，md 文件会从 knowledge/ 目录移除。此操作不可撤销。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('删除')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final store = await ref.read(knowledgeMdStoreProvider.future);
+    final file = store.fileOf(kb.subject, node.id);
+    if (file == null) return;
+    final removed = store.deleteNode(file, recursive: true);
+    ref.invalidate(knowledgeBaseProvider);
+    if (mounted) {
+      setState(() => _selectedId = null);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('已删除（含子树共 $removed 个文件）')));
+    }
   }
 
   /// 默认落点：树序里第一个没填定义的叶子（= 与"下一步建议"同源）；全填了用第一个叶子。

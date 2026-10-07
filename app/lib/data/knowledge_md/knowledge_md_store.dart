@@ -315,6 +315,141 @@ class KnowledgeMdStore {
     ].join('\n');
   }
 
+  // ── 节点编辑（K2 编辑器：增 / 改名 / 删） ────────────────────────────────
+
+  /// 在 [parentId] 下新建一个叶子节点。返回写出的文件。
+  ///
+  /// id = `<parentId>.<n>`（n = 现有子节点最大编号 +1，不可解析时按数量+1）。
+  /// 文件名序号取"同名前缀两位序号"家族里的下一个空位。
+  File createChildNode(String subject, String parentId, String name) {
+    final dir = subjectDir(subject);
+    if (!dir.existsSync()) {
+      throw StateError('科目目录不存在：${dir.path}（先做 K1 种子导入）');
+    }
+    // 找父节点所在目录：父是科目根 → 科目文件夹；否则父文件夹下
+    final parentFile = fileOf(subject, parentId);
+    final parentIsSubjectRoot = parentFile == null;
+    final parentDir = parentIsSubjectRoot
+        ? dir
+        : Directory(parentFile.parent.path);
+
+    // 现有子节点 id 编号
+    var maxN = 0;
+    var fileCount = 0;
+    for (final f in dir.listSync(recursive: true).whereType<File>()) {
+      if (!f.path.endsWith('.md')) continue;
+      final fm = _Frontmatter.parse(f.readAsStringSync());
+      if (fm['parent_id'] != parentId) continue;
+      fileCount++;
+      final id = fm['id'] ?? '';
+      final n = int.tryParse(id.split('.').last);
+      if (n != null && n > maxN) maxN = n;
+    }
+    final n = (maxN > 0 ? maxN : fileCount) + 1;
+    final id = '$parentId.$n';
+
+    // 文件名：父目录下序号前缀的下一个空位（与既有文件同家族排序）
+    final safeName = name.replaceAll(RegExp(r'[\/:*?"<>|]'), '_');
+    var seq = fileCount + 1;
+    File file;
+    do {
+      final seqText = seq.toString().padLeft(2, '0');
+      file = File('${parentDir.path}$_sep$seqText-$safeName.md');
+      seq++;
+    } while (file.existsSync());
+
+    file.writeAsStringSync([
+      '---',
+      'id: $id',
+      'name: $name',
+      'parent_id: $parentId',
+      'level: ${parentId.split('.').length + 1}',
+      'is_leaf: true',
+      'status: skeleton',
+      'source: user',
+      '---',
+      '',
+      '# $name',
+      '',
+    ].join('\n'));
+    return file;
+  }
+
+  /// 改名：文件名与 frontmatter 的 name、以及标题行一起改。id 不动。
+  void renameNode(File file, String newName) {
+    final s = file.readAsStringSync();
+    var out = s.replaceFirst(RegExp(r'^name:.*$', multiLine: true), 'name: $newName');
+    final titleRe = RegExp(r'^# .*$', multiLine: true);
+    if (titleRe.hasMatch(out)) {
+      out = out.replaceFirst(titleRe, '# $newName');
+    }
+    // 文件名：保留序号前缀
+    final base = p.basename(file.path);
+    final m = RegExp(r'^(\d+)-').firstMatch(base);
+    final prefix = m?.group(1) ?? '';
+    final safeName = newName.replaceAll(RegExp(r'[\/:*?"<>|]'), '_');
+    final newPath = p.join(file.parent.path,
+        prefix.isEmpty ? '$safeName.md' : '$prefix-$safeName.md');
+    final tmp = File('${file.path}.tmp');
+    tmp.writeAsStringSync(out);
+    if (newPath != file.path && File(newPath).existsSync()) {
+      File(newPath).deleteSync();
+    }
+    tmp.renameSync(newPath);
+  }
+
+  /// 删除节点。有子节点时 [recursive] 必须为 true（含子树），否则拒绝。
+  int deleteNode(File file, {bool recursive = false}) {
+    final fm = _Frontmatter.parse(file.readAsStringSync());
+    final id = fm['id'] ?? '';
+    var removed = 1;
+    // 子树 = 所有 parent_id 以 `id.` 开头的文件
+    final dir = file.parent;
+    final root = _subjectRootOf(file);
+    if (root != null) {
+      final kids = <File>[];
+      for (final f in root.listSync(recursive: true).whereType<File>()) {
+        if (!f.path.endsWith('.md')) continue;
+        final kfm = _Frontmatter.parse(f.readAsStringSync());
+        final pid = kfm['parent_id'] ?? '';
+        // ⚠️ 直系子节点 parent_id **等于** id；孙子串才带 `id.` 前缀。
+        // 只判 `startsWith('$id.')` 会漏掉直系；只判 startsWith('$id')
+        // 又会误伤 `math1.calc.1.10` 这种同前缀兄弟。
+        if (pid == id || pid.startsWith('$id.')) kids.add(f);
+      }
+      if (kids.isNotEmpty && !recursive) {
+        throw StateError('该节点还有 ${kids.length} 个子节点（调用方应先确认递归删除）');
+      }
+      for (final k in kids) {
+        k.deleteSync();
+        removed++;
+      }
+    }
+    file.deleteSync();
+    // 空目录顺手清掉（叶子所在目录若只剩空壳）
+    if (dir.existsSync() &&
+        !p.basename(dir.path).startsWith('_') &&
+        dir.path != root?.path &&
+        dir.listSync().isEmpty) {
+      dir.deleteSync();
+    }
+    return removed;
+  }
+
+  /// 上溯到科目根目录（找含 _subject.md 的那一级）。
+  Directory? _subjectRootOf(File file) {
+    var d = file.parent;
+    for (var i = 0; i < 12; i++) {
+      if (File(p.join(d.path, '_subject.md')).existsSync()) return d;
+      final parent = d.parent;
+      if (parent.path == d.path) return null;
+      d = parent;
+    }
+    return null;
+  }
+
+  String get _sep => Platform.pathSeparator;
+
   // ── 渲染与解析 ────────────────────────────────────────────────────────────
 
   /// 文件/文件夹名：`NN-名称`。序号 = 同父下的排序位次（id 序）。

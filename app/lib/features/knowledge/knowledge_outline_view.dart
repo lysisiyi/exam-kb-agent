@@ -31,12 +31,20 @@ class KnowledgeOutlineView extends StatefulWidget {
   /// 当前选中的节点 id（该行高亮）。
   final String? selectedId;
 
+  /// 编辑动作（K2）：新建子节点 / 重命名 / 删除。null = 菜单不出现。
+  final void Function(KnowledgePoint parent)? onCreateChild;
+  final void Function(KnowledgePoint node)? onRename;
+  final void Function(KnowledgePoint node)? onDelete;
+
   const KnowledgeOutlineView({
     super.key,
     required this.kb,
     this.masteryByKpId = const {},
     this.onSelect,
     this.selectedId,
+    this.onCreateChild,
+    this.onRename,
+    this.onDelete,
   });
 
   @override
@@ -124,6 +132,15 @@ class _KnowledgeOutlineViewState extends State<KnowledgeOutlineView> {
                 selected: widget.selectedId == r.node.id,
                 problemCount:
                     widget.masteryByKpId[r.node.id]?.problemCount ?? 0,
+                onCreateChild: widget.onCreateChild == null
+                    ? null
+                    : () => widget.onCreateChild!(r.node),
+                onRename: widget.onRename == null
+                    ? null
+                    : () => widget.onRename!(r.node),
+                onDelete: widget.onDelete == null
+                    ? null
+                    : () => widget.onDelete!(r.node),
                 onTap: () {
                   widget.onSelect?.call(r.node);
                   if (!r.node.isLeaf) _toggle(r.node.id);
@@ -198,6 +215,9 @@ class _OutlineRowTile extends StatelessWidget {
   final bool expanded;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onCreateChild;
+  final VoidCallback? onRename;
+  final VoidCallback? onDelete;
 
     /// 该考点的错题数（0 = 没有题，徽标不显示）。
   final int problemCount;
@@ -209,6 +229,9 @@ class _OutlineRowTile extends StatelessWidget {
     required this.selected,
     required this.problemCount,
     required this.onTap,
+    this.onCreateChild,
+    this.onRename,
+    this.onDelete,
   });
 
   @override
@@ -361,6 +384,39 @@ class _OutlineRowTile extends StatelessWidget {
                           ),
                         ),
                 ),
+                if (onCreateChild != null ||
+                    onRename != null ||
+                    onDelete != null)
+                  SizedBox(
+                    width: 26,
+                    child: PopupMenuButton<String>(
+                      tooltip: '编辑节点',
+                      padding: EdgeInsets.zero,
+                      iconSize: 15,
+                      icon: const Icon(Icons.more_horiz, color: AppColors.ink3),
+                      onSelected: (v) {
+                        switch (v) {
+                          case 'child':
+                            onCreateChild?.call();
+                          case 'rename':
+                            onRename?.call();
+                          case 'delete':
+                            onDelete?.call();
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        if (onCreateChild != null)
+                          const PopupMenuItem(
+                              value: 'child', child: Text('新建子节点')),
+                        if (onRename != null)
+                          const PopupMenuItem(
+                              value: 'rename', child: Text('重命名')),
+                        if (onDelete != null)
+                          const PopupMenuItem(
+                              value: 'delete', child: Text('删除')),
+                      ],
+                    ),
+                  ),
               ],
               );
             }),
