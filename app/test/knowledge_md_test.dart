@@ -371,4 +371,59 @@ id: x
           throwsStateError);
     });
   });
+
+  group('同级重排（order）', () {
+    test('applySiblingOrder：整批写 1..n，回读顺序即新顺序（id 不变）', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      store.createFromOutline(
+        slug: 'ord',
+        title: '排序测试',
+        outline: [
+          const KbOutlineNode(name: '第一章 A', children: [
+            KbOutlineNode(name: '第一节 A1', children: [KbOutlineNode(name: '点A')]),
+          ]),
+          const KbOutlineNode(name: '第二章 B', children: [
+            KbOutlineNode(name: '第一节 B1', children: [KbOutlineNode(name: '点B')]),
+          ]),
+        ],
+      );
+      // 初始按 id 序：A 在前
+      var (kb, _) = store.loadTree('ord');
+      final roots = kb!.childrenOf['ord']!;
+      expect(roots.first.id, 'ord.1', reason: '默认 id 书序');
+
+      // 把第二章排到第一章前
+      store.applySiblingOrder('ord', ['ord.2', 'ord.1']);
+      (kb, _) = store.loadTree('ord');
+      final reordered = kb!.childrenOf['ord']!;
+      expect(reordered.first.id, 'ord.2', reason: 'order 字段生效');
+      expect(reordered.first.name, contains('第二章'));
+      // id 与文件名都没动
+      expect(store.fileOf('ord', 'ord.2'), isNotNull);
+    });
+
+    test('只给部分节点写 order 不改变未写者的相对 id 序', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      store.createFromOutline(
+        slug: 'ord2',
+        title: 'x',
+        outline: [
+          const KbOutlineNode(name: '第一章', children: [
+            KbOutlineNode(name: '节', children: [KbOutlineNode(name: 'a')]),
+          ]),
+          const KbOutlineNode(name: '第二章', children: [
+            KbOutlineNode(name: '节', children: [KbOutlineNode(name: 'b')]),
+          ]),
+          const KbOutlineNode(name: '第三章', children: [
+            KbOutlineNode(name: '节', children: [KbOutlineNode(name: 'c')]),
+          ]),
+        ],
+      );
+      // 只把第三章提到最前（1），一二章无 order → 按 id 序跟在后面
+      store.applySiblingOrder('ord2', ['ord2.3', 'ord2.1', 'ord2.2']);
+      final (kb, _) = store.loadTree('ord2');
+      final ids = [for (final n in kb!.childrenOf['ord2']!) n.id];
+      expect(ids, ['ord2.3', 'ord2.1', 'ord2.2']);
+    });
+  });
 }

@@ -89,6 +89,8 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
                       onDelete: (n) => _delete(kb, n),
                       onMoveNode: (child, parent) =>
                           _moveNode(kb, child, parent),
+                      onSwapSibling: (node, with_) =>
+                          _swapSibling(kb, node, with_),
                     ),
                     ),
                   ),
@@ -163,6 +165,30 @@ class _KnowledgePageState extends ConsumerState<KnowledgePage> {
     if (mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('已改名为「$name」（id 不变）')));
+    }
+  }
+
+  /// 同级重排：交换 [node] 与 [other] 的次序 —— 按"整批重写 siblings 的
+  /// order"落盘（只给一个节点写 order 会把它顶到最前，语义错误）。
+  Future<void> _swapSibling(
+      KnowledgeBase kb, KnowledgePoint node, KnowledgePoint other) async {
+    final parentId = node.parentId;
+    if (parentId == null) return;
+    final siblings =
+        List<KnowledgePoint>.of(kb.childrenOf[parentId] ?? const []);
+    final i = siblings.indexWhere((p) => p.id == node.id);
+    final j = siblings.indexWhere((p) => p.id == other.id);
+    if (i < 0 || j < 0) return;
+    final tmp = siblings[i];
+    siblings[i] = siblings[j];
+    siblings[j] = tmp;
+    final store = await ref.read(knowledgeMdStoreProvider.future);
+    final written = store.applySiblingOrder(
+        kb.subject, [for (final p in siblings) p.id]);
+    ref.invalidate(knowledgeBaseProvider);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('已调整顺序（写回 $written 个文件，顺序持久化在 order 字段）')));
     }
   }
 

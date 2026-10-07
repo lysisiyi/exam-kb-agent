@@ -40,9 +40,20 @@ void main(List<String> args) {
       '节点 ${kb.nodes.length} · 章节 ${kb.chapters.length} · 叶子 ${leaves.length} · 已填 $filled · 骨架 ${leaves.length - filled}');
   // 前置/父子完整性：每个非根节点都应找得到父
   var orphans = 0;
+  var withParent = 0;
   for (final n in kb.nodes) {
-    if (n.parentId != null && !kb.byId.containsKey(n.parentId)) orphans++;
+    if (n.parentId != null) {
+      withParent++;
+      if (!kb.byId.containsKey(n.parentId)) orphans++;
+    }
   }
   stdout.writeln(orphans == 0 ? '父子关系：完整' : '父子关系：孤儿 $orphans 个');
-  exit(warnings.isEmpty && orphans == 0 ? 0 : 1);
+  // ⚠️ "0 孤儿"会**空判通过**：生成器漏写 parent_id 时全为 null，
+  // 界面上整棵树是平的而这里显示"完整"（实际踩过）。所以再查一次"有没有
+  // 任何一个节点带着 parent_id"——只有一个根时合理的 null 数才是 n-1。
+  final flatSuspect = kb.nodes.length > 2 && withParent == 0;
+  if (flatSuspect) {
+    stdout.writeln('⚠️ 全部节点都没有 parent_id——树在界面上会是平的（生成器漏写？）');
+  }
+  exit(warnings.isEmpty && orphans == 0 && !flatSuspect ? 0 : 1);
 }

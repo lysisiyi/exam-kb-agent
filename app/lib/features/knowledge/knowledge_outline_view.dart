@@ -39,6 +39,10 @@ class KnowledgeOutlineView extends StatefulWidget {
   /// 拖拽整理：把 [child] 挂到 [newParent] 下（id 不变）。
   final void Function(KnowledgePoint child, KnowledgePoint newParent)? onMoveNode;
 
+  /// 同级重排：把 [node] 与同父的邻居 [swapWith] 交换次序（写 order 字段）。
+  final void Function(KnowledgePoint node, KnowledgePoint swapWith)?
+      onSwapSibling;
+
   const KnowledgeOutlineView({
     super.key,
     required this.kb,
@@ -49,6 +53,7 @@ class KnowledgeOutlineView extends StatefulWidget {
     this.onRename,
     this.onDelete,
     this.onMoveNode,
+    this.onSwapSibling,
   });
 
   @override
@@ -146,6 +151,8 @@ class _KnowledgeOutlineViewState extends State<KnowledgeOutlineView> {
                     ? null
                     : () => widget.onDelete!(r.node),
                 onMoveNode: widget.onMoveNode,
+                onSwapSibling: widget.onSwapSibling,
+                siblings: _siblingsOf(widget.kb, r.node),
                 allNodes: widget.kb,
                 onTap: () {
                   widget.onSelect?.call(r.node);
@@ -158,6 +165,10 @@ class _KnowledgeOutlineViewState extends State<KnowledgeOutlineView> {
       ],
     );
   }
+
+  /// 同父兄弟（含自身，按当前显示序）。
+  List<KnowledgePoint> _siblingsOf(KnowledgeBase kb, KnowledgePoint node) =>
+      kb.childrenOf[node.parentId] ?? const [];
 
   List<_OutlineRow> _flatten(KnowledgeBase kb) {
     final out = <_OutlineRow>[];
@@ -225,6 +236,11 @@ class _OutlineRowTile extends StatelessWidget {
   final VoidCallback? onRename;
   final VoidCallback? onDelete;
   final void Function(KnowledgePoint child, KnowledgePoint newParent)? onMoveNode;
+  final void Function(KnowledgePoint node, KnowledgePoint swapWith)?
+      onSwapSibling;
+
+  /// 同父兄弟（算"上移/下移"是否可用）。
+  final List<KnowledgePoint> siblings;
 
   /// 环检查用：目标不能是自身或后代。
   final KnowledgeBase? allNodes;
@@ -243,8 +259,19 @@ class _OutlineRowTile extends StatelessWidget {
     this.onRename,
     this.onDelete,
     this.onMoveNode,
+    this.onSwapSibling,
+    this.siblings = const [],
     this.allNodes,
   });
+
+  /// 与 [dir]（-1 上 / +1 下）方向的邻居；到底/列表缺自身返回 null。
+  KnowledgePoint? _swapIndex(int dir) {
+    final i = siblings.indexWhere((p) => p.id == row.node.id);
+    if (i < 0) return null;
+    final j = i + dir;
+    if (j < 0 || j >= siblings.length) return null;
+    return siblings[j];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -413,6 +440,12 @@ class _OutlineRowTile extends StatelessWidget {
                             onCreateChild?.call();
                           case 'rename':
                             onRename?.call();
+                          case 'up':
+                            final s = _swapIndex(-1);
+                            if (s != null) onSwapSibling?.call(node, s);
+                          case 'down':
+                            final s = _swapIndex(1);
+                            if (s != null) onSwapSibling?.call(node, s);
                           case 'delete':
                             onDelete?.call();
                         }
@@ -424,6 +457,14 @@ class _OutlineRowTile extends StatelessWidget {
                         if (onRename != null)
                           const PopupMenuItem(
                               value: 'rename', child: Text('重命名')),
+                        if (onSwapSibling != null) ...[
+                          if (_swapIndex(-1) != null)
+                            const PopupMenuItem(
+                                value: 'up', child: Text('上移')),
+                          if (_swapIndex(1) != null)
+                            const PopupMenuItem(
+                                value: 'down', child: Text('下移')),
+                        ],
                         if (onDelete != null)
                           const PopupMenuItem(
                               value: 'delete', child: Text('删除')),

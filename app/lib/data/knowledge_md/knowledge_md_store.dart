@@ -369,7 +369,8 @@ class KnowledgeMdStore {
     var leaves = 0;
     for (var i = 0; i < outline.length; i++) {
       final (f, l) = _writeOutlineNode(
-          kbDir, _normalizeOutline(outline[i]), i + 1, '$slug.${i + 1}', 2);
+          kbDir, _normalizeOutline(outline[i]), i + 1, '$slug.${i + 1}',
+          slug, 2);
       files += f;
       leaves += l;
     }
@@ -392,25 +393,27 @@ class KnowledgeMdStore {
   }
 
   (int, int) _writeOutlineNode(Directory parentDir, KbOutlineNode node, int seq,
-      String nodeId, int depth) {
+      String nodeId, String parentId, int depth) {
     final safe = node.name.replaceAll(RegExp(r'[\/:*?"<>|]'), '_');
     final isLeaf = node.children.isEmpty;
     if (isLeaf) {
       final f = File(p.join(
           parentDir.path, '${seq.toString().padLeft(2, '0')}-$safe.md'));
-      f.writeAsStringSync(_outlineFrontmatter(nodeId, node.name, depth, true));
+      f.writeAsStringSync(
+          _outlineFrontmatter(nodeId, node.name, depth, true, parentId));
       return (1, 1);
     }
     final dir = Directory(
         p.join(parentDir.path, '${seq.toString().padLeft(2, '0')}-$safe'));
     dir.createSync(recursive: true);
     File(p.join(dir.path, '${seq.toString().padLeft(2, '0')}-$safe.md'))
-        .writeAsStringSync(_outlineFrontmatter(nodeId, node.name, depth, false));
+        .writeAsStringSync(
+            _outlineFrontmatter(nodeId, node.name, depth, false, parentId));
     var files = 1;
     var leaves = 0;
     for (var i = 0; i < node.children.length; i++) {
       final (f, l) = _writeOutlineNode(
-          dir, node.children[i], i + 1, '$nodeId.${i + 1}', depth + 1);
+          dir, node.children[i], i + 1, '$nodeId.${i + 1}', nodeId, depth + 1);
       files += f;
       leaves += l;
     }
@@ -418,11 +421,14 @@ class KnowledgeMdStore {
   }
 
   String _outlineFrontmatter(
-          String id, String name, int depth, bool isLeaf) =>
+          String id, String name, int depth, bool isLeaf, String parentId) =>
       [
         '---',
         'id: $id',
         'name: $name',
+        // ⚠️ parent_id 必须写：树的层级全走 childrenOf(parent_id)，
+        // 漏了它整棵树在界面上是平的（Python 生成器同款修复）
+        'parent_id: $parentId',
         'level: $depth',
         'is_leaf: ${isLeaf ? 'true' : 'false'}',
         'status: skeleton',
@@ -432,6 +438,38 @@ class KnowledgeMdStore {
         '# $name',
         '',
       ].join('\n');
+
+  /// 同级重排（K2）：把 [orderedIds] 按列表顺序写成 1..n 的 `order`。
+  ///
+  /// 只动这几个文件的 frontmatter —— 文件名、id、目录一概不动（id 稳定是
+  /// 全系统的关联锚点）。没参与重排的兄弟保持"无 order"（按 id 书序），
+  /// 所以整批写入才是语义正确的：只给一个节点写 order=1 会把它顶到最前。
+  int applySiblingOrder(String subject, List<String> orderedIds) {
+    var written = 0;
+    for (var i = 0; i < orderedIds.length; i++) {
+      final f = fileOf(subject, orderedIds[i]);
+      if (f == null) continue;
+      _writeOrder(f, i + 1);
+      written++;
+    }
+    return written;
+  }
+
+  void _writeOrder(File file, int order) {
+    final text = file.readAsStringSync();
+    final re = RegExp(r'^order:.*$', multiLine: true);
+    final String updated;
+    if (re.hasMatch(text)) {
+      updated = text.replaceFirst(re, 'order: $order');
+    } else {
+      // 插在 frontmatter 结束前
+      final end = text.indexOf('\n---', 3);
+      updated = end < 0
+          ? text
+          : '${text.substring(0, end)}\norder: $order${text.substring(end)}';
+    }
+    file.writeAsStringSync(updated);
+  }
 
   // ── 节点编辑（K2 编辑器：增 / 改名 / 删） ────────────────────────────────
 
@@ -761,6 +799,7 @@ class KnowledgeMdStore {
       level: int.tryParse(fm['level'] ?? '') ?? 4,
       parentId: fm['parent_id'],
       isLeaf: fm['is_leaf'] == 'true',
+      order: int.tryParse(fm['order'] ?? ''),
       examWeight: double.tryParse(fm['exam_weight'] ?? ''),
       definition: definition,
       formulas: listOf('公式')

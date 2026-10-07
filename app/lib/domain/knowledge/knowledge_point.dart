@@ -77,12 +77,16 @@ class KnowledgePoint {
   /// 难度范围 [min, max]。
   final List<int> difficultyRange;
 
+  /// 同级排序号（K2 同级重排）。null = 未设置，按 id 书序排。
+  final int? order;
+
   const KnowledgePoint({
     required this.id,
     required this.name,
     required this.level,
     this.parentId,
     this.isLeaf = false,
+    this.order,
     this.examWeight,
     this.definition,
     this.formulas = const [],
@@ -124,6 +128,7 @@ class KnowledgePoint {
         level: (j['level'] as num?)?.toInt() ?? 4,
         parentId: j['parent_id']?.toString(),
         isLeaf: j['is_leaf'] == true,
+        order: (j['order'] as num?)?.toInt(),
         examWeight: (j['exam_weight'] as num?)?.toDouble(),
         definition: j['definition']?.toString(),
         formulas: _strList(j['formulas']),
@@ -205,9 +210,12 @@ class KnowledgeBase {
     }
     for (final list in m.values) {
       list.sort((a, b) {
-        // 章节顺序由 id 决定（保持与考试大纲一致的书写顺序）
-        final c = a.id.compareTo(b.id);
-        return c;
+        // 同级重排（K2）：显式 order 优先；没写 order 的（含全部存量数据）
+        // 保持 id 书序 —— 与考试大纲一致的默认顺序不受影响。
+        final oa = a.order ?? 1 << 30;
+        final ob = b.order ?? 1 << 30;
+        if (oa != ob) return oa.compareTo(ob);
+        return a.id.compareTo(b.id);
       });
     }
     return m;

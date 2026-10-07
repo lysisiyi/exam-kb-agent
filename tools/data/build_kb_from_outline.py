@@ -91,7 +91,7 @@ def normalize(node: dict) -> None:
 
 
 def write_node(parent_dir: Path, node: dict, seq: int, node_id: str,
-               depth: int) -> tuple[int, int]:
+               parent_id: str, depth: int) -> tuple[int, int]:
     """返回（写出的文件数, 叶子数）。"""
     name = node["name"]
     safe = SAFE.sub("_", name)
@@ -102,28 +102,35 @@ def write_node(parent_dir: Path, node: dict, seq: int, node_id: str,
     if is_leaf:
         f = parent_dir / f"{seq:02d}-{safe}.md"
         f.parent.mkdir(parents=True, exist_ok=True)
-        f.write_text(frontmatter(node_id, name, depth, True) + f"\n# {name}\n",
-                     encoding="utf-8")
+        f.write_text(
+            frontmatter(node_id, name, depth, True, parent_id) +
+            f"\n# {name}\n",
+            encoding="utf-8")
         return 1, 1
 
     d = parent_dir / f"{seq:02d}-{safe}"
     d.mkdir(parents=True, exist_ok=True)
     (d / f"{seq:02d}-{safe}.md").write_text(
-        frontmatter(node_id, name, depth, False) + f"\n# {name}\n",
+        frontmatter(node_id, name, depth, False, parent_id) +
+        f"\n# {name}\n",
         encoding="utf-8")
     files += 1
     for i, child in enumerate(node["children"], start=1):
-        cf, cl = write_node(d, child, i, f"{node_id}.{i}", depth + 1)
+        cf, cl = write_node(d, child, i, f"{node_id}.{i}", node_id, depth + 1)
         files += cf
         leaves += cl
     return files, leaves
 
 
-def frontmatter(node_id: str, name: str, depth: int, is_leaf: bool) -> str:
+def frontmatter(node_id: str, name: str, depth: int, is_leaf: bool,
+                parent_id: str) -> str:
     lines = [
         "---",
         f"id: {node_id}",
         f"name: {name}",
+        # ⚠️ parent_id 必须写：App 的树/大纲/拖拽全走 childrenOf(parent_id)，
+        # 漏了它整棵树在界面上是平的（"0 孤儿"的校验也会空判通过）
+        f"parent_id: {parent_id}",
         f"level: {depth}",
         f"is_leaf: {str(is_leaf).lower()}",
         "status: skeleton",       # 骨架：等用户逐节填内容
@@ -173,7 +180,8 @@ def main() -> int:
 
     files, leaves = 1, 0
     for i, node in enumerate(roots, start=1):
-        f, l = write_node(kb_dir, node, i, f"{args.id_prefix}.{i}", 2)
+        f, l = write_node(kb_dir, node, i, f"{args.id_prefix}.{i}",
+                          args.slug, 2)
         files += f
         leaves += l
 
