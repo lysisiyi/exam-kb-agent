@@ -36,6 +36,7 @@ import '../../domain/paper/paper_template.dart';
 import '../../services/paper/paper_composer.dart';
 import '../../services/paper/paper_pdf_exporter.dart';
 import '../../services/paper/paper_repository.dart' show PaperTemplatesResult;
+import '../problems/problem_images.dart';
 
 /// 模板 kind → 用户看得懂的说明。
 ///
@@ -703,17 +704,20 @@ class _Preview extends StatelessWidget {
   }
 }
 
-class _ItemTile extends StatelessWidget {
+class _ItemTile extends ConsumerWidget {
   final PaperItem item;
   final PaperLabels labels;
 
   const _ItemTile({required this.item, required this.labels});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final stem = item.stemText.replaceAll(RegExp(r'\s+'), ' ').trim();
     final clipped = stem.length <= 70 ? stem : '${stem.substring(0, 70)}…';
+    // 选题里有扫描题（images_primary）就显示一张小缩略图 —— 预览时
+    // "卷子上是不是这道题"看图比看 OCR 摘要快得多。
+    final cover = ref.watch(problemCoverProvider(item.problemId)).valueOrNull;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -726,6 +730,18 @@ class _ItemTile extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 12.5, fontWeight: FontWeight.w700)),
           ),
+          if (cover != null) ...[
+            SizedBox(
+              width: 56,
+              height: 40,
+              child: ProblemImageList(
+                images: [cover.name],
+                imagesDirPath: cover.dir,
+                maxHeight: 40,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

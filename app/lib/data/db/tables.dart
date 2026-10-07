@@ -77,6 +77,10 @@ class ProblemsIndex extends Table {
   /// Markdown 文件相对路径（相对 library 根目录）。
   TextColumn get filePath => text()();
 
+  /// 题面首图文件名（仅当 `images_primary: true` 且配图非空）。
+  /// 列表页据此**以图当题面**显示；null = 文字题或没有配图。
+  TextColumn get coverImage => text().nullable()();
+
   /// 题干纯文本（去 Markdown 标记），保留原始可读形式。
   ///
   /// 用于展示、调试与将来的高亮。**不参与 FTS 索引** ——

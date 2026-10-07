@@ -64,7 +64,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.memory() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -80,6 +80,7 @@ class AppDatabase extends _$AppDatabase {
           if (from < 3) await m.createTable(tagCacheEntries);
           if (from < 3) await m.createTable(llmUsageEntries);
           if (from < 4) await _migrateToV4(m);
+          if (from < 7) await _migrateToV7(m);
           // v5：对话助手的两张表。纯新增，不动任何既有表 ——
           // 所以对老库来说是零风险的一步（不需要拷数据）。
           if (from < 5) {
@@ -191,6 +192,21 @@ class AppDatabase extends _$AppDatabase {
   /// 的提示（见 `MasteryReport.missingCauseData`）。
   Future<void> _migrateToV4(Migrator m) async {
     await m.addColumn(problemsIndex, problemsIndex.errorCauses);
+  }
+
+  /// v6 → v7：给 `problems_index` 加 `cover_image`（题目以图当题面的展示位）。
+  ///
+  /// ## 与 v4 不同的策略：这次升级后**清空重扫**
+  ///
+  /// v4 加 `error_causes` 时选择"旧行留空 + UI 如实提示缺数据"。本需求不同：
+  /// 「题目展示用图片」若是旧行留空，相当于**功能对存量静默失效**——用户
+  /// 会看到部分题有图、部分没有，而分不清"本来没图"和"没升级到"。
+  /// `problems_index` 是**派生数据**（Markdown 才是事实源），清空后由启动
+  /// 时的增量同步按"文件都在 → 新建"全量重扫一遍（1599 题量级 ≈ 数秒，
+  /// 一次性），所有行的 cover_image 就都是现算的。
+  Future<void> _migrateToV7(Migrator m) async {
+    await m.addColumn(problemsIndex, problemsIndex.coverImage);
+    await customStatement('DELETE FROM problems_index');
   }
   /// 创建 FTS5 虚拟表与同步触发器。
   ///

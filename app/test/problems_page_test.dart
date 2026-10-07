@@ -25,6 +25,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kaoyan_math_agent/core/layout/breakpoints.dart';
 import 'package:kaoyan_math_agent/core/providers.dart';
+import 'package:kaoyan_math_agent/features/problems/problem_images.dart';
 import 'package:kaoyan_math_agent/features/problems/problems_page.dart';
 
 import 'support/test_env.dart';
@@ -360,5 +361,22 @@ void main() {
           .runAsync(() async => env.db.select(env.db.problemsIndex).get());
       expect(rows!.length, 1);
     });
+  });
+
+  testWidgets('以图当题面：images_primary 的题列表行亮图、文字退居其后', (tester) async {
+    await seed(tester, [
+      const SeedProblem(
+          id: 'scan-cover',
+          stem: '扫描题的 OCR 文本，很长很长很长很长很长很长很长很长很长很长',
+          images: ['scan-cover-1.png'],
+          imagesPrimary: true),
+      const SeedProblem(id: 'text-plain', stem: '普通文字题'),
+    ]);
+    await pumpPage(tester);
+
+    // 索引重建后列表行应出现图片区（图文件本身不存在 → 显示"配图缺失"
+    // 占位，但 **ProblemImageList 被挂上**正是"以图当题面"的接线证据）
+    expect(find.byType(ProblemImageList), findsWidgets,
+        reason: '有题面图的题必须以图展示（用户要求）');
   });
 }

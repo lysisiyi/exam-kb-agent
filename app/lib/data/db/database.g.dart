@@ -120,6 +120,17 @@ class $ProblemsIndexTable extends ProblemsIndex
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _coverImageMeta = const VerificationMeta(
+    'coverImage',
+  );
+  @override
+  late final GeneratedColumn<String> coverImage = GeneratedColumn<String>(
+    'cover_image',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _stemTextMeta = const VerificationMeta(
     'stemText',
   );
@@ -275,6 +286,7 @@ class $ProblemsIndexTable extends ProblemsIndex
     sourceType,
     sourceYear,
     filePath,
+    coverImage,
     stemText,
     searchTokens,
     primaryKpWeight,
@@ -369,6 +381,12 @@ class $ProblemsIndexTable extends ProblemsIndex
       );
     } else if (isInserting) {
       context.missing(_filePathMeta);
+    }
+    if (data.containsKey('cover_image')) {
+      context.handle(
+        _coverImageMeta,
+        coverImage.isAcceptableOrUnknown(data['cover_image']!, _coverImageMeta),
+      );
     }
     if (data.containsKey('stem_text')) {
       context.handle(
@@ -525,6 +543,10 @@ class $ProblemsIndexTable extends ProblemsIndex
             DriftSqlType.string,
             data['${effectivePrefix}file_path'],
           )!,
+      coverImage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_image'],
+      ),
       stemText:
           attachedDatabase.typeMapping.read(
             DriftSqlType.string,
@@ -621,6 +643,10 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
   /// Markdown 文件相对路径（相对 library 根目录）。
   final String filePath;
 
+  /// 题面首图文件名（仅当 `images_primary: true` 且配图非空）。
+  /// 列表页据此**以图当题面**显示；null = 文字题或没有配图。
+  final String? coverImage;
+
   /// 题干纯文本（去 Markdown 标记），保留原始可读形式。
   ///
   /// 用于展示、调试与将来的高亮。**不参与 FTS 索引** ——
@@ -683,6 +709,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
     required this.sourceType,
     this.sourceYear,
     required this.filePath,
+    this.coverImage,
     required this.stemText,
     required this.searchTokens,
     this.primaryKpWeight,
@@ -713,6 +740,9 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
       map['source_year'] = Variable<int>(sourceYear);
     }
     map['file_path'] = Variable<String>(filePath);
+    if (!nullToAbsent || coverImage != null) {
+      map['cover_image'] = Variable<String>(coverImage);
+    }
     map['stem_text'] = Variable<String>(stemText);
     map['search_tokens'] = Variable<String>(searchTokens);
     if (!nullToAbsent || primaryKpWeight != null) {
@@ -758,6 +788,10 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
               ? const Value.absent()
               : Value(sourceYear),
       filePath: Value(filePath),
+      coverImage:
+          coverImage == null && nullToAbsent
+              ? const Value.absent()
+              : Value(coverImage),
       stemText: Value(stemText),
       searchTokens: Value(searchTokens),
       primaryKpWeight:
@@ -810,6 +844,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
       sourceType: serializer.fromJson<String>(json['sourceType']),
       sourceYear: serializer.fromJson<int?>(json['sourceYear']),
       filePath: serializer.fromJson<String>(json['filePath']),
+      coverImage: serializer.fromJson<String?>(json['coverImage']),
       stemText: serializer.fromJson<String>(json['stemText']),
       searchTokens: serializer.fromJson<String>(json['searchTokens']),
       primaryKpWeight: serializer.fromJson<double?>(json['primaryKpWeight']),
@@ -838,6 +873,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
       'sourceType': serializer.toJson<String>(sourceType),
       'sourceYear': serializer.toJson<int?>(sourceYear),
       'filePath': serializer.toJson<String>(filePath),
+      'coverImage': serializer.toJson<String?>(coverImage),
       'stemText': serializer.toJson<String>(stemText),
       'searchTokens': serializer.toJson<String>(searchTokens),
       'primaryKpWeight': serializer.toJson<double?>(primaryKpWeight),
@@ -864,6 +900,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
     String? sourceType,
     Value<int?> sourceYear = const Value.absent(),
     String? filePath,
+    Value<String?> coverImage = const Value.absent(),
     String? stemText,
     String? searchTokens,
     Value<double?> primaryKpWeight = const Value.absent(),
@@ -887,6 +924,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
     sourceType: sourceType ?? this.sourceType,
     sourceYear: sourceYear.present ? sourceYear.value : this.sourceYear,
     filePath: filePath ?? this.filePath,
+    coverImage: coverImage.present ? coverImage.value : this.coverImage,
     stemText: stemText ?? this.stemText,
     searchTokens: searchTokens ?? this.searchTokens,
     primaryKpWeight:
@@ -920,6 +958,8 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
       sourceYear:
           data.sourceYear.present ? data.sourceYear.value : this.sourceYear,
       filePath: data.filePath.present ? data.filePath.value : this.filePath,
+      coverImage:
+          data.coverImage.present ? data.coverImage.value : this.coverImage,
       stemText: data.stemText.present ? data.stemText.value : this.stemText,
       searchTokens:
           data.searchTokens.present
@@ -968,6 +1008,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
           ..write('sourceType: $sourceType, ')
           ..write('sourceYear: $sourceYear, ')
           ..write('filePath: $filePath, ')
+          ..write('coverImage: $coverImage, ')
           ..write('stemText: $stemText, ')
           ..write('searchTokens: $searchTokens, ')
           ..write('primaryKpWeight: $primaryKpWeight, ')
@@ -996,6 +1037,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
     sourceType,
     sourceYear,
     filePath,
+    coverImage,
     stemText,
     searchTokens,
     primaryKpWeight,
@@ -1023,6 +1065,7 @@ class ProblemIndexRow extends DataClass implements Insertable<ProblemIndexRow> {
           other.sourceType == this.sourceType &&
           other.sourceYear == this.sourceYear &&
           other.filePath == this.filePath &&
+          other.coverImage == this.coverImage &&
           other.stemText == this.stemText &&
           other.searchTokens == this.searchTokens &&
           other.primaryKpWeight == this.primaryKpWeight &&
@@ -1048,6 +1091,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
   final Value<String> sourceType;
   final Value<int?> sourceYear;
   final Value<String> filePath;
+  final Value<String?> coverImage;
   final Value<String> stemText;
   final Value<String> searchTokens;
   final Value<double?> primaryKpWeight;
@@ -1071,6 +1115,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
     this.sourceType = const Value.absent(),
     this.sourceYear = const Value.absent(),
     this.filePath = const Value.absent(),
+    this.coverImage = const Value.absent(),
     this.stemText = const Value.absent(),
     this.searchTokens = const Value.absent(),
     this.primaryKpWeight = const Value.absent(),
@@ -1095,6 +1140,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
     this.sourceType = const Value.absent(),
     this.sourceYear = const Value.absent(),
     required String filePath,
+    this.coverImage = const Value.absent(),
     required String stemText,
     this.searchTokens = const Value.absent(),
     this.primaryKpWeight = const Value.absent(),
@@ -1124,6 +1170,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
     Expression<String>? sourceType,
     Expression<int>? sourceYear,
     Expression<String>? filePath,
+    Expression<String>? coverImage,
     Expression<String>? stemText,
     Expression<String>? searchTokens,
     Expression<double>? primaryKpWeight,
@@ -1148,6 +1195,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
       if (sourceType != null) 'source_type': sourceType,
       if (sourceYear != null) 'source_year': sourceYear,
       if (filePath != null) 'file_path': filePath,
+      if (coverImage != null) 'cover_image': coverImage,
       if (stemText != null) 'stem_text': stemText,
       if (searchTokens != null) 'search_tokens': searchTokens,
       if (primaryKpWeight != null) 'primary_kp_weight': primaryKpWeight,
@@ -1174,6 +1222,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
     Value<String>? sourceType,
     Value<int?>? sourceYear,
     Value<String>? filePath,
+    Value<String?>? coverImage,
     Value<String>? stemText,
     Value<String>? searchTokens,
     Value<double?>? primaryKpWeight,
@@ -1198,6 +1247,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
       sourceType: sourceType ?? this.sourceType,
       sourceYear: sourceYear ?? this.sourceYear,
       filePath: filePath ?? this.filePath,
+      coverImage: coverImage ?? this.coverImage,
       stemText: stemText ?? this.stemText,
       searchTokens: searchTokens ?? this.searchTokens,
       primaryKpWeight: primaryKpWeight ?? this.primaryKpWeight,
@@ -1245,6 +1295,9 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
     }
     if (filePath.present) {
       map['file_path'] = Variable<String>(filePath.value);
+    }
+    if (coverImage.present) {
+      map['cover_image'] = Variable<String>(coverImage.value);
     }
     if (stemText.present) {
       map['stem_text'] = Variable<String>(stemText.value);
@@ -1298,6 +1351,7 @@ class ProblemsIndexCompanion extends UpdateCompanion<ProblemIndexRow> {
           ..write('sourceType: $sourceType, ')
           ..write('sourceYear: $sourceYear, ')
           ..write('filePath: $filePath, ')
+          ..write('coverImage: $coverImage, ')
           ..write('stemText: $stemText, ')
           ..write('searchTokens: $searchTokens, ')
           ..write('primaryKpWeight: $primaryKpWeight, ')
@@ -5488,6 +5542,7 @@ typedef $$ProblemsIndexTableCreateCompanionBuilder =
       Value<String> sourceType,
       Value<int?> sourceYear,
       required String filePath,
+      Value<String?> coverImage,
       required String stemText,
       Value<String> searchTokens,
       Value<double?> primaryKpWeight,
@@ -5513,6 +5568,7 @@ typedef $$ProblemsIndexTableUpdateCompanionBuilder =
       Value<String> sourceType,
       Value<int?> sourceYear,
       Value<String> filePath,
+      Value<String?> coverImage,
       Value<String> stemText,
       Value<String> searchTokens,
       Value<double?> primaryKpWeight,
@@ -5583,6 +5639,11 @@ class $$ProblemsIndexTableFilterComposer
 
   ColumnFilters<String> get filePath => $composableBuilder(
     column: $table.filePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coverImage => $composableBuilder(
+    column: $table.coverImage,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5706,6 +5767,11 @@ class $$ProblemsIndexTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get coverImage => $composableBuilder(
+    column: $table.coverImage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get stemText => $composableBuilder(
     column: $table.stemText,
     builder: (column) => ColumnOrderings(column),
@@ -5814,6 +5880,11 @@ class $$ProblemsIndexTableAnnotationComposer
   GeneratedColumn<String> get filePath =>
       $composableBuilder(column: $table.filePath, builder: (column) => column);
 
+  GeneratedColumn<String> get coverImage => $composableBuilder(
+    column: $table.coverImage,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get stemText =>
       $composableBuilder(column: $table.stemText, builder: (column) => column);
 
@@ -5912,6 +5983,7 @@ class $$ProblemsIndexTableTableManager
                 Value<String> sourceType = const Value.absent(),
                 Value<int?> sourceYear = const Value.absent(),
                 Value<String> filePath = const Value.absent(),
+                Value<String?> coverImage = const Value.absent(),
                 Value<String> stemText = const Value.absent(),
                 Value<String> searchTokens = const Value.absent(),
                 Value<double?> primaryKpWeight = const Value.absent(),
@@ -5935,6 +6007,7 @@ class $$ProblemsIndexTableTableManager
                 sourceType: sourceType,
                 sourceYear: sourceYear,
                 filePath: filePath,
+                coverImage: coverImage,
                 stemText: stemText,
                 searchTokens: searchTokens,
                 primaryKpWeight: primaryKpWeight,
@@ -5960,6 +6033,7 @@ class $$ProblemsIndexTableTableManager
                 Value<String> sourceType = const Value.absent(),
                 Value<int?> sourceYear = const Value.absent(),
                 required String filePath,
+                Value<String?> coverImage = const Value.absent(),
                 required String stemText,
                 Value<String> searchTokens = const Value.absent(),
                 Value<double?> primaryKpWeight = const Value.absent(),
@@ -5983,6 +6057,7 @@ class $$ProblemsIndexTableTableManager
                 sourceType: sourceType,
                 sourceYear: sourceYear,
                 filePath: filePath,
+                coverImage: coverImage,
                 stemText: stemText,
                 searchTokens: searchTokens,
                 primaryKpWeight: primaryKpWeight,

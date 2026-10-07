@@ -33,6 +33,7 @@ import '../../data/markdown/problem_markdown.dart';
 import '../../data/problem_file.dart';
 import '../../services/review/review_repository.dart';
 import 'problem_detail.dart';
+import 'problem_images.dart';
 
 /// 列表的排序/筛选方式。
 enum ProblemView {
@@ -350,14 +351,15 @@ class _SearchList extends ConsumerWidget {
   }
 }
 
-class _List extends StatelessWidget {
+class _List extends ConsumerWidget {
   final List<ProblemListRow> rows;
   final void Function(String problemId) onOpen;
 
   const _List({required this.rows, required this.onOpen});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final imagesDir = ref.watch(libraryPathsProvider).valueOrNull?.images.path;
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: rows.length,
@@ -366,6 +368,8 @@ class _List extends StatelessWidget {
         return _ProblemTile(
           problemId: r.problemId,
           stemText: r.stemText,
+          coverImage: r.coverImage,
+          imagesDirPath: imagesDir,
           primaryKpName: r.primaryKpName,
           difficulty: r.difficulty,
           source: r.source,
@@ -383,6 +387,10 @@ class _List extends StatelessWidget {
 class _ProblemTile extends StatelessWidget {
   final String problemId;
   final String stemText;
+
+  /// 题面首图（images_primary 的题）——非空时**以图当题面**。
+  final String? coverImage;
+  final String? imagesDirPath;
   final String? primaryKpName;
   final int difficulty;
   final String? source;
@@ -396,6 +404,8 @@ class _ProblemTile extends StatelessWidget {
     required this.problemId,
     required this.stemText,
     required this.onTap,
+    this.coverImage,
+    this.imagesDirPath,
     this.primaryKpName,
     this.difficulty = 2,
     this.source,
@@ -436,10 +446,31 @@ class _ProblemTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DefaultTextStyle.merge(
-                    style: const TextStyle(height: 1.7),
-                    child: stem,
-                  ),
+                  // 以图当题面（用户要求「题目展示时用图片展示」）：
+                  // 有题面图的题直接亮图，OCR 文字退居其后一行做索引提示。
+                  if (coverImage != null) ...[
+                    ProblemImageList(
+                      images: [coverImage!],
+                      imagesDirPath: imagesDirPath,
+                      maxHeight: 150,
+                    ),
+                    const SizedBox(height: 6),
+                    DefaultTextStyle.merge(
+                      style: const TextStyle(
+                          height: 1.6, fontSize: 11.5, color: AppColors.ink3),
+                      child: MathRendering.renderer.renderMarkdown(
+                        stemText.length > 80
+                            ? '${stemText.substring(0, 80)}…'
+                            : stemText,
+                        options:
+                            const MathRenderOptions(fontSize: AppMathSizes.compact),
+                      ),
+                    ),
+                  ] else
+                    DefaultTextStyle.merge(
+                      style: const TextStyle(height: 1.7),
+                      child: stem,
+                    ),
                   const SizedBox(height: 6),
                   // 行内标签刻意**只有**：考点（或待补）、待复核、错次。
                   // 难度/来源/掌握度/下次复习都在详情抽屉里 —— 行是扫读

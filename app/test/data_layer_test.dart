@@ -205,6 +205,10 @@ void main() {
       await rollback.customStatement(
         'ALTER TABLE chat_messages DROP COLUMN tool_trace',
       );
+      // v7 加的 cover_image（题目以图当题面）
+      await rollback.customStatement(
+        'ALTER TABLE problems_index DROP COLUMN cover_image',
+      );
       await rollback.customStatement('PRAGMA user_version = 2');
       await rollback.close();
 
@@ -228,6 +232,8 @@ void main() {
       final colNames = cols.map((r) => r.read<String>('name')).toSet();
       expect(colNames, contains('error_causes'),
           reason: 'v4 迁移必须把这一列加上，否则画像的错因分布永远是空的');
+      expect(colNames, contains('cover_image'),
+          reason: 'v7 迁移必须把这一列加上，否则列表无法以图当题面');
 
       // v6 的那一列同理：P1 落盘的会话没有它，补不上就回看不了"查过什么"
       final chatCols = await upgraded

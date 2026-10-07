@@ -604,6 +604,9 @@ class ProblemListRow {
   final bool aiTagged;
   final DateTime? createdAt;
 
+  /// 题面首图文件名（images_primary 且配图非空时；见 `problems_index.cover_image`）。
+  final String? coverImage;
+
   /// 用户状态（可能还没建卡）。
   final UserProblemStateRow? state;
 
@@ -626,6 +629,7 @@ class ProblemListRow {
     this.needsReview = false,
     this.aiTagged = false,
     this.createdAt,
+    this.coverImage,
     this.state,
     this.mastery = 0,
   });

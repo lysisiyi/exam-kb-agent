@@ -257,6 +257,11 @@ class IndexBuilder {
               // FTS5 索引的是 `search_tokens` 而不是本列（见 database.dart 的 DDL），
               // 所以本列不必为检索牺牲可读性。
               stemText: SearchableText.preview(problem.stem, maxLength: 200),
+              // 以图当题面：仅扫描/拍照导入（images_primary）的题。
+              // 文字题即使配示意图也不当题面 —— 免得列表被示意图占领。
+              coverImage: Value(problem.imagesPrimary && problem.images.isNotEmpty
+                  ? problem.images.first
+                  : null),
               searchTokens: Value(SearchableText.fromProblem(problem)),
               primaryKpWeight: Value(meta?.weight),
               primaryKpName: Value(meta?.name),

@@ -13,6 +13,7 @@ import '../data/index/index_builder.dart';
 import '../data/knowledge/knowledge_repository.dart';
 import '../data/knowledge_md/knowledge_md_store.dart';
 import '../data/markdown/problem_store.dart';
+import '../data/problem_file.dart';
 import '../domain/fsrs/fsrs_scheduler.dart';
 import '../domain/knowledge/knowledge_point.dart';
 import '../domain/paper/paper_template.dart';
@@ -268,6 +269,21 @@ final knowledgeMdStoreProvider = FutureProvider<KnowledgeMdStore>((ref) async {
   return KnowledgeMdStore(root: Directory('${paths.root.path}/knowledge'));
 });
 
+/// 题目首图（按需读题目文件；组卷预览的缩略图用）。
+/// 无图/读失败返回 null —— 调用方不渲染缩略图。
+final problemCoverProvider =
+    FutureProvider.family<({String dir, String name})?, String>(
+        (ref, problemId) async {
+  final store = await ref.read(problemStoreProvider.future);
+  final db = await ref.read(databaseProvider.future);
+  final read =
+      await readIndexedProblem(db: db, store: store, problemId: problemId);
+  if (!read.isOk) return null;
+  final p = read.problem!;
+  if (!p.imagesPrimary || p.images.isEmpty) return null;
+  return (dir: store.imagesDir.path, name: p.images.first);
+});
+
 /// 桌宠皮肤（meta_entries 的 `pet_skin`，值=assets/pets/ 下的文件名）。
 /// 默认 zhipu（小研）。换皮后 invalidate 它，宠物窗口下次召唤生效。
 final petSkinProvider = FutureProvider<String>((ref) async {
@@ -420,6 +436,7 @@ final problemListProvider =
       t.needsReview,
       t.aiTagged,
       t.createdAt,
+      t.coverImage,
     ]);
 
   final rows = await q.get();
@@ -444,6 +461,7 @@ final problemListProvider =
         needsReview: r.read(t.needsReview) ?? false,
         aiTagged: r.read(t.aiTagged) ?? false,
         createdAt: r.read(t.createdAt),
+        coverImage: r.read(t.coverImage),
         state: byId[r.read(t.id)],
         mastery: masteryNowOf(byId[r.read(t.id)], scheduler, now) ?? 0,
       ),
