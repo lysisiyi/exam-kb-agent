@@ -59,12 +59,24 @@ void main() {
     }
   }
 
+  /// 有界 settle：滚动手势后推几帧（本文件里原先是 pump() 内联循环）。
+  Future<void> settle(WidgetTester tester, {int frames = 8}) async {
+    for (var i = 0; i < frames; i++) {
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+  }
+
   testWidgets('页面能起来并给出导出入口', (tester) async {
     await seed(tester);
     await pump(tester);
 
     expect(tester.takeException(), isNull);
     expect(find.text('设置'), findsOneWidget);
+    // 「网课 · B站字幕」分区把导出入口推到了折叠线以下：先滚到它
+    await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+    await settle(tester);
     expect(find.text('导出题库'), findsOneWidget);
     expect(find.textContaining('选择文件夹并导出'), findsOneWidget);
   });
@@ -73,6 +85,8 @@ void main() {
     await seed(tester);
     await pump(tester);
 
+    await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+    await settle(tester);
     expect(find.textContaining('只读快照'), findsOneWidget,
         reason: '不说这句，用户会以为导出后能在 Obsidian 里双向编辑');
     expect(find.textContaining('复习进度'), findsWidgets,
@@ -83,6 +97,8 @@ void main() {
     await seed(tester);
     await pump(tester);
 
+    await tester.drag(find.byType(ListView).first, const Offset(0, -400));
+    await settle(tester);
     expect(find.textContaining('Obsidian'), findsWidgets);
     expect(find.textContaining('不需要装插件'), findsOneWidget);
   });

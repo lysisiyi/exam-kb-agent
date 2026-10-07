@@ -252,6 +252,15 @@ final paperLabelsProvider = FutureProvider<PaperLabels>((ref) async {
   return repo.labels();
 });
 
+/// B站 SESSDATA（meta_entries 的 `bilibili_sessdata`）。
+/// 仅存本机、只用于字幕接口的 Cookie —— 多数视频的字幕需登录才可取。
+final bilibiliSessdataProvider = FutureProvider<String>((ref) async {
+  final db = await ref.watch(databaseProvider.future);
+  final rows = await db.select(db.metaEntries).get();
+  final meta = {for (final r in rows) r.key: r.value};
+  return meta['bilibili_sessdata'] ?? '';
+});
+
 /// 桌宠皮肤（meta_entries 的 `pet_skin`，值=assets/pets/ 下的文件名）。
 /// 默认 zhipu（小研）。换皮后 invalidate 它，宠物窗口下次召唤生效。
 final petSkinProvider = FutureProvider<String>((ref) async {

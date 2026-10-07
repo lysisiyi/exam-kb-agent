@@ -17,9 +17,11 @@ import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/knowledge/knowledge_point.dart';
 import '../../pet/pet_service.dart';
+import '../../services/companion/bilibili_client.dart';
 import '../../services/companion/course_store.dart';
 import '../../services/companion/note_llm.dart';
 import '../../services/companion/screen_capture.dart';
+import '../../services/companion/subtitle_notes.dart';
 import '../../services/practice/ai_problem_writer.dart';
 import '../practice/lesson_runner_page.dart';
 
@@ -245,6 +247,115 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
     });
   }
 
+  /// P4 B站字幕轨：粘贴链接/BV → 选分P → 拉 CC 字幕 → 分窗总结落笔记。
+  Future<void> _importBilibili() async {
+    final input = await _askTitle(context, 'B站链接或 BV 号（可带 ?p= 指定分P）');
+    if (input == null || input.trim().isEmpty || !mounted) return;
+    final bvid = extractBvid(input);
+    if (bvid == null) {
+      setState(() => _status = '没识别出 BV 号——直接粘贴视频链接或 BV 号。');
+      return;
+    }
+    final sessdata = await ref.read(bilibiliSessdataProvider.future);
+    if (!mounted) return;
+    final http = DioBiliHttp();
+    setState(() => _status = '正在读取视频信息…');
+    try {
+      final client = BiliSubtitleClient(http, sessdata: sessdata);
+      final pages = await client.pages(bvid);
+      if (pages.isEmpty) {
+        setState(() => _status = '读不到这个视频（链接失效/网络不通）。');
+        return;
+      }
+      // 选分P：单P 直接用；多P 看 ?p= 参数或弹选择
+      BiliPage chosen;
+      final p = extractPageNumber(input);
+      if (pages.length == 1) {
+        chosen = pages.first;
+      } else if (p != null && p >= 1 && p <= pages.length) {
+        chosen = pages[p - 1];
+      } else {
+        if (!mounted) return;
+        final picked = await showModalBottomSheet<BiliPage>(
+          context: context,
+          builder: (context) => SafeArea(
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Text('选择分P',
+                      style: TextStyle(
+                          fontSize: 13.5, fontWeight: FontWeight.w700)),
+                ),
+                for (final pg in pages)
+                  ListTile(
+                    dense: true,
+                    title: Text('P${pg.page} ${pg.part}',
+                        style: const TextStyle(fontSize: 13)),
+                    onTap: () => Navigator.pop(context, pg),
+                  ),
+              ],
+            ),
+          ),
+        );
+        if (picked == null || !mounted) return;
+        chosen = picked;
+      }
+
+      setState(() => _status = '正在拉取字幕…');
+      final subs = await client.subtitleList(bvid, chosen.cid);
+      if (subs.isEmpty) {
+        setState(() => _status =
+            '这个分P没有可用字幕（UP 没传或未生成 CC；必要时到设置里填 SESSDATA 再试）。');
+        return;
+      }
+      // 优先中文字幕（zh-CN / ai-zh / zh-Hans 都算），否则取第一条
+      final pick = subs.firstWhere(
+        (s) => s.lan.toLowerCase().contains('zh'),
+        orElse: () => subs.first,
+      );
+      final lines = await client.subtitleLines(pick.url);
+      if (lines.isEmpty) {
+        setState(() => _status = '字幕是空的。');
+        return;
+      }
+
+      final llm =
+          ref.read(ingestClientProvider) ?? ref.read(chatClientProvider);
+      if (llm == null) {
+        setState(() => _status = '先到「设置」里配好 AI 服务商（文本模型即可）。');
+        return;
+      }
+      final windows = sliceWindows(lines);
+      final store = await ref.read(courseStoreProvider.future);
+      var added = 0;
+      for (var i = 0; i < windows.length; i++) {
+        if (!mounted) return;
+        setState(() => _status = '正在总结第 ${i + 1}/${windows.length} 段…');
+        final notes = await summarizeSubtitleWindow(llm, windows[i]);
+        for (final n in notes) {
+          final ok = await store.appendNote(_lesson,
+              LessonNote(time: n.time, point: n.point, formula: n.formula));
+          if (ok) added++;
+        }
+      }
+      await _reload();
+      if (added > 0) {
+        await ref
+            .read(petServiceProvider)
+            .sendBubble('字幕轨记下 $added 条笔记（P${chosen.page}）');
+      }
+      setState(() => _status = added == 0
+          ? '字幕总结完成了，但内容与已有笔记重复或无可记要点。'
+          : '字幕轨完成：$added 条笔记（${windows.length} 段窗口 · P${chosen.page}）。');
+    } catch (e) {
+      setState(() => _status = '字幕拉取失败：$e');
+    } finally {
+      http.close();
+    }
+  }
+
   /// AI 自创题（P3）：选关联考点 → 依笔记出 3 题 → 存为「待复核」。
   Future<void> _generateAiProblems() async {
     final client = ref.read(ingestClientProvider) ??
@@ -453,6 +564,11 @@ class _LessonPageState extends ConsumerState<_LessonPage> {
                         : _generateAiProblems,
                     icon: const Icon(Icons.auto_awesome),
                     label: const Text('AI 自创题')),
+                // P4 B站字幕轨：BV 号 → CC 字幕 → 分窗总结成带时间戳的笔记
+                OutlinedButton.icon(
+                    onPressed: _busy ? null : _importBilibili,
+                    icon: const Icon(Icons.subtitles_outlined),
+                    label: const Text('B站字幕生成笔记')),
                 if (_running)
                   const Chip(label: Text('伴学中'), backgroundColor: AppColors.primaryWeak),
                 if (_busy)

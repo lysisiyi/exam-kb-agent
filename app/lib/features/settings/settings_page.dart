@@ -112,6 +112,29 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ),
         const SizedBox(height: 10),
 
+        // ── 网课（B站字幕） ────────────────────────────────────────────
+        _Section(
+          title: '网课 · B站字幕',
+          children: [
+            const Text(
+              '做「B站字幕生成笔记」时用。多数视频的字幕需要登录才可取：'
+              '在浏览器登录 B站后，从开发者工具或 Cookie 插件里复制 SESSDATA 粘贴到这里。'
+              '它只存在本机（meta_entries），只在本机的字幕请求里当 Cookie 使用。',
+              style: TextStyle(fontSize: 12, height: 1.7, color: AppColors.ink2),
+            ),
+            const SizedBox(height: 10),
+            Consumer(builder: (context, ref, _) {
+              final saved = ref.watch(bilibiliSessdataProvider).valueOrNull;
+              return _SessdataField(saved: saved ?? '', onSave: (v) async {
+                final db = await ref.read(databaseProvider.future);
+                await db.writeMeta('bilibili_sessdata', v.trim());
+                ref.invalidate(bilibiliSessdataProvider);
+              });
+            }),
+          ],
+        ),
+        const SizedBox(height: 18),
+
         // ── 桌宠 ──────────────────────────────────────────────────────
         _Section(
           title: '桌宠',
@@ -496,6 +519,52 @@ class _PathLine extends StatelessWidget {
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
+  }
+}
+
+/// SESSDATA 输入（遮挡显示；保存后回填）。
+class _SessdataField extends StatefulWidget {
+  final String saved;
+  final Future<void> Function(String) onSave;
+  const _SessdataField({required this.saved, required this.onSave});
+
+  @override
+  State<_SessdataField> createState() => _SessdataFieldState();
+}
+
+class _SessdataFieldState extends State<_SessdataField> {
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.saved);
+  bool _savedFlag = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Expanded(
+        child: TextField(
+          controller: _controller,
+          obscureText: true,
+          decoration: const InputDecoration(
+            hintText: 'SESSDATA（可留空 —— 无 CC 字幕时可回退截图轨）',
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      FilledButton(
+        onPressed: () async {
+          await widget.onSave(_controller.text);
+          if (mounted) setState(() => _savedFlag = true);
+        },
+        child: Text(_savedFlag ? '已保存 ✓' : '保存',
+            style: const TextStyle(fontSize: 12.5)),
+      ),
+    ]);
   }
 }
 
