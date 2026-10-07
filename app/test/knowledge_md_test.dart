@@ -472,4 +472,38 @@ id: x
       expect(heads, 1);
     });
   });
+
+  group('手动编辑小节（updateNodeContent）', () {
+    test('改写定义/公式/陷阱；未指定的小节与其它内容不动', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      final f = store.fileOf('math1', 'math1.calc.1.1.1')!;
+      // 先加一段笔记回流内容，验证编辑不伤它
+      store.appendLessonNote(f, '第1讲', '01:00', '回流笔记');
+
+      store.updateNodeContent(
+        f,
+        definition: '手改后的定义。',
+        formulas: ['x^2', 'y^2'],
+        traps: ['别忘条件'],
+      );
+      final (kb, _) = store.loadTree('math1');
+      final n = kb!.byId['math1.calc.1.1.1']!;
+      expect(n.definition, '手改后的定义。');
+      expect(n.formulas, ['x^2', 'y^2']);
+      expect(n.commonTraps, ['别忘条件']);
+      expect(f.readAsStringSync(), contains('回流笔记'), reason: '回流小节不动');
+    });
+
+    test('空值=清空删除该节；只改指定节', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      final f = store.fileOf('math1', 'math1.calc.1.1.1')!;
+      store.updateNodeContent(f, definition: '', traps: null);
+      final (kb, _) = store.loadTree('math1');
+      final n = kb!.byId['math1.calc.1.1.1']!;
+      expect(n.definition, isNull, reason: '空串=删除定义节');
+      expect(n.formulas, isNotEmpty, reason: '没指定的节不动');
+    });
+  });
 }

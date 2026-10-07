@@ -10,12 +10,14 @@
 /// 附赠一个细节：0.5.0 的 `setIcon` 收**资产相对路径**，库内部自动拼
 /// `dirname(exe)/data/flutter_assets/`，所以直接传 `assets/pets/pet.ico`。
 ///
-/// ## 关窗纪律（引以为戒的那次翻车）
+/// ## 关窗纪律（两次翻车后的最终定案）
 ///
-/// P2c 曾无条件 `setPreventClose(true)` 把 ✕ 改成"隐藏"，而托盘没装成 →
-/// App 成了关不掉也找不回的幽灵进程（用户实测报告）。现在的规则：
-/// **仅当托盘安装成功、两个出口（点图标显示 / 菜单退出）都真实可用时，
-/// 才把 ✕ 改成隐藏**；安装失败就维持系统默认的 ✕ = 退出。
+/// 第一次：无条件把 ✕ 改成"隐藏"，托盘没装成 → 关不掉也找不回。
+/// 第二次：托盘装成后仍把 ✕ 改成"隐藏" → 用户仍报"关闭键失效"
+/// （托盘图标在，但用户的预期是 ✕＝关）。
+/// **最终定案：✕ 永远是正常退出，任何情况下都不拦截。**
+/// "缩到托盘"只作为托盘菜单里的一个**显式选项**存在（点了才隐藏），
+/// 退出仍是托盘菜单/✕ 两条路。替代路径齐备也不够 —— 用户的预期才算数。
 library;
 
 import 'package:tray_manager/tray_manager.dart';
@@ -31,13 +33,13 @@ Future<bool> setupTrayAndClosePolicy() async {
     await trayManager.setToolTip('研伴 · 网课学习伴侣');
     await trayManager.setContextMenu(Menu(items: [
       MenuItem(key: 'show', label: '显示研伴'),
+      MenuItem(key: 'hide', label: '隐藏到托盘（伴学继续）'),
       MenuItem.separator(),
       MenuItem(key: 'exit', label: '退出（伴学会停止）'),
     ]));
     trayManager.addListener(_TrayHandler());
-    // 托盘可用 → ✕ = 隐藏（两个出口都在：点托盘图标显示 / 菜单退出）
-    await windowManager.setPreventClose(true);
-    StartupLog.log('托盘：安装成功（✕ = 缩到托盘，退出走托盘菜单）');
+    // ✕ 永远是正常退出（不调 setPreventClose）——见文件头"最终定案"。
+    StartupLog.log('托盘：安装成功（✕ = 正常退出；隐藏到托盘走托盘菜单）');
     return true;
   } catch (e) {
     // 装不上就维持 ✕ = 退出 —— 见文件头的关窗纪律
@@ -75,6 +77,9 @@ class _TrayHandler with TrayListener, WindowListener {
     if (item.key == 'show') {
       windowManager.show();
       windowManager.focus();
+    } else if (item.key == 'hide') {
+      // 显式选择才隐藏（✕ 不再承担这个语义）
+      windowManager.hide();
     } else if (item.key == 'exit') {
       // 退出 = 解除拦截后真关（伴学随之停止，与菜单文案一致）
       windowManager.setPreventClose(false);
@@ -82,9 +87,4 @@ class _TrayHandler with TrayListener, WindowListener {
     }
   }
 
-  @override
-  void onWindowClose() async {
-    // ✕ = 缩到托盘，伴学不中断（setPreventClose(true) 之后才会走到这里）
-    await windowManager.hide();
-  }
 }

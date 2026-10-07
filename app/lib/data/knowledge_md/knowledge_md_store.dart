@@ -515,6 +515,71 @@ class KnowledgeMdStore {
     return true;
   }
 
+  /// 删除 `## title` 小节（连同上方一层空行）。不存在则原样返回。
+  static String _deleteSection(String text, String title) {
+    final lines = text.split('\n');
+    final head = '## $title';
+    int? idx;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim() == head) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx == null) return text;
+    var end = lines.length;
+    for (var i = idx + 1; i < lines.length; i++) {
+      if (lines[i].startsWith('## ')) {
+        end = i;
+        break;
+      }
+    }
+    var start = idx;
+    if (start >= 2 &&
+        lines[start - 1].trim().isEmpty &&
+        lines[start - 2].trim().isEmpty) {
+      start -= 1;
+    }
+    return [...lines.sublist(0, start), ...lines.sublist(end)].join('\n');
+  }
+
+  /// 手动编辑节点正文的惯例小节（K2 手动编辑）：定义 / 公式 / 陷阱。
+  ///
+  /// 只重写这三个小节，正文里的其它内容（笔记回流小节、AI 草稿等）原样保留。
+  /// null 表示"这次不改这一节"；空字符串/空列表表示"清空该节"。
+  void updateNodeContent(
+    File file, {
+    String? definition,
+    List<String>? formulas,
+    List<String>? traps,
+  }) {
+    var text = file.readAsStringSync();
+    if (definition != null) {
+      final d = definition.trim();
+      text = d.isEmpty
+          ? _deleteSection(text, '定义')
+          : _upsertSection(text, '定义', d);
+    }
+    if (formulas != null) {
+      final body = [
+        for (final f in formulas)
+          if (f.trim().isNotEmpty) '\$\$${f.trim()}\$\$',
+      ].join('\n');
+      text = _upsertSection(text, '公式', body);
+    }
+    if (traps != null) {
+      final lines = [
+        for (var i = 0; i < traps.length; i++)
+          if (traps[i].trim().isNotEmpty)
+            '${i + 1}. ${traps[i].trim()}',
+      ].join('\n');
+      text = lines.isEmpty
+          ? _deleteSection(text, '陷阱')
+          : _upsertSection(text, '陷阱', lines);
+    }
+    file.writeAsStringSync(text);
+  }
+
   /// 同级重排（K2）：把 [orderedIds] 按列表顺序写成 1..n 的 `order`。
   ///
   /// 只动这几个文件的 frontmatter —— 文件名、id、目录一概不动（id 稳定是
@@ -816,6 +881,42 @@ class KnowledgeMdStore {
     return b.toString();
   }
 
+  /// 解析 `## 公式` 小节：兼容三种写法 —— 单行 `$$x$$`、多行块
+  /// （`$$` 独占一行包住内容）、以及裸行（历史数据/手工写的）。
+  static List<String> parseFormulaSection(String? body) {
+    if (body == null) return const [];
+    final out = <String>[];
+    final lines = body.split('\n');
+    var i = 0;
+    while (i < lines.length) {
+      final t = lines[i].trim();
+      if (t.isEmpty) {
+        i++;
+        continue;
+      }
+      final inline = RegExp(r'^\$\$(.+)\$\$$').firstMatch(t);
+      if (inline != null) {
+        out.add(inline.group(1)!.trim());
+        i++;
+        continue;
+      }
+      if (t == r'$$') {
+        final buf = <String>[];
+        i++;
+        while (i < lines.length && lines[i].trim() != r'$$') {
+          buf.add(lines[i]);
+          i++;
+        }
+        i++; // 跳过收尾 $$
+        if (buf.isNotEmpty) out.add(buf.join('\n').trim());
+        continue;
+      }
+      out.add(t);
+      i++;
+    }
+    return out;
+  }
+
   KnowledgePoint? _parseNode(String id, Map<String, String> fm, String raw) {
     final body = raw.startsWith('---')
         ? raw.substring(raw.indexOf('\n---', 3) + 4)
@@ -878,10 +979,7 @@ class KnowledgeMdStore {
       order: int.tryParse(fm['order'] ?? ''),
       examWeight: double.tryParse(fm['exam_weight'] ?? ''),
       definition: definition,
-      formulas: listOf('公式')
-          .map((l) => l.trim())
-          .where((l) => l.isNotEmpty)
-          .toList(),
+      formulas: parseFormulaSection(section('公式')),
       aliases: aliases,
       commonTraps: listOf('陷阱'),
       examYears: years,

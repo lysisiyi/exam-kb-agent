@@ -107,10 +107,20 @@ class KnowledgeLeafDetail extends ConsumerWidget {
               ],
             ],
           ),
-          // 参考图右上角「✍ AI 补全此节」——按钮在标题行，草稿框在下方
+          // 参考图右上角「✍ AI 补全此节」——按钮在标题行，草稿框在下方。
+          // 手动编辑同在标题行：二者是"自己写"与"让 AI 起草"两条并行的路。
           Align(
             alignment: Alignment.centerRight,
-            child: _AiDraftButton(leaf: leaf, crumbs: crumbs),
+            // Wrap 而不是 Row：窄栏（560 两栏下的右卡 ≈260px）两个按钮
+            // 一行放不下时换到第二行，而不是顶穿卡片。
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _ManualEditButton(leaf: leaf),
+                _AiDraftButton(leaf: leaf, crumbs: crumbs),
+              ],
+            ),
           ),
           // 参考图：面包屑与 md 路径**同一行**（`章节 › 节 · …/x.md`）。
           // 一行放不下时路径先省略（它比面包屑次要），面包屑保持可读。
@@ -980,6 +990,115 @@ class _AiDraftButtonState extends ConsumerState<_AiDraftButton> {
       label: Text(hasDraft ? '重新生成草稿' : 'AI 补全此节'),
       style: TextButton.styleFrom(
           foregroundColor: AppColors.primaryStrong,
+          padding: const EdgeInsets.symmetric(horizontal: 8)),
+    );
+  }
+}
+
+/// 「✍ 手动编辑」：定义 / 公式 / 陷阱三个字段直接改 md（事实源）。
+class _ManualEditButton extends ConsumerStatefulWidget {
+  final KnowledgePoint leaf;
+  const _ManualEditButton({required this.leaf});
+
+  @override
+  ConsumerState<_ManualEditButton> createState() => _ManualEditButtonState();
+}
+
+class _ManualEditButtonState extends ConsumerState<_ManualEditButton> {
+  Future<void> _open() async {
+    final leaf = widget.leaf;
+    final defCtl = TextEditingController(text: leaf.definition ?? '');
+    final formulaCtl =
+        TextEditingController(text: leaf.formulas.join('\n'));
+    final trapCtl = TextEditingController(text: leaf.commonTraps.join('\n'));
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('手动编辑 · ${leaf.name}'),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(
+                controller: defCtl,
+                maxLines: 4,
+                minLines: 2,
+                decoration: const InputDecoration(hintText: '定义（可留空=删除该节）'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: formulaCtl,
+                maxLines: 4,
+                minLines: 2,
+                decoration:
+                    const InputDecoration(hintText: '公式：一行一条（自动包成数学块）'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: trapCtl,
+                maxLines: 4,
+                minLines: 2,
+                decoration: const InputDecoration(hintText: '陷阱：一行一条（自动编号）'),
+              ),
+              const SizedBox(height: 6),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('写回知识节点的 md（事实源）；其余小节与笔记回流不受影响。',
+                    style: TextStyle(fontSize: 11, color: AppColors.ink3)),
+              ),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('保存')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final store = await ref.read(knowledgeMdStoreProvider.future);
+    final subject = ref.read(currentSubjectProvider).id;
+    final file = store.fileOf(subject, leaf.id);
+    if (file == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('找不到该知识点的 md 文件（先确认知识库来自 knowledge/ 文件夹）')));
+      }
+      return;
+    }
+    store.updateNodeContent(
+      file,
+      definition: defCtl.text,
+      formulas: formulaCtl.text
+          .split('\n')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+      traps: trapCtl.text
+          .split('\n')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+    );
+    ref.invalidate(knowledgeBaseProvider);
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('已写回节点 md')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: _open,
+      icon: const Icon(Icons.edit_outlined, size: 15),
+      label: const Text('手动编辑'),
+      style: TextButton.styleFrom(
+          foregroundColor: AppColors.ink2,
           padding: const EdgeInsets.symmetric(horizontal: 8)),
     );
   }
