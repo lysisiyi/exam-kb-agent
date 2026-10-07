@@ -426,4 +426,29 @@ id: x
       expect(ids, ['ord2.3', 'ord2.1', 'ord2.2']);
     });
   });
+
+  group('addAlias（K3 建议应用）', () {
+    test('加别名：写入 frontmatter、回读生效；重复（含大小写）不重写', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      const id = 'math1.calc.1.1.2'; // 种子里的"极限的性质"（无别名）
+      expect(store.addAlias('math1', id, '极限基本性质'), isTrue);
+      expect(store.addAlias('math1', id, '极限基本性质'), isFalse,
+          reason: '重复添加不再写');
+      expect(store.addAlias('math1', id, '极限基本性质'.toUpperCase()), isFalse,
+          reason: '大小写差异视为同一条');
+      final (kb, _) = store.loadTree('math1');
+      expect(kb!.byId[id]!.aliases, contains('极限基本性质'));
+    });
+
+    test('已有 aliases 行时追加不覆盖原有别名', () async {
+      final store = KnowledgeMdStore(root: Directory('${tmp.path}/knowledge'));
+      await store.importTree(_seed());
+      const id = 'math1.calc.1.1.1'; // 种子里有 ['limit', '重极限']
+      store.addAlias('math1', id, '第三种叫法');
+      final (kb, _) = store.loadTree('math1');
+      final aliases = kb!.byId[id]!.aliases;
+      expect(aliases, containsAll(['limit', '重极限', '第三种叫法']));
+    });
+  });
 }

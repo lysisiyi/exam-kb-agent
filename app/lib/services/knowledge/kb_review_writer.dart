@@ -9,13 +9,18 @@ library;
 
 import '../../domain/knowledge/knowledge_point.dart';
 import '../llm/llm_client.dart';
+import '../llm/robust_json.dart';
 
 /// 一次梳理的范围：一个"章节级"分支及其直接子节点。
 class KbReviewScope {
   final String title;
   final List<KnowledgePoint> nodes;
 
-  const KbReviewScope({required this.title, required this.nodes});
+  /// 本章的焦点节点 id（"建议补充但没指明父节点"时挂到它下面）。
+  final String focalId;
+
+  const KbReviewScope(
+      {required this.title, required this.nodes, required this.focalId});
 }
 
 /// 解析梳理范围。
@@ -32,7 +37,8 @@ KbReviewScope? reviewScopeOf(KnowledgeBase kb, KnowledgePoint? selected) {
         kb.traversalRoots.fold<List<KnowledgePoint>>(
             [], (acc, r) => acc..addAll(kb.childrenOf[r.id] ?? const []));
     if (roots.isEmpty) return null;
-    return KbReviewScope(title: kb.subjectName, nodes: List.of(roots));
+    return KbReviewScope(
+        title: kb.subjectName, nodes: List.of(roots), focalId: kb.subject);
   }
   // 上溯到分支
   while (focal != null && focal.isLeaf) {
@@ -45,9 +51,10 @@ KbReviewScope? reviewScopeOf(KnowledgeBase kb, KnowledgePoint? selected) {
   if (focal == null) return null;
   final kids = kb.childrenOf[focal.id] ?? const <KnowledgePoint>[];
   if (kids.isEmpty) {
-    return KbReviewScope(title: focal.name, nodes: [focal]);
+    return KbReviewScope(title: focal.name, nodes: [focal], focalId: focal.id);
   }
-  return KbReviewScope(title: focal.name, nodes: List.of(kids));
+  return KbReviewScope(
+      title: focal.name, nodes: List.of(kids), focalId: focal.id);
 }
 
 /// 给模型的本章清单：名称 + 状态 + 定义摘要（截断），节点数封顶。
@@ -75,6 +82,61 @@ const kKbReviewSystemPrompt =
     '### 建议补充\n（明显缺失的常见知识点，结合该章主题判断）\n'
     '### 顺序与归类\n（层级/次序问题，说明建议怎么调）\n'
     '最后一行给一句总评。';
+
+/// 可机械应用的梳理建议（K3 v2）。
+class ReviewSuggestions {
+  final String summary;
+
+  /// 建议加的别名：[(节点名, 别名)]。
+  final List<(String, String)> aliases;
+
+  /// 建议补充的子节点：[(父节点名(可空=本章根), 新节点名)]。
+  final List<(String?, String)> missing;
+
+  /// 其余观察（重复/零碎/顺序）——纯文本，落实靠编辑器。
+  final String notes;
+
+  const ReviewSuggestions({
+    required this.summary,
+    this.aliases = const [],
+    this.missing = const [],
+    this.notes = '',
+  });
+
+  bool get isEmpty => aliases.isEmpty && missing.isEmpty && notes.isEmpty;
+}
+
+/// 解析结构化建议；解析不出返回 null（调用方回退显示原文）。
+ReviewSuggestions? parseReviewSuggestions(String raw) {
+  final ex = RobustJson.extract(raw);
+  final j = ex.value;
+  if (j == null) return null;
+  final aliases = <(String, String)>[];
+  if (j['aliases'] is List) {
+    for (final a in j['aliases'] as List) {
+      if (a is! Map) continue;
+      final node = a['node']?.toString().trim() ?? '';
+      final alias = a['alias']?.toString().trim() ?? '';
+      if (node.isNotEmpty && alias.isNotEmpty) aliases.add((node, alias));
+    }
+  }
+  final missing = <(String?, String)>[];
+  if (j['missing'] is List) {
+    for (final m in j['missing'] as List) {
+      if (m is! Map) continue;
+      final name = m['name']?.toString().trim() ?? '';
+      if (name.isEmpty) continue;
+      final parent = m['parent']?.toString().trim() ?? '';
+      missing.add((parent.isEmpty ? null : parent, name));
+    }
+  }
+  final summary = j['summary']?.toString().trim() ?? '';
+  final notes = j['notes']?.toString().trim() ?? '';
+  final out = ReviewSuggestions(
+      summary: summary, aliases: aliases, missing: missing, notes: notes);
+  if (out.isEmpty) return null;
+  return out;
+}
 
 /// 生成梳理报告（Markdown 文本）。失败由调用方 catch 后如实展示。
 Future<String> reviewChapter(LlmClient client, KbReviewScope scope) async {

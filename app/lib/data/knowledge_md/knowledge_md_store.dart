@@ -439,6 +439,82 @@ class KnowledgeMdStore {
         '',
       ].join('\n');
 
+  /// 给节点加一个别名（K3 梳理建议的应用动作之一）。
+  ///
+  /// 兼容两种既有写法：单行逗号串（`aliases: a, b`）与 YAML 列表
+  /// （`aliases:` + `  - "a"` 若干行）——统一改写成逗号串。
+  /// 已存在（含大小写差异）返回 false 不重复写。
+  ///
+  /// ⚠️ 必须**按行**处理：早先用 `^aliases:\s*(.*)$` 匹配，`\s` 含换行，
+  /// 会把紧随的列表项一起吞进 group(1)、替换范围跟着错位，把文件改坏
+  /// （实测产出 `aliases: - "limit", 新别名` + 悬空的 `- "重极限"`）。
+  bool addAlias(String subject, String nodeId, String alias) {
+    final a = alias.trim();
+    if (a.isEmpty) return false;
+    final f = fileOf(subject, nodeId);
+    if (f == null) return false;
+    final text = f.readAsStringSync();
+    final lines = text.split('\n');
+    if (lines.isEmpty || lines.first.trim() != '---') return false;
+    // frontmatter 结束行（第二个 ---）
+    var fmEndLine = -1;
+    for (var i = 1; i < lines.length; i++) {
+      if (lines[i].trim() == '---') {
+        fmEndLine = i;
+        break;
+      }
+    }
+    if (fmEndLine < 0) return false;
+
+    final itemRe = RegExp(r'^\s+-\s+(.*)$');
+    final existing = <String>[];
+    var head = -1;
+    var afterItems = -1;
+    for (var i = 1; i < fmEndLine; i++) {
+      if (lines[i].startsWith('aliases:')) {
+        head = i;
+        break;
+      }
+    }
+    if (head >= 0) {
+      final inline = lines[head].substring('aliases:'.length).trim();
+      if (inline.isNotEmpty) {
+        existing.addAll(inline
+            .split(',')
+            .map((e) => e.trim().replaceAll('"', ''))
+            .where((e) => e.isNotEmpty));
+      }
+      var j = head + 1;
+      while (j < fmEndLine) {
+        final m = itemRe.firstMatch(lines[j]);
+        if (m == null) break;
+        final v = m.group(1)!.trim().replaceAll('"', '');
+        if (v.isNotEmpty) existing.add(v);
+        j++;
+      }
+      afterItems = j;
+    }
+    if (existing.any((e) => e.toLowerCase() == a.toLowerCase())) return false;
+    existing.add(a);
+    final newLine = 'aliases: ${existing.join(', ')}';
+    final List<String> out;
+    if (head >= 0) {
+      out = [
+        ...lines.sublist(0, head),
+        newLine,
+        ...lines.sublist(afterItems),
+      ];
+    } else {
+      out = [
+        ...lines.sublist(0, fmEndLine),
+        newLine,
+        ...lines.sublist(fmEndLine),
+      ];
+    }
+    f.writeAsStringSync(out.join('\n'));
+    return true;
+  }
+
   /// 同级重排（K2）：把 [orderedIds] 按列表顺序写成 1..n 的 `order`。
   ///
   /// 只动这几个文件的 frontmatter —— 文件名、id、目录一概不动（id 稳定是

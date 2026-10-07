@@ -47,7 +47,7 @@ void main() {
     expect(input, contains('定义摘要：'));
 
     // 无定义 → 骨架标注
-    const skeleton = KbReviewScope(title: 't', nodes: [
+    const skeleton = KbReviewScope(title: 't', focalId: 't-root', nodes: [
       KnowledgePoint(id: 'a', name: '只有名字', level: 4, isLeaf: true),
     ]);
     expect(buildReviewInput(skeleton), contains('（尚无定义——骨架）'));
@@ -55,6 +55,7 @@ void main() {
     // 封顶
     final many = KbReviewScope(
       title: 't',
+      focalId: 't-root',
       nodes: [
         for (var i = 0; i < 50; i++)
           KnowledgePoint(id: 'n$i', name: '节点$i', level: 4, isLeaf: true),
@@ -64,5 +65,36 @@ void main() {
     expect('清单过长'.length, isPositive);
     expect(capped, contains('仅列前 10 个'));
     expect(capped, isNot(contains('节点10')));
+  });
+
+  group('结构化建议解析（K3 v2）', () {
+    test('标准 JSON：summary/aliases/missing/notes 全解析；缺 parent 归一为 null', () {
+      const raw = '''
+{"summary":"整体不错","aliases":[{"node":"顺序表","alias":"顺序存储"}],
+ "missing":[{"parent":"线性表","name":"双向链表"},{"name":"循环队列"}],
+ "notes":"第三章节点偏碎"}''';
+      final r = parseReviewSuggestions(raw)!;
+      expect(r.summary, '整体不错');
+      expect(r.aliases, [('顺序表', '顺序存储')]);
+      expect(r.missing, [('线性表', '双向链表'), (null, '循环队列')]);
+      expect(r.notes, '第三章节点偏碎');
+    });
+
+    test('宽容：markdown 包裹可解析；垃圾输出返回 null（调用方回退原文）', () {
+      final wrapped = parseReviewSuggestions(
+          '```json\n{"summary":"x","aliases":[{"node":"a","alias":"b"}]}\n```');
+      expect(wrapped, isNotNull);
+      expect(parseReviewSuggestions('模型说了一堆人话'), isNull);
+      // 全空对象也算"没建议" → null（不显示空白面板）
+      expect(parseReviewSuggestions('{"summary":"","aliases":[]}'), isNull);
+    });
+
+    test('空名条目丢弃', () {
+      final r = parseReviewSuggestions('''
+{"aliases":[{"node":"","alias":"x"},{"node":"a","alias":"  "},{"node":"b","alias":"c"}],
+ "missing":[{"name":"  "},{"name":"有效"}]}''')!;
+      expect(r.aliases, [('b', 'c')]);
+      expect(r.missing, [(null, '有效')]);
+    });
   });
 }

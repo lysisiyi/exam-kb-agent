@@ -890,20 +890,25 @@ class _NewKbWizardDialogState extends ConsumerState<_NewKbWizardDialog> {
   }
 }
 
-/// 梳理报告对话框：进来自动生成，出报告可选中复制。
-class _ReviewDialog extends StatefulWidget {
+/// 梳理报告对话框（K3 v2）：进来自动生成；结构化建议**逐条应用**，
+/// 解析失败回退显示原文（诚实降级）。所有应用动作都经用户点按确认。
+class _ReviewDialog extends ConsumerStatefulWidget {
   final KbReviewScope scope;
   final LlmClient client;
 
   const _ReviewDialog({required this.scope, required this.client});
 
   @override
-  State<_ReviewDialog> createState() => _ReviewDialogState();
+  ConsumerState<_ReviewDialog> createState() => _ReviewDialogState();
 }
 
-class _ReviewDialogState extends State<_ReviewDialog> {
-  String? _report;
+class _ReviewDialogState extends ConsumerState<_ReviewDialog> {
+  String? _raw;
+  ReviewSuggestions? _suggestions;
   String? _error;
+
+  /// 已应用条目的标记（0..aliases-1 为别名，之后为 missing）。
+  final _applied = <int>{};
 
   @override
   void initState() {
@@ -914,33 +919,138 @@ class _ReviewDialogState extends State<_ReviewDialog> {
   Future<void> _run() async {
     try {
       final text = await reviewChapter(widget.client, widget.scope);
-      if (mounted) setState(() => _report = text);
+      if (!mounted) return;
+      setState(() {
+        _raw = text;
+        _suggestions = parseReviewSuggestions(text);
+      });
     } catch (e) {
       if (mounted) setState(() => _error = '生成失败：$e');
     }
   }
 
+  Future<void> _applyAlias(int idx, (String, String) item) async {
+    final store = await ref.read(knowledgeMdStoreProvider.future);
+    final subject = ref.read(currentKnowledgeBaseIdProvider);
+    final node = widget.scope.nodes.where((n) => n.name == item.$1).firstOrNull;
+    if (node == null) {
+      _say('清单里没有叫「${item.$1}」的节点，跳过');
+      return;
+    }
+    final ok = store.addAlias(subject, node.id, item.$2);
+    setState(() => _applied.add(idx));
+    ref.invalidate(knowledgeBaseProvider);
+    _say(ok ? '已给「${item.$1}」加上别名「${item.$2}」' : '「${item.$2}」已是别名，未重复添加');
+  }
+
+  Future<void> _applyMissing(int idx, (String?, String) item) async {
+    final store = await ref.read(knowledgeMdStoreProvider.future);
+    final subject = ref.read(currentKnowledgeBaseIdProvider);
+    // 父节点：按名字在清单里找；留空/找不到 → 挂到本章的节点下
+    final parentNode = item.$1 == null
+        ? null
+        : widget.scope.nodes.where((n) => n.name == item.$1).firstOrNull;
+    final parentId = parentNode?.id ?? widget.scope.focalId;
+    try {
+      store.createChildNode(subject, parentId, item.$2);
+      setState(() => _applied.add(idx));
+      ref.invalidate(knowledgeBaseProvider);
+      _say('已补充节点「${item.$2}」（骨架，去填内容）');
+    } catch (e) {
+      _say('补充失败：$e');
+    }
+  }
+
+  void _say(String msg) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final sg = _suggestions;
     return AlertDialog(
       title: Text('整理报告 · ${widget.scope.title}'),
       content: SizedBox(
-        width: 560,
+        width: 600,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 420),
+          constraints: const BoxConstraints(maxHeight: 440),
           child: _error != null
               ? Text(_error!,
-                  style: const TextStyle(fontSize: 12.5, color: AppColors.danger))
-              : _report == null
+                  style: const TextStyle(
+                      fontSize: 12.5, color: AppColors.danger))
+              : _raw == null
                   ? const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Center(child: CircularProgressIndicator()),
                     )
                   : SingleChildScrollView(
-                      child: SelectableText(
-                        _report!,
-                        style: const TextStyle(fontSize: 12.5, height: 1.8),
-                      ),
+                      child: sg == null
+                          // 解析失败：如实回退原文（不假装有结构化建议）
+                          ? SelectableText(_raw!,
+                              style: const TextStyle(
+                                  fontSize: 12.5, height: 1.8))
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (sg.summary.isNotEmpty)
+                                  Text(sg.summary,
+                                      style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.7)),
+                                if (sg.aliases.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  const Text('建议加别名（一键应用，可逆）',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.ink2)),
+                                  for (var i = 0; i < sg.aliases.length; i++)
+                                    _SuggestionRow(
+                                      text:
+                                          '「${sg.aliases[i].$1}」+ 别名「${sg.aliases[i].$2}」',
+                                      applied: _applied.contains(i),
+                                      onApply: () =>
+                                          _applyAlias(i, sg.aliases[i]),
+                                    ),
+                                ],
+                                if (sg.missing.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  const Text('建议补充（建成骨架节点）',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.ink2)),
+                                  for (var i = 0;
+                                      i < sg.missing.length;
+                                      i++)
+                                    _SuggestionRow(
+                                      text: sg.missing[i].$1 == null
+                                          ? '本章下补「${sg.missing[i].$2}」'
+                                          : '「${sg.missing[i].$1}」下补「${sg.missing[i].$2}」',
+                                      applied: _applied
+                                          .contains(sg.aliases.length + i),
+                                      onApply: () => _applyMissing(
+                                          sg.aliases.length + i,
+                                          sg.missing[i]),
+                                    ),
+                                ],
+                                if (sg.notes.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  const Text('其余观察（手动落实）',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.ink2)),
+                                  const SizedBox(height: 4),
+                                  SelectableText(sg.notes,
+                                      style: const TextStyle(
+                                          fontSize: 12.5, height: 1.8)),
+                                ],
+                              ],
+                            ),
                     ),
         ),
       ),
@@ -950,6 +1060,39 @@ class _ReviewDialogState extends State<_ReviewDialog> {
           child: const Text('关闭'),
         ),
       ],
+    );
+  }
+}
+
+/// 一条可应用建议：文案 + [应用]/[已应用]。
+class _SuggestionRow extends StatelessWidget {
+  final String text;
+  final bool applied;
+  final VoidCallback onApply;
+
+  const _SuggestionRow(
+      {required this.text, required this.applied, required this.onApply});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        Expanded(
+            child: Text(text,
+                style: const TextStyle(fontSize: 12.5, height: 1.6))),
+        const SizedBox(width: 8),
+        applied
+            ? const Text('已应用 ✓',
+                style: TextStyle(fontSize: 11.5, color: AppColors.success))
+            : FilledButton.tonal(
+                onPressed: onApply,
+                style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, 30),
+                    padding: const EdgeInsets.symmetric(horizontal: 12)),
+                child: const Text('应用', style: TextStyle(fontSize: 11.5)),
+              ),
+      ]),
     );
   }
 }
